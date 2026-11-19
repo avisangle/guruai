@@ -63,3 +63,4 @@
 - 2026-11-19 parent-palette-options: 5 parent-mode palettes published for owner choice (https://claude.ai/artifact/Y6AWu3gBRhx7q3YqhFb2Vm); PRD notes child photo as future picture option (not a git repo)
 - 2026-11-19 wireframes-v3: palette B, 3-screen onboarding, lessons goal, Latin captions, parent-only helps switch applied and published (v3); independent review: PRD clarified (session, revision, downloads, praise, hints), 3 owner questions opened, designer round 3 running (not a git repo)
 - 2026-11-19 wireframes-v4: review fixes applied and published (51 frames; c-ready, c-ask-weak, l-hint-letter added; dashed trail stops); 3 owner questions open: Hindi on English items, mic timing, PIN (not a git repo)
+- 2026-11-20 project-setup: owner decisions (phone lock by default + optional app PIN, mic at hand-over, Hindi correct only on Marathi-target items) in PRD and wireframes v5; Jira GURU created; public repo avisangle/guruai; project CLAUDE.md
