@@ -1,0 +1,372 @@
+// Shekru animation core. Dependency-free ES module.
+// Everything except applyToDom() is DOM-free and can be reused in React Native.
+// Data format: see "$schema_notes" in shekru.anim.json.
+
+const c1 = 1.70158, c2 = c1 * 1.525, c3 = c1 + 1;
+export const EASINGS = {
+  linear: (t) => t,
+  step: (t) => (t < 1 ? 0 : 1),
+  inQuad: (t) => t * t,
+  outQuad: (t) => 1 - (1 - t) * (1 - t),
+  inOutQuad: (t) => (t < 0.5 ? 2 * t * t : 1 - 2 * (1 - t) * (1 - t)),
+  inCubic: (t) => t * t * t,
+  outCubic: (t) => 1 - Math.pow(1 - t, 3),
+  inOutCubic: (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2),
+  inSine: (t) => 1 - Math.cos((t * Math.PI) / 2),
+  outSine: (t) => Math.sin((t * Math.PI) / 2),
+  inOutSine: (t) => -(Math.cos(Math.PI * t) - 1) / 2,
+  inBack: (t) => c3 * t * t * t - c1 * t * t,
+  outBack: (t) => 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2),
+  inOutBack: (t) =>
+    t < 0.5
+      ? (Math.pow(2 * t, 2) * ((c2 + 1) * 2 * t - c2)) / 2
+      : (Math.pow(2 * t - 2, 2) * ((c2 + 1) * (t * 2 - 2) + c2) + 2) / 2,
+  // soft overshoot, about a third of outBack
+  outSoft: (t) => 1 + 1.6 * Math.pow(t - 1, 3) + 0.6 * Math.pow(t - 1, 2),
+};
+
+const SCALE = { sx: 1, sy: 1 };
+const DEFAULT_EASE = 'inOutSine';
+
+// keys: [[time, value, easeIntoThisKey?], ...] sorted by time
+export function evalKeys(keys, t) {
+  const n = keys.length;
+  if (t <= keys[0][0]) return keys[0][1];
+  if (t >= keys[n - 1][0]) return keys[n - 1][1];
+  let lo = 0, hi = n - 1;
+  while (hi - lo > 1) {
+    const mid = (lo + hi) >> 1;
+    if (keys[mid][0] <= t) lo = mid; else hi = mid;
+  }
+  const a = keys[lo], b = keys[hi];
+  const u = (t - a[0]) / (b[0] - a[0]);
+  const e = EASINGS[b[2] || DEFAULT_EASE] || EASINGS[DEFAULT_EASE];
+  return a[1] + (b[1] - a[1]) * e(u);
+}
+
+// events: [[time, visemeName], ...]; returns the viseme active at time t
+export function visemeAt(events, t) {
+  let v = 'rest';
+  for (let i = 0; i < events.length; i++) {
+    if (events[i][0] <= t) v = events[i][1]; else break;
+  }
+  return v;
+}
+
+// Stressed-syllable beats from viseme events: an open vowel that starts after
+// a pause, or far enough from the previous beat.
+export function deriveBeats(events, cfg = {}) {
+  const strength = cfg.visemes || { AA: 1, O: 0.9, EE: 0.7 };
+  const minGap = cfg.minGap ?? 0.34;
+  const beats = [];
+  let last = -10, prevRest = true;
+  for (const [t, v] of events) {
+    const s = strength[v];
+    if (s && (prevRest || t - last >= minGap)) {
+      beats.push({ t, strength: prevRest ? Math.min(1, s + 0.15) : s, variant: beats.length });
+      last = t;
+    }
+    if (v === 'rest') prevRest = true;
+    else if (s || t - last > 0.12) prevRest = false;
+  }
+  return beats;
+}
+
+function mulberry32(a) {
+  return () => {
+    a |= 0; a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+// Adds a track set into pose `acc` ("part.channel" -> delta from rest).
+// Rotation, translation, opacity and visibility add; scale multiplies.
+function addLayer(acc, tracks, t, w, phase, period) {
+  if (w <= 0) return;
+  for (const part in tracks) {
+    let lt = t;
+    if (phase && phase[part]) { lt = (t - phase[part]) % period; if (lt < 0) lt += period; }
+    const chans = tracks[part];
+    for (const ch in chans) {
+      const v = evalKeys(chans[ch], lt);
+      const key = part + '.' + ch;
+      if (ch in SCALE) acc[key] = (acc[key] ?? 1) * (1 + (v - 1) * w);
+      else acc[key] = (acc[key] ?? 0) + v * w;
+    }
+  }
+}
+
+function lerpPose(a, b, w) {
+  const out = {};
+  for (const k in a) {
+    const d = k.endsWith('.sx') || k.endsWith('.sy') || k.startsWith('$mix.') ? 1 : 0;
+    out[k] = a[k] + ((b[k] ?? d) - a[k]) * w;
+  }
+  for (const k in b) {
+    if (k in a) continue;
+    const d = k.endsWith('.sx') || k.endsWith('.sy') || k.startsWith('$mix.') ? 1 : 0;
+    out[k] = d + (b[k] - d) * w;
+  }
+  return out;
+}
+
+function matrixFor(pivot, r, tx, ty, sx, sy) {
+  const rad = (r * Math.PI) / 180, cos = Math.cos(rad), sin = Math.sin(rad);
+  const a = cos * sx, b = sin * sx, c = -sin * sy, d = cos * sy;
+  const [px, py] = pivot;
+  return [a, b, c, d, px + tx - (a * px + c * py), py + ty - (b * px + d * py)];
+}
+function mul(m, n) { // m * n (n applied first)
+  return [
+    m[0] * n[0] + m[2] * n[1], m[1] * n[0] + m[3] * n[1],
+    m[0] * n[2] + m[2] * n[3], m[1] * n[2] + m[3] * n[3],
+    m[0] * n[4] + m[2] * n[5] + m[4], m[1] * n[4] + m[3] * n[5] + m[5],
+  ];
+}
+const f = (x) => +x.toFixed(4);
+export const matrixToString = (m) => `matrix(${f(m[0])} ${f(m[1])} ${f(m[2])} ${f(m[3])} ${f(m[4])} ${f(m[5])})`;
+
+export function createRig(rigJson, animJson, options = {}) {
+  const anim = animJson;
+  const pivots = {};
+  for (const id in rigJson.parts) pivots[id] = rigJson.parts[id].pivot;
+  const groups = anim.groups || {};
+  for (const g in groups) pivots[g] = groups[g].pivot;
+  const fxParts = (anim.fx && anim.fx.parts) || {};
+  for (const id in fxParts) pivots[id] = fxParts[id].pivot;
+  const memberOf = {};
+  for (const g in groups) for (const m of groups[g].members) memberOf[m] = g;
+  const restVis = anim.rest || {};
+  const visemes = (rigJson.conventions && rigJson.conventions.visemes) || [];
+  const baseOrder = (rigJson.conventions && rigJson.conventions.drawOrder) || [];
+  const tr = anim.transition || { duration: 0.28, easing: 'inOutCubic' };
+
+  // every part that any track can touch, so output keys are stable
+  const animated = new Set();
+  const collect = (tracks) => { for (const p in tracks || {}) if (!p.startsWith('$')) animated.add(p); };
+  for (const s in anim.states) { collect(anim.states[s].tracks); if (anim.states[s].fx) collect(anim.states[s].fx.tracks); }
+  for (const id in fxParts) animated.add(id);
+  for (const l of anim.base.loops) collect(l.tracks);
+  for (const c in anim.base.random) for (const v of anim.base.random[c].variants) collect(v);
+  for (const v of anim.speech.beat.variants) collect(v);
+  for (const p in restVis) animated.add(p);
+
+  let rng = mulberry32(options.seed ?? 7);
+  let reduced = !!options.reducedMotion;
+  let cur = null;        // { name, def, start }
+  let fromPose = {};     // state-layer pose captured when the transition began
+  let fromFront = [];
+  let fromMouth = null;
+  let trans = null;      // { t0, dur, ease }
+  let lastPose = {};     // last blended state-layer pose
+  let lastT = 0;
+  let pendingState = null;
+  let speech = null;     // { events, beats }
+  let sched = {};        // random clip scheduler
+  let live = [];         // running random clip instances
+
+  function resetRandom(t) {
+    sched = {}; live = [];
+    for (const name in anim.base.random) {
+      const c = anim.base.random[name];
+      sched[name] = t + c.interval[0] * 0.5 + rng() * (c.interval[1] - c.interval[0]) * 0.5;
+    }
+  }
+
+  function begin(name, t, duration) {
+    const def = anim.states[name];
+    if (!def) throw new Error('Unknown state: ' + name);
+    fromPose = lastPose;
+    fromFront = cur ? (cur.def.front || []).concat(trans && trans.t0 + trans.dur > t ? fromFront : []) : [];
+    fromMouth = cur ? cur.mouth : null;
+    // `posed`: a limb is already raised. The blend then takes longer and eases
+    // softer. A looping state's intro (0..loopStart) is authored from the rest
+    // pose; playing it from a posed start would drop the limb and lift it again,
+    // so the state is entered at its loop pose instead.
+    const posed = Object.keys(fromPose).some((k) => k.endsWith('.r') && Math.abs(fromPose[k]) > (tr.posedAngle ?? 25));
+    const skipIntro = posed && def.loop && def.loopStart > 0;
+    const d = duration ?? (posed ? tr.poseToPose : null) ?? (def.transition && def.transition.duration) ?? tr.duration;
+    const ease = (posed && tr.poseEasing) || (def.transition && def.transition.easing) || tr.easing;
+    trans = cur ? { t0: t, dur: d, ease } : null;
+    cur = { name, def, start: skipIntro ? t - def.loopStart : t, enter: t, mouth: null };
+  }
+
+  function stateTime(def, t) {
+    if (reduced) return def.still ?? def.loopStart ?? def.duration;
+    if (t <= def.duration) return Math.max(0, t);
+    if (!def.loop) return def.duration;
+    const ls = def.loopStart || 0;
+    return ls + ((t - ls) % (def.duration - ls));
+  }
+
+  // effect tracks run on their own clock, counted from the real entry into the state
+  function fxTime(def, t) {
+    const ls = def.fx.loopStart ?? def.loopStart ?? 0;
+    if (reduced) return def.fx.still ?? ls;
+    if (t <= def.duration || !def.loop) return Math.max(0, Math.min(t, def.duration));
+    return ls + ((t - ls) % (def.duration - ls));
+  }
+
+  function statePose(def, lt, ft) {
+    const p = {};
+    addLayer(p, def.tracks, lt, 1);
+    if (def.fx) addLayer(p, def.fx.tracks, fxTime(def, ft), 1);
+    const mix = def.mix || {};
+    for (const m in mix) p['$mix.' + m] = mix[m];
+    return p;
+  }
+
+  function trigger(name, t, variant) {
+    const c = anim.base.random[name];
+    live.push({ name, start: t, variant: variant ?? Math.floor(rng() * c.variants.length) });
+  }
+
+  function update(t, opts = {}) {
+    if (!cur) begin(anim.initial || 'idle', t);
+    if (pendingState) { begin(pendingState.name, t, pendingState.duration); pendingState = null; }
+    if (t < lastT - 1e-6 || Object.keys(sched).length === 0) resetRandom(t);
+    lastT = t;
+
+    // one-shot states hand over to their `next` state
+    let guard = 0;
+    while (!cur.def.loop && cur.def.next && t - cur.start >= cur.def.duration && guard++ < 4) {
+      lastPose = statePose(cur.def, stateTime(cur.def, cur.def.duration), cur.def.duration);
+      begin(cur.def.next, cur.start + cur.def.duration);
+    }
+
+    // 1. state layer, blended from the pose captured at the last setState
+    const def = cur.def;
+    const lt = stateTime(def, t - cur.start);
+    let pose = statePose(def, lt, t - cur.enter);
+    let w = 1;
+    if (trans) {
+      const u = (t - trans.t0) / trans.dur;
+      if (u >= 1) trans = null;
+      else { w = (EASINGS[trans.ease] || EASINGS.inOutCubic)(Math.max(0, u)); pose = lerpPose(fromPose, pose, w); }
+    }
+    lastPose = pose;
+    const out = Object.assign({}, pose);
+    const mix = (m) => (m ? out['$mix.' + m] ?? 1 : 1);
+
+    // 2. base alive layer: loops
+    if (!reduced) {
+      for (const loop of anim.base.loops) {
+        addLayer(out, loop.tracks, t % loop.period, mix(loop.mix), loop.phase, loop.period);
+      }
+    }
+    // 3. base alive layer: random clips (blink, ear flick)
+    for (const name in anim.base.random) {
+      const c = anim.base.random[name];
+      if (opts.noRandom) break;
+      while (t >= sched[name]) {
+        const at = sched[name];
+        if (!reduced || c.reducedMotion) {
+          const variant = Math.floor(rng() * c.variants.length);
+          live.push({ name, start: at, variant });
+          if (c.doubleChance && rng() < c.doubleChance) live.push({ name, start: at + c.duration + 0.07, variant });
+        }
+        sched[name] = at + c.interval[0] + rng() * (c.interval[1] - c.interval[0]);
+      }
+    }
+    live = live.filter((i) => t - i.start < anim.base.random[i.name].duration);
+    for (const i of live) {
+      const c = anim.base.random[i.name];
+      if (t >= i.start) addLayer(out, c.variants[i.variant], t - i.start, mix(c.mix));
+    }
+    // 4. speech layer: beat accents + viseme
+    let viseme = null;
+    const st = opts.speechTime;
+    if (speech && st != null) {
+      viseme = visemeAt(speech.events, st);
+      const b = anim.speech.beat, g = mix('speech');
+      if (!reduced) {
+        for (const beat of speech.beats) {
+          const dt = st - beat.t + (b.lead || 0);
+          if (dt >= 0 && dt < b.duration) addLayer(out, b.variants[beat.variant % b.variants.length], dt, beat.strength * g);
+        }
+      }
+    }
+    if (opts.visemeOverride) viseme = opts.visemeOverride;
+    if (!viseme) {
+      // state default mouth; switches halfway through a transition
+      const m = def.mouth ? visemeAt(def.mouth, lt) : 'rest';
+      cur.mouth = m;
+      viseme = trans && w < 0.5 && fromMouth ? fromMouth : m;
+    }
+
+    // 5. matrices
+    const gm = {};
+    for (const g in groups) {
+      gm[g] = matrixFor(pivots[g], out[g + '.r'] ?? 0, out[g + '.tx'] ?? 0, out[g + '.ty'] ?? 0, out[g + '.sx'] ?? 1, out[g + '.sy'] ?? 1);
+    }
+    const parts = {};
+    const ids = new Set(animated);
+    for (const g in groups) { ids.delete(g); for (const m of groups[g].members) ids.add(m); }
+    for (const id of ids) {
+      let m = matrixFor(pivots[id] || [0, 0], out[id + '.r'] ?? 0, out[id + '.tx'] ?? 0, out[id + '.ty'] ?? 0, out[id + '.sx'] ?? 1, out[id + '.sy'] ?? 1);
+      if (memberOf[id]) m = mul(gm[memberOf[id]], m);
+      const rv = restVis[id] || {};
+      const v = (rv.v ?? 1) + (out[id + '.v'] ?? 0);
+      const o = Math.min(1, Math.max(0, (rv.o ?? 1) + (out[id + '.o'] ?? 0)));
+      parts[id] = { matrix: m, transform: matrixToString(m), opacity: o, visible: v >= 0.5 && o > 0.004 };
+    }
+    for (const name of visemes) {
+      parts[name] = { matrix: [1, 0, 0, 1, 0, 0], transform: '', opacity: 1, visible: name === 'mouth-' + viseme };
+    }
+    const front = (def.front || []).concat(trans ? fromFront : []);
+    const order = baseOrder.filter((p) => !front.includes(p)).concat(baseOrder.filter((p) => front.includes(p)));
+    return { state: cur.name, stateTime: lt, viseme, parts, order };
+  }
+
+  return {
+    states: Object.keys(anim.states),
+    get state() { return cur ? cur.name : null; },
+    // Takes effect at the next update(); blends from whatever pose is on screen.
+    setState(name, opts = {}) {
+      if (!anim.states[name]) throw new Error('Unknown state: ' + name);
+      pendingState = { name, duration: opts.transition };
+    },
+    // events: [[t, viseme], ...] of the clip about to play, or null to clear
+    setSpeech(events) {
+      speech = events ? { events, beats: deriveBeats(events, anim.speech.beat) } : null;
+      return speech ? speech.beats : [];
+    },
+    setReducedMotion(on) { reduced = !!on; },
+    trigger,
+    update,
+  };
+}
+
+// ---------------------------------------------------------------- DOM only
+// Applies a frame from rig.update() to an inline <svg>. Pass the same `cache`
+// object on every call.
+export function applyToDom(svg, frame, cache = {}) {
+  if (!cache.el) { cache.el = {}; cache.tf = {}; cache.vis = {}; cache.op = {}; cache.order = ''; }
+  for (const id in frame.parts) {
+    let el = cache.el[id];
+    if (el === undefined) el = cache.el[id] = svg.querySelector('#' + CSS.escape(id));
+    if (!el) continue;
+    const p = frame.parts[id];
+    if (cache.tf[id] !== p.transform) {
+      if (p.transform) el.setAttribute('transform', p.transform); else el.removeAttribute('transform');
+      cache.tf[id] = p.transform;
+    }
+    if (cache.vis[id] !== p.visible) {
+      el.setAttribute('display', p.visible ? 'inline' : 'none');
+      cache.vis[id] = p.visible;
+    }
+    if (cache.op[id] !== p.opacity) {
+      if (p.opacity < 1) el.setAttribute('opacity', p.opacity.toFixed(3)); else el.removeAttribute('opacity');
+      cache.op[id] = p.opacity;
+    }
+  }
+  const key = frame.order.join(',');
+  if (cache.order !== key) {
+    const first = cache.el[frame.order[0]];
+    if (first && first.parentNode) for (const id of frame.order) first.parentNode.appendChild(cache.el[id] || svg.querySelector('#' + CSS.escape(id)));
+    cache.order = key;
+  }
+  return cache;
+}

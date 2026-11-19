@@ -1,0 +1,206 @@
+{
+ "gemini-puck": {
+  "hello": {
+   "transcript": "नमस्कार! चल, आज आपण एक नवीन शब्द शिकूया.",
+   "pronunciation": 5,
+   "warmth": 5,
+   "note": "उत्कृष्ट आणि स्पष्ट उच्चार, तसेच मुलांसाठी अतिशय उत्साही आणि आपुलकीचा सूर आहे.",
+   "cer": 0.0
+  },
+  "teach": {
+   "transcript": "शब्द आहे कॅट. कॅट. आता तू स्पेलिंग सांग.",
+   "pronunciation": 5,
+   "warmth": 5,
+   "note": "उत्कृष्ट आणि स्पष्ट उच्चार, लहान मुलांसाठी अतिशय योग्य आणि उत्साही संवाद.",
+   "cer": 0.0
+  },
+  "nohear": {
+   "transcript": "मला ऐकू आलं नाही, पुन्हा सांग!",
+   "pronunciation": 5,
+   "warmth": 5,
+   "note": "Native pronunciation delivered with a natural, playful, and child-friendly tone.",
+   "cer": 0.0
+  },
+  "tryagain": {
+   "transcript": "जवळजवळ बरोबर! चल, पुन्हा प्रयत्न करूया!",
+   "pronunciation": 5,
+   "warmth": 5,
+   "note": "उच्चार अतिशय स्पष्ट, स्वाभाविक आणि लहान मुलांसाठी योग्य व उत्साहवर्धक आहेत.",
+   "cer": 0.0
+  },
+  "hint": {
+   "transcript": "हा हा! ही घे एक मदत. पहिलं अक्षर आहे... सी.",
+   "pronunciation": 5,
+   "warmth": 5,
+   "note": "उत्कृष्ट आणि खेळकर उच्चार, मुलांसाठी अतिशय योग्य आणि स्पष्ट आवाज.",
+   "cer": 0.167
+  },
+  "correct": {
+   "transcript": "हेहे शाब्बास! अगदी बरोबर!",
+   "pronunciation": 5,
+   "warmth": 5,
+   "note": "उत्कृष्ट आणि अतिशय नैसर्गिक उच्चार, बालकांसाठी अतिशय उत्साहवर्धक व आपुलकीचा टोन.",
+   "cer": 0.25
+  },
+  "bye": {
+   "transcript": "आजचा अभ्यास संपला. उद्या भेटूया.",
+   "pronunciation": 5,
+   "warmth": 5,
+   "note": "Clear, accurate, and wonderfully warm delivery for children.",
+   "cer": 0.0
+  }
+ },
+ "amogh": {
+  "hello": {
+   "transcript": "नमस्कार. चल, आज आपण एक नवीन शब्द शिकूया.",
+   "pronunciation": 5,
+   "warmth": 4,
+   "note": "उच्चार अगदी स्पष्ट आणि नैसर्गिक आहेत; मुलांसाठी थोडा आणखी उत्साही सूर अधिक छान वाटला असता.",
+   "cer": 0.0
+  },
+  "teach": {
+   "transcript": "शब्द आहे कॅट कॅट आता तू स्पेलिंग सांग",
+   "pronunciation": 5,
+   "warmth": 4,
+   "note": "उच्चार अगदी स्पष्ट आणि नैसर्गिक आहे; लहान मुलांसाठी संवाद योग्य गतीने आणि स्पष्टपणे म्हटला आहे.",
+   "cer": 0.0
+  },
+  "nohear": {
+   "transcript": "मला ऐकू आलं नाही. पुन्हा सांग?",
+   "pronunciation": 5,
+   "warmth": 4,
+   "note": "उच्चार अगदी स्पष्ट आणि नैसर्गिक मराठी धाटणीचा आहे.",
+   "cer": 0.0
+  },
+  "tryagain": {
+   "transcript": "जवळजवळ बरोबर. चल, पुन्हा प्रयत्न करूया.",
+   "pronunciation": 5,
+   "warmth": 5,
+   "note": "Native pronunciation with an encouraging and child-friendly tone.",
+   "cer": 0.0
+  },
+  "hint": {
+   "transcript": "ही घे एक मदत. पहिलं अक्षर आहे सी.",
+   "pronunciation": 5,
+   "warmth": 4,
+   "note": "उच्चार अगदी स्पष्ट आणि नैसर्गिक मराठी धाटणीचा आहे.",
+   "cer": 0.0
+  },
+  "correct": {
+   "transcript": "शाब्बास, अगदी बरोबर",
+   "pronunciation": 5,
+   "warmth": 5,
+   "note": "Clear, natural pronunciation with an encouraging and child-friendly tone.",
+   "cer": 0.0
+  },
+  "bye": {
+   "transcript": "आजचा अभ्यास संपला. उद्या भेटूयात.",
+   "pronunciation": 5,
+   "warmth": 3,
+   "note": "Pronunciation is clear and native, but the tone is slightly dry and could be more enthusiastic for kids.",
+   "cer": 0.038
+  }
+ },
+ "vardaan": {
+  "hello": {
+   "transcript": "नमस्कार! चल, आज आपण एक नवीन शब्द शिकूया.",
+   "pronunciation": 5,
+   "warmth": 5,
+   "note": "उत्कृष्ट आणि अतिशय नैसर्गिक उच्चार; मुलांसाठी योग्य असा खेळकर आणि उत्साहवर्धक टोन आहे.",
+   "cer": 0.0
+  },
+  "teach": {
+   "transcript": "शब्द आहे कॅट. कॅट. आता तू स्पेलिंग सांग.",
+   "pronunciation": 5,
+   "warmth": 4,
+   "note": "उच्चार अगदी स्पष्ट आणि नैसर्गिक आहेत, तसेच लहान मुलांसाठी सुयोग्य आणि उत्साहवर्धक टोन आहे.",
+   "cer": 0.0
+  },
+  "nohear": {
+   "transcript": "मला ऐकू आलं नाही, पुन्हा सांग.",
+   "pronunciation": 5,
+   "warmth": 4,
+   "note": "Clear, natural, and correct pronunciation suitable for a learning app.",
+   "cer": 0.0
+  },
+  "tryagain": {
+   "transcript": "जवळजवळ बरोबर. चल, पुन्हा प्रयत्न करूया.",
+   "pronunciation": 5,
+   "warmth": 5,
+   "note": "Clear, natural native pronunciation with a warm and encouraging tone suitable for children.",
+   "cer": 0.0
+  },
+  "hint": {
+   "transcript": "ही घे मदत. पहिलं अक्षर आहे सी.",
+   "pronunciation": 5,
+   "warmth": 4,
+   "note": "उच्चार अगदी स्पष्ट आणि नैसर्गिक मराठी आहे, लहान मुलांसाठी छान टोन आहे.",
+   "cer": 0.083
+  },
+  "correct": {
+   "transcript": "शब्बास! अगदी बरोबर!",
+   "pronunciation": 5,
+   "warmth": 5,
+   "note": "Clear, native pronunciation with enthusiastic and encouraging delivery.",
+   "cer": 0.062
+  },
+  "bye": {
+   "transcript": "आजचा अभ्यास संपला. उद्या भेटूया.",
+   "pronunciation": 5,
+   "warmth": 5,
+   "note": "Clear, natural native pronunciation with an encouraging, child-friendly tone.",
+   "cer": 0.0
+  }
+ },
+ "mukta": {
+  "hello": {
+   "transcript": "नमस्कार. चल, आज आपण एक नवीन शब्द शिकूया.",
+   "pronunciation": 5,
+   "warmth": 5,
+   "note": "Clear, natural, and friendly delivery perfectly suited for children.",
+   "cer": 0.0
+  },
+  "teach": {
+   "transcript": "शब्द आहे कॅट. कॅट. आता तू स्पेलिंग सांग.",
+   "pronunciation": 5,
+   "warmth": 5,
+   "note": "Clear and natural pronunciation with an engaging, child-friendly tone.",
+   "cer": 0.0
+  },
+  "nohear": {
+   "transcript": "मला ऐकू आलं नाही. पुन्हा सांग.",
+   "pronunciation": 5,
+   "warmth": 4,
+   "note": "Clear, natural, and native Marathi pronunciation with a friendly, patient tone.",
+   "cer": 0.0
+  },
+  "tryagain": {
+   "transcript": "जवळजवळ बरोबर. चल, पुन्हा प्रयत्न करूया.",
+   "pronunciation": 5,
+   "warmth": 5,
+   "note": "Clear, natural pronunciation with an encouraging and child-friendly tone.",
+   "cer": 0.0
+  },
+  "hint": {
+   "transcript": "ही घे एक मदत. पहिलं अक्षर आहे सी.",
+   "pronunciation": 5,
+   "warmth": 5,
+   "note": "Clear, natural pronunciation with an engaging and warm tone suitable for children.",
+   "cer": 0.0
+  },
+  "correct": {
+   "transcript": "शाब्बास, अगदी बरोबर!",
+   "pronunciation": 5,
+   "warmth": 5,
+   "note": "Native, natural, and encouraging tone suitable for children.",
+   "cer": 0.0
+  },
+  "bye": {
+   "transcript": "आजचा अभ्यास संपला. उद्या भेटूया.",
+   "pronunciation": 5,
+   "warmth": 5,
+   "note": "None. The pronunciation and cheerful tone are perfectly natural and child-friendly.",
+   "cer": 0.0
+  }
+ }
+}

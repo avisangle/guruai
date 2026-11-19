@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <g id="shekru-fx">
+    <g id="fx-listen">
+      <g id="fx-wave-1">
+        <path d="M 80.22 95.82 A 40 40 0 0 1 111.68 60.87" fill="none" stroke="#5C853C" stroke-width="6.5" stroke-linecap="round"/>
+      </g>
+      <g id="fx-wave-2">
+        <path d="M 80.22 95.82 A 40 40 0 0 1 111.68 60.87" fill="none" stroke="#5C853C" stroke-width="6.5" stroke-linecap="round"/>
+      </g>
+      <g id="fx-wave-3">
+        <path d="M 80.22 95.82 A 40 40 0 0 1 111.68 60.87" fill="none" stroke="#5C853C" stroke-width="6.5" stroke-linecap="round"/>
+      </g>
+    </g>
+    <g id="fx-think">
+      <g id="fx-think-dot-1">
+        <circle cx="217" cy="125" r="6.4" fill="#801936"/>
+        <circle cx="217" cy="125" r="4" fill="#FFFFFF"/>
+      </g>
+      <g id="fx-think-dot-2">
+        <circle cx="226" cy="110" r="8.4" fill="#801936"/>
+        <circle cx="226" cy="110" r="6" fill="#FFFFFF"/>
+      </g>
+      <g id="fx-think-dot-3">
+        <circle cx="237" cy="94" r="10.4" fill="#801936"/>
+        <circle cx="237" cy="94" r="8" fill="#FFFFFF"/>
+      </g>
+      <g id="fx-think-cloud">
+        <circle cx="228" cy="51" r="21" fill="#801936"/>
+        <circle cx="245" cy="34" r="23" fill="#801936"/>
+        <circle cx="268" cy="32" r="25" fill="#801936"/>
+        <circle cx="284" cy="49" r="21" fill="#801936"/>
+        <circle cx="264" cy="58" r="23" fill="#801936"/>
+        <circle cx="243" cy="60" r="20" fill="#801936"/>
+        <ellipse cx="255" cy="46" rx="34" ry="21" fill="#801936"/>
+        <circle cx="228" cy="51" r="18" fill="#FFFFFF"/>
+        <circle cx="245" cy="34" r="20" fill="#FFFFFF"/>
+        <circle cx="268" cy="32" r="22" fill="#FFFFFF"/>
+        <circle cx="284" cy="49" r="18" fill="#FFFFFF"/>
+        <circle cx="264" cy="58" r="20" fill="#FFFFFF"/>
+        <circle cx="243" cy="60" r="17" fill="#FFFFFF"/>
+        <ellipse cx="255" cy="46" rx="31" ry="18" fill="#FFFFFF"/>
+        <g id="fx-think-e1">
+          <circle cx="239" cy="47" r="5" fill="#801936"/>
+        </g>
+        <g id="fx-think-e2">
+          <circle cx="255" cy="47" r="5" fill="#801936"/>
+        </g>
+        <g id="fx-think-e3">
+          <circle cx="271" cy="47" r="5" fill="#801936"/>
+        </g>
+      </g>
+    </g>
+    <g id="fx-hint-card">
+      <path d="M 340 212 H 384 A 14 14 0 0 1 398 226 V 270 A 14 14 0 0 1 384 284 H 340 A 14 14 0 0 1 326 270 V 226 A 14 14 0 0 1 340 212 Z" fill="#FFFFFF" stroke="#DF8F1F" stroke-width="4"/>
+      <g id="fx-hint-letter"></g>
+    </g>
+  </g>
+</svg>

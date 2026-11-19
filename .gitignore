@@ -1,0 +1,29 @@
+# Secrets and local tooling
+.env
+.env.*
+venv/
+.playwright-mcp/
+.DS_Store
+__pycache__/
+*.pyc
+
+# Build outputs (APKs live outside git)
+builds/
+*.apk
+*.aab
+
+# Speech model: downloaded from R2, never committed
+*.onnx
+*.onnx.data
+
+# Children's voice clips and anything derived from them (the bench fixture zip is synthetic, kept)
+*-clips-*.zip
+docs/guruai-clips-*.zip
+tools/stt_bench/results/
+
+# Voiced audio packs: built by tools/gen_voice.py, served from R2
+content/audio/
+
+# Source business document, superseded by docs/prd/guruai-v1.md
+GuruAI - Product Blueprint v3.docx
+!tools/stt_bench/fixtures/guruai-clips-20261115-000000.zip

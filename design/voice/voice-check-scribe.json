@@ -1,0 +1,224 @@
+{
+ "gemini-puck": {
+  "hello": {
+   "transcript": "नमस्कार! चल आज आपण एक नवीन शब्द शिकूया.",
+   "cer": 0.0,
+   "laugh": false
+  },
+  "teach": {
+   "transcript": "शब्द आहे cat, cat. आता तू spelling सांग",
+   "cer": 0.0,
+   "laugh": false
+  },
+  "nohear": {
+   "transcript": "[हसण्याचा आवाज] मला ऐकू आला नाही. पुन्हा सांग",
+   "cer": 0.043,
+   "laugh": true
+  },
+  "tryagain": {
+   "transcript": "जवळजवळ बरोबर. चल पुन्हा प्रयत्न करूया",
+   "cer": 0.0,
+   "laugh": false
+  },
+  "hint": {
+   "transcript": "हा हा ही घे एक मदत. पहिलं अक्षर आहे C",
+   "cer": 0.167,
+   "laugh": true
+  },
+  "correct": {
+   "transcript": "[हसतो] शाबास! अगदी बरोबर",
+   "cer": 0.125,
+   "laugh": true
+  },
+  "bye": {
+   "transcript": "आजचा अभ्यास संपला. उद्या भेटूया",
+   "cer": 0.0,
+   "laugh": false
+  }
+ },
+ "r1-mukta": {
+  "hello": {
+   "transcript": "नमस्कार! चल आज आपण एक नवीन शब्द शिकूया.",
+   "cer": 0.0,
+   "laugh": false
+  },
+  "teach": {
+   "transcript": "शब्द आहे cat cat आता तू spelling सांग",
+   "cer": 0.0,
+   "laugh": false
+  },
+  "nohear": {
+   "transcript": "मला ऐकू आलं नाही. पुन्हा सांग",
+   "cer": 0.0,
+   "laugh": false
+  },
+  "tryagain": {
+   "transcript": "जवळजवळ बरोबर. चल पुन्हा प्रयत्न करूया",
+   "cer": 0.0,
+   "laugh": false
+  },
+  "hint": {
+   "transcript": "ही घे एक मदत. पहिलं अक्षर आहे C",
+   "cer": 0.0,
+   "laugh": false
+  },
+  "correct": {
+   "transcript": "शब्बास! अगदी बरोबर",
+   "cer": 0.062,
+   "laugh": false
+  },
+  "bye": {
+   "transcript": "आजचा अभ्यास संपला. उद्या भेटूया",
+   "cer": 0.0,
+   "laugh": false
+  }
+ },
+ "r2-amit": {
+  "hello": {
+   "transcript": "नमस्कार! चल आज आपण एक नवीन शब्द शिकूया.",
+   "cer": 0.0,
+   "laugh": false
+  },
+  "teach": {
+   "transcript": "शब्द आहे cat, cat आता तू spelling सांग.",
+   "cer": 0.0,
+   "laugh": false
+  },
+  "nohear": {
+   "transcript": "मला ऐकू आलं नाही. पुन्हा सांग",
+   "cer": 0.0,
+   "laugh": false
+  },
+  "tryagain": {
+   "transcript": "जवळजवळ बरोबर. चल पुन्हा प्रयत्न करूया",
+   "cer": 0.0,
+   "laugh": false
+  },
+  "hint": {
+   "transcript": "ही घे एक मदत. पहिलं अक्षर आहे C",
+   "cer": 0.0,
+   "laugh": false
+  },
+  "correct": {
+   "transcript": "[हसताना] शाब्बास! अगदी बरोबर",
+   "cer": 0.0,
+   "laugh": true
+  },
+  "bye": {
+   "transcript": "आजचा अभ्यास संपला. उद्या भेटूया",
+   "cer": 0.0,
+   "laugh": false
+  }
+ },
+ "r2-vardan": {
+  "hello": {
+   "transcript": "नमस्कार! चल आज आपण एक नवीन शब्द शिकूया",
+   "cer": 0.0,
+   "laugh": false
+  },
+  "teach": {
+   "transcript": "शब्द आहे cat cat आता तू spelling सांग",
+   "cer": 0.0,
+   "laugh": false
+  },
+  "nohear": {
+   "transcript": "मला ऐकू आलं नाही. पुन्हा सांग",
+   "cer": 0.0,
+   "laugh": false
+  },
+  "tryagain": {
+   "transcript": "जवळजवळ बरोबर. चल पुन्हा प्रयत्न करूया",
+   "cer": 0.0,
+   "laugh": false
+  },
+  "hint": {
+   "transcript": "ही घे एक मदत. पहिला अक्षर आहे C",
+   "cer": 0.042,
+   "laugh": false
+  },
+  "correct": {
+   "transcript": "[हसत] शाबास! अगदी बरोबर",
+   "cer": 0.125,
+   "laugh": true
+  },
+  "bye": {
+   "transcript": "आजचा अभ्यास संपला. उद्या भेटूया",
+   "cer": 0.0,
+   "laugh": false
+  }
+ },
+ "r2-omar": {
+  "hello": {
+   "transcript": "नमस्कार! चल आज आपण एक नवीन शब्द शिकूया.",
+   "cer": 0.0,
+   "laugh": false
+  },
+  "teach": {
+   "transcript": "शब्द आहे cat, cat आता तू spelling सांग",
+   "cer": 0.0,
+   "laugh": false
+  },
+  "nohear": {
+   "transcript": "मला ऐकू आलं नाही. पुन्हा सांग",
+   "cer": 0.0,
+   "laugh": false
+  },
+  "tryagain": {
+   "transcript": "जवळजवळ बरोबर. चल पुन्हा प्रयत्न करूया",
+   "cer": 0.0,
+   "laugh": false
+  },
+  "hint": {
+   "transcript": "ही घे एक मदत. पहिलं अक्षर आहे C",
+   "cer": 0.0,
+   "laugh": false
+  },
+  "correct": {
+   "transcript": "[हसण्याचा आवाज] शाब्बास! अगदी बरोबर",
+   "cer": 0.0,
+   "laugh": true
+  },
+  "bye": {
+   "transcript": "आजचा अभ्यास संपला. उद्या भेटूया",
+   "cer": 0.0,
+   "laugh": false
+  }
+ },
+ "r2-mukta": {
+  "hello": {
+   "transcript": "नमस्कार! चल आज आपण एक नवीन शब्द शिकूया.",
+   "cer": 0.0,
+   "laugh": false
+  },
+  "teach": {
+   "transcript": "शब्द आहे cat, cat. आता तू spelling सांग",
+   "cer": 0.0,
+   "laugh": false
+  },
+  "nohear": {
+   "transcript": "मला ऐकू आलं नाही. पुन्हा सांग",
+   "cer": 0.0,
+   "laugh": false
+  },
+  "tryagain": {
+   "transcript": "जवळजवळ बरोबर. चल पुन्हा प्रयत्न करूया",
+   "cer": 0.0,
+   "laugh": false
+  },
+  "hint": {
+   "transcript": "ही घे एक मदत. पहिलं अक्षर आहे C",
+   "cer": 0.0,
+   "laugh": false
+  },
+  "correct": {
+   "transcript": "[हसत] शाब्बास! अगदी बरोबर",
+   "cer": 0.0,
+   "laugh": true
+  },
+  "bye": {
+   "transcript": "आजचा अभ्यास संपला. उद्या भेटूया",
+   "cer": 0.0,
+   "laugh": false
+  }
+ }
+}

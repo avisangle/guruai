@@ -1,0 +1,642 @@
+<meta charset="utf-8">
+<title>GuruAI Character Review</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&family=Mukta:wght@400;600&family=Kalam:wght@700&display=swap">
+<style>
+/* Layout: review booth. Shared state bar on top, three stages side by side, then one dossier per character. */
+:root {
+  --paper: #F2F5F0; --card: #FFFFFF; --ink: #1E2A23; --muted: #56665C; --line: #D9E1DA;
+  --slate: #2F4234; --marigold: #DF8F1F; --marigold-ink: #5A3300; --chip: #E7EDE6;
+  --stage: #FBFCF8; --stage-line: #E3E9E1;
+  --display: "Baloo 2", "Mukta", system-ui, sans-serif;
+  --body: "Mukta", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --paper: #111814; --card: #19221D; --ink: #E6EDE7; --muted: #9DB0A3; --line: #2B3830;
+  --slate: #A9CDB2; --marigold: #F0A93F; --marigold-ink: #2A1800; --chip: #222D27; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --paper: #111814; --card: #19221D; --ink: #E6EDE7; --muted: #9DB0A3; --line: #2B3830;
+  --slate: #A9CDB2; --marigold: #F0A93F; --marigold-ink: #2A1800; --chip: #222D27; color-scheme: dark }
+
+body { background: var(--paper); color: var(--ink); font: 17px/1.55 var(--body); }
+.wrap { max-width: 1180px; margin: 0 auto; padding-block: 28px 64px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+h1, h2, h3 { font-family: var(--display); line-height: 1.1; text-wrap: balance; margin: 0; }
+h1 { font-size: clamp(2rem, 5vw, 3.1rem); font-weight: 800; color: var(--slate); }
+h2 { font-size: 1.7rem; font-weight: 700; }
+h3 { font-size: 1.25rem; font-weight: 700; }
+p { margin: 0; }
+.eyebrow { font: 600 .78rem/1 var(--body); letter-spacing: .09em; text-transform: uppercase; color: var(--muted); }
+.lead { max-width: 64ch; color: var(--muted); margin-top: 10px; }
+header { display: grid; gap: 8px; margin-bottom: 26px; }
+
+/* State bar */
+.bar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--paper);
+  padding-block: 10px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; border-bottom: 1px solid var(--line); }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--paper); }
+@media (max-width: 640px) { .bar { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; } .chip, .bar-label { flex: none; } }
+.bar-label { font-weight: 600; color: var(--muted); margin-right: 4px; font-size: .9rem; }
+.chip { font: 600 .92rem/1 var(--body); border: 1px solid var(--line); background: var(--chip); color: var(--ink);
+  padding: 9px 12px; border-radius: 999px; cursor: pointer; display: inline-flex; gap: 6px; align-items: baseline; }
+.chip small { font-weight: 400; color: var(--muted); font-size: .82rem; }
+.chip[aria-pressed="true"] { background: var(--marigold); border-color: var(--marigold); color: var(--marigold-ink); }
+.chip[aria-pressed="true"] small { color: var(--marigold-ink); }
+.chip:focus-visible, .btn:focus-visible, .thumb:focus-visible { outline: 3px solid var(--marigold); outline-offset: 2px; }
+
+/* Stages */
+.stages { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-top: 18px; }
+@media (max-width: 900px) { .stages { grid-template-columns: 1fr; } }
+.stage { background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 14px; display: grid; gap: 10px; min-width: 0; }
+.stage-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.stage-head .mr { font-family: var(--display); color: var(--muted); font-size: 1.1rem; }
+.booth { position: relative; background: var(--stage); border: 1px solid var(--stage-line); border-radius: 14px; aspect-ratio: 42 / 47; max-width: 100%; overflow: hidden; }
+.booth svg { width: 100%; height: 100%; display: block; }
+.answer { position: absolute; left: 10px; bottom: 10px; background: #1E2A23; color: #FBFCF8; font: 600 .9rem/1.2 var(--body);
+  padding: 7px 11px; border-radius: 12px 12px 12px 3px; opacity: 0; transform: translateY(6px); transition: .25s; }
+.answer.show { opacity: 1; transform: none; }
+.controls { display: flex; flex-wrap: wrap; gap: 8px; }
+.btn { font: 700 .95rem/1 var(--body); border-radius: 10px; padding: 10px 14px; cursor: pointer; border: 1px solid var(--line); background: var(--chip); color: var(--ink); }
+.btn.primary { background: var(--slate); border-color: var(--slate); color: var(--card); }
+.btn:disabled { opacity: .5; cursor: default; }
+.voices { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.voices .chip { padding: 7px 10px; font-size: .85rem; }
+.vtest { margin-top: 40px; display: grid; gap: 12px; }
+.vtable { width: 100%; border-collapse: collapse; font-size: .93rem; }
+.vtable th, .vtable td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+.vtable th { font-weight: 600; color: var(--muted); font-size: .82rem; }
+.vtable td:nth-child(3) { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.vscroll { overflow-x: auto; background: var(--card); border: 1px solid var(--line); border-radius: 14px; }
+.caption { min-height: 4.6em; font-size: .95rem; border-top: 1px dashed var(--line); padding-top: 8px; }
+.caption .state { font-weight: 600; color: var(--marigold); font-size: .8rem; letter-spacing: .06em; text-transform: uppercase; }
+.caption .mrline { font-family: var(--display); font-size: 1.12rem; font-weight: 600; }
+.caption .en { color: var(--muted); }
+.note { font-size: .88rem; color: var(--muted); margin-top: 12px; max-width: 80ch; }
+
+/* Dossiers */
+.dossier { margin-top: 48px; display: grid; gap: 18px; }
+.dossier-top { display: grid; grid-template-columns: minmax(0, 300px) minmax(0, 1fr); gap: 24px; align-items: start; }
+@media (max-width: 760px) { .dossier-top { grid-template-columns: 1fr; } }
+.hero-img { background: #fff; border-radius: 16px; border: 1px solid var(--line); width: 100%; aspect-ratio: 1; object-fit: contain; }
+.facts { display: grid; gap: 12px; min-width: 0; }
+.facts dl { display: grid; grid-template-columns: 130px minmax(0, 1fr); gap: 6px 14px; margin: 0; }
+@media (max-width: 480px) { .facts dl { grid-template-columns: 1fr; } .facts dt { margin-top: 6px; } }
+.facts dt { font-weight: 600; color: var(--muted); font-size: .9rem; }
+.facts dd { margin: 0; }
+.sizes { display: flex; align-items: end; gap: 14px; flex-wrap: wrap; }
+.sizes figure { margin: 0; display: grid; gap: 4px; justify-items: center; font-size: .78rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.sizes img { background: #fff; border-radius: 10px; border: 1px solid var(--line); }
+.sheets { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+@media (max-width: 760px) { .sheets { grid-template-columns: 1fr; } }
+.thumb { padding: 0; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: #fff; cursor: zoom-in; display: grid; text-align: left; }
+.thumb img { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; display: block; }
+.thumb span { font: 600 .85rem/1.2 var(--body); padding: 8px 10px; color: #1E2A23; background: #F5F7F3; }
+.decide { margin-top: 56px; background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 22px; display: grid; gap: 12px; }
+.decide ol { margin: 0; padding-left: 1.3em; display: grid; gap: 6px; }
+
+/* Lightbox */
+.lightbox { position: fixed; inset: 0; z-index: 20; background: rgba(10, 16, 12, .88); display: grid; place-items: center; padding: max(16px, env(safe-area-inset-top, 0px)) 16px; }
+.lightbox[hidden] { display: none; }
+.lightbox img { max-width: 100%; max-height: 88vh; border-radius: 10px; background: #fff; }
+.lightbox button { position: absolute; top: calc(12px + env(safe-area-inset-top, 0px)); right: calc(12px + env(safe-area-inset-right, 0px)); }
+
+/* ---- Character rig ---- */
+.rig, .rig * { transform-box: view-box; }
+.part { transition: rotate .45s cubic-bezier(.3, 1.35, .5, 1), translate .45s cubic-bezier(.3, 1.35, .5, 1), scale .45s ease, opacity .25s; }
+.upper { animation: breathe 3.2s ease-in-out infinite; }
+.tail, .braids { animation: sway 3.6s ease-in-out infinite; }
+.eyes { animation: blink 4.2s infinite; }
+.eyes-happy { opacity: 0; }
+.fx-mic, .fx-think, .fx-q, .fx-hint, .fx-spark { opacity: 0; transition: opacity .25s; }
+.letter-txt { font-family: "Kalam", "Mukta", cursive; font-weight: 700; }
+
+[data-state="hello"] .armR, [data-state="bye"] .armR { rotate: -140deg; }
+[data-state="hello"] .armR > g { animation: wave .45s ease-in-out infinite alternate; }
+[data-state="bye"] .armR > g { animation: wave .7s ease-in-out infinite alternate; }
+[data-state="bye"] .upper { rotate: -2deg; }
+
+[data-state="talk"] .head > g { animation: bob 1.3s ease-in-out infinite; }
+[data-state="talk"] .armL { rotate: 38deg; }
+[data-state="talk"] .armL > g { animation: gesture 1.7s ease-in-out infinite alternate; }
+
+[data-state="listen"] .head { rotate: 7deg; }
+[data-state="listen"] .armR { rotate: -125deg; }
+[data-state="listen"] .pupils { scale: 1.12; }
+[data-state="listen"] .ears { scale: 1.14; }
+[data-state="listen"] .fx-mic { opacity: 1; }
+
+[data-state="think"] .head { rotate: -9deg; }
+[data-state="think"] .pupils { translate: 6px -8px; }
+[data-state="think"] .armL { rotate: 120deg; }
+[data-state="think"] .fx-think { opacity: 1; }
+
+[data-state="correct"] .rig { animation: jump .8s ease-out 2; }
+[data-state="correct"] .armL { rotate: 125deg; }
+[data-state="correct"] .armR { rotate: -125deg; }
+[data-state="correct"] .eyes { opacity: 0; }
+[data-state="correct"] .eyes-happy { opacity: 1; }
+[data-state="correct"] .tail { scale: 1.07; }
+[data-state="correct"] .fx-spark { opacity: 1; }
+[data-state="correct"] .fx-spark > * { animation: twinkle 1.1s ease-out infinite; }
+
+[data-state="tryagain"] .head > g { animation: nod 1.6s ease-in-out infinite; }
+[data-state="tryagain"] .armR { rotate: -62deg; }
+[data-state="tryagain"] .brows { translate: 0 -5px; }
+[data-state="tryagain"] .tail { rotate: 5deg; }
+
+[data-state="hint"] .armR { rotate: -100deg; }
+[data-state="hint"] .pupils { translate: 8px 0; }
+[data-state="hint"] .fx-hint { opacity: 1; }
+[data-state="hint"] .fx-hint > g { animation: pop .45s ease-out both; }
+
+[data-state="nohear"] .head { rotate: 11deg; }
+[data-state="nohear"] .armR { rotate: -125deg; }
+[data-state="nohear"] .browL { translate: 0 -6px; rotate: -8deg; }
+[data-state="nohear"] .fx-q { opacity: 1; }
+[data-state="nohear"] .fx-q > * { animation: float 1.4s ease-in-out infinite; }
+
+.fx-mic ellipse { animation: pulse 1.6s ease-out infinite; }
+.fx-mic ellipse:nth-child(2) { animation-delay: .8s; }
+.fx-think circle { animation: dots 1.2s ease-in-out infinite; }
+.fx-think circle:nth-child(2) { animation-delay: .2s; }
+.fx-think circle:nth-child(3) { animation-delay: .4s; }
+
+@keyframes breathe { 0%, 100% { transform: scaleY(1); } 50% { transform: scaleY(1.018); } }
+@keyframes sway { 0%, 100% { transform: rotate(-3deg); } 50% { transform: rotate(3deg); } }
+@keyframes blink { 0%, 93%, 100% { transform: scaleY(1); } 95.5% { transform: scaleY(.08); } }
+@keyframes wave { from { transform: rotate(-14deg); } to { transform: rotate(14deg); } }
+@keyframes bob { 0%, 100% { transform: rotate(-1.6deg); } 50% { transform: rotate(1.6deg); } }
+@keyframes gesture { from { transform: rotate(-8deg); } to { transform: rotate(10deg); } }
+@keyframes nod { 0%, 100% { transform: rotate(0); } 30% { transform: rotate(5deg); } 60% { transform: rotate(-2deg); } }
+@keyframes jump { 0% { transform: translateY(0) scaleY(1); } 15% { transform: translateY(0) scaleY(.93); }
+  45% { transform: translateY(-36px) scaleY(1.04); } 75% { transform: translateY(0) scaleY(.96); } 100% { transform: translateY(0) scaleY(1); } }
+@keyframes pulse { 0% { transform: scale(.75); opacity: .75; } 100% { transform: scale(1.35); opacity: 0; } }
+@keyframes pop { 0% { transform: scale(0); } 70% { transform: scale(1.15); } 100% { transform: scale(1); } }
+@keyframes twinkle { 0% { transform: scale(0); opacity: 0; } 40% { transform: scale(1.2); opacity: 1; } 100% { transform: scale(.5) translateY(-18px); opacity: 0; } }
+@keyframes dots { 0%, 100% { opacity: .25; } 50% { opacity: 1; } }
+@keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .rig *, .rig { animation: none !important; }
+  .part { transition-duration: .01s; }
+}
+</style>
+
+<div class="wrap">
+  <header>
+    <span class="eyebrow">GuruAI · character review, round 1 · 14 Nov 2026</span>
+    <h1>Pick our tutor</h1>
+    <p class="lead">Shekru, Tai and Pati go through the same lesson moments. Tap a moment to see all three react at once, or play a short Marathi lesson with one of them. The concept art for each is further down.</p>
+  </header>
+
+  <nav class="bar" aria-label="Lesson moments">
+    <span class="bar-label">Moment</span>
+    <div id="chips" style="display:contents"></div>
+  </nav>
+
+  <section class="stages" id="stages" aria-label="Characters side by side"></section>
+  <p class="note">These are quick animated stand-ins drawn from the concept art, to judge personality and motion, not final artwork. The chosen character gets redrawn as layered vector art and rigged in Rive. Voices are Gemini text-to-speech placeholders. Mouth timing for the Gemini voices comes from aligning each line's words to the audio with Whisper, run locally (typically within 40 ms).</p>
+
+  <section class="vtest" aria-labelledby="vtest-h">
+    <span class="eyebrow">Voice test · Shekru · round 2</span>
+    <h2 id="vtest-h">Gemini or ElevenLabs?</h2>
+    <p><b>Decision: Gemini, with Puck as Shekru's voice.</b> Its delivery talks to a 5-year-old; the ElevenLabs voices sound aimed at adults. The comparison stays here for reference.</p>
+    <p class="lead" style="margin-top:0">Pick a voice under Shekru above, then press <b>Play a lesson</b>. This round is directed the same way Gemini was: every ElevenLabs line carries emotion tags such as <code>[excited]</code>, <code>[mischievously]</code>, <code>[whispers]</code> and a scripted <code>[laughs]</code> on the correct answer, on <code>eleven_v4</code> at its most expressive stability setting. Amit, Omar J and Vardan are cartoon voices from the Hindi library speaking Marathi; Mukta is a native Marathi voice. Their mouth movements follow ElevenLabs' exact per-letter timing. Every clip was transcribed by ElevenLabs' Marathi speech-to-text and compared with the script.</p>
+    <div class="vscroll"><table class="vtable">
+      <thead><tr><th>Voice</th><th>Setup</th><th>Lines said exactly as written</th><th>Unscripted additions</th></tr></thead>
+      <tbody>
+        <tr><td><b>Puck</b></td><td>Gemini TTS, style prompt</td><td>7 of 7, plus its own laughs</td><td>Laughs in 3 lines. Kept: they make Shekru more playful. Every script word is still checked.</td></tr>
+        <tr><td><b>Amit</b> · cartoon character</td><td>ElevenLabs v4, directed</td><td>7 of 7</td><td>None. Laughs only where scripted.</td></tr>
+        <tr><td><b>Omar J</b> · energetic, animated</td><td>ElevenLabs v4, directed</td><td>7 of 7</td><td>None. Laughs only where scripted.</td></tr>
+        <tr><td><b>Vardan</b> · kids-show character</td><td>ElevenLabs v4, directed</td><td>5 of 7</td><td>None; पहिला for पहिलं, शाबास for शाब्बास (the second may be the transcriber's spelling).</td></tr>
+        <tr><td><b>Mukta</b> · Marathi voice</td><td>ElevenLabs v4, directed</td><td>7 of 7</td><td>None. Laughs only where scripted.</td></tr>
+        <tr><td><b>Mukta, undirected</b></td><td>Round 1: plain text, defaults</td><td>6 of 7</td><td>None. Hear it next to directed Mukta to judge what the tags add.</td></tr>
+      </tbody>
+    </table></div>
+    <p class="note" style="margin-top:0">Hindi library voices may carry a slight Hindi accent in Marathi; a Marathi ear decides that. For production we would design a voice owned by GuruAI for Shekru (needs the <code>voice_generation</code> permission on the API key), because library voices can be withdrawn by their owners.</p>
+  </section>
+
+  <div id="dossiers"></div>
+
+  <section class="decide" aria-labelledby="decide-h">
+    <h2 id="decide-h">What to look for</h2>
+    <ol>
+      <li>Which one would a 5-year-old want to see every day?</li>
+      <li>In <b>Listening</b>, is it obvious that it is now the child's turn to speak?</li>
+      <li>Does <b>Try again</b> feel gentle and encouraging, never sad?</li>
+      <li>While it talks, does the mouth help show the sounds?</li>
+      <li>Does it still read clearly at 64 px, the size of a small icon?</li>
+    </ol>
+    <p>Tell me your pick in chat, or a mix (for example Shekru's look with Tai's warmth), plus anything to change. The next step is clean layered art and a Rive rig for the chosen one.</p>
+  </section>
+</div>
+
+<div class="lightbox" id="lightbox" hidden role="dialog" aria-modal="true" aria-label="Enlarged sheet">
+  <img id="lightbox-img" alt="">
+  <button class="btn" id="lightbox-close" type="button">Close</button>
+</div>
+
+<script>
+const STATES = [
+  { id: "hello", en: "Hello", mr: "नमस्कार", line: "hello" },
+  { id: "idle", en: "Idle", mr: "शांत" },
+  { id: "talk", en: "Talking", mr: "बोलणे", line: "teach" },
+  { id: "listen", en: "Listening", mr: "ऐकणे" },
+  { id: "think", en: "Thinking", mr: "विचार" },
+  { id: "correct", en: "Correct", mr: "बरोबर", line: "correct" },
+  { id: "tryagain", en: "Try again", mr: "पुन्हा", line: "tryagain" },
+  { id: "hint", en: "Hint", mr: "मदत", line: "hint" },
+  { id: "nohear", en: "Didn't hear", mr: "ऐकू आलं नाही", line: "nohear" },
+  { id: "bye", en: "Goodbye", mr: "बाय", line: "bye" },
+];
+const EN = {
+  hello: "Hello! Come, today let's learn a new word.",
+  teach: "The word is cat. Cat. Now you spell it!",
+  nohear: "I didn't hear you, say it again.",
+  tryagain: "Almost right! Come, let's try again.",
+  hint: "Here's a hint. The first letter is C.",
+  correct: "Well done! Exactly right!",
+  bye: "Today's practice is done! See you tomorrow.",
+};
+const BASE_MOUTH = { hello: "AA", idle: "rest", talk: "rest", listen: "rest", think: "MBP", correct: "AA", tryagain: "rest", hint: "I", nohear: "O", bye: "AA" };
+
+/* ---------- mouths (shared, scaled per character) ---------- */
+function openPath(w, h) {
+  const a = w / 2;
+  return `M${-a},0 C${-a / 2},${-h * .16} ${a / 2},${-h * .16} ${a},0 C${a * .86},${h * 1.3} ${-a * .86},${h * 1.3} ${-a},0 Z`;
+}
+function mouthSVG(v, p, uid) {
+  const clip = (d) => `<clipPath id="${uid}"><path d="${d}"/></clipPath>`;
+  const line = (d, w = 5) => `<path d="${d}" fill="none" stroke="${p.line}" stroke-width="${w}" stroke-linecap="round"/>`;
+  const open = (w, h, { teeth = 0, tongueUp = false } = {}) => {
+    const d = openPath(w, h);
+    return clip(d) + `<path d="${d}" fill="${p.lip}"/>` +
+      `<g clip-path="url(#${uid})">` +
+      (teeth ? `<rect x="${-w * .32}" y="${-h * .3}" width="${w * .64}" height="${h * teeth}" rx="3" fill="${p.teeth}"/>` : "") +
+      `<ellipse cx="0" cy="${tongueUp ? h * .45 : h * .95}" rx="${w * .3}" ry="${h * .32}" fill="${p.tongue}"/></g>`;
+  };
+  switch (v) {
+    case "AA": return open(46, 32, { teeth: .45 });
+    case "EE": return open(52, 17, { teeth: .75 });
+    case "I": return open(32, 20, { teeth: .4 });
+    case "O": return `<ellipse rx="14" ry="18" cy="10" fill="${p.lip}"/><ellipse rx="8" ry="6" cy="20" fill="${p.tongue}"/>`;
+    case "OO": return `<ellipse rx="8.5" ry="9.5" cy="6" fill="${p.lip}"/>`;
+    case "MBP": return line("M-17,4 Q0,8 17,4", 6);
+    case "FV": return open(38, 14, { teeth: .95 });
+    case "LTD": return open(38, 24, { teeth: .35, tongueUp: true });
+    default: return line("M-21,0 Q0,14 21,0");
+  }
+}
+
+/* ---------- character art ---------- */
+const sparkles = (pts) => `<g class="fx-spark">${pts.map(([x, y, s], i) =>
+  `<path style="transform-origin:${x}px ${y}px;animation-delay:${i * .12}s" d="M${x},${y - s} Q${x + s * .18},${y - s * .18} ${x + s},${y} Q${x + s * .18},${y + s * .18} ${x},${y + s} Q${x - s * .18},${y + s * .18} ${x - s},${y} Q${x - s * .18},${y - s * .18} ${x},${y - s} Z" fill="#F2A93B"/>`).join("")}</g>`;
+const commonFx = (c) => `
+  <g class="fx-mic"><ellipse cx="200" cy="442" rx="120" ry="16" fill="none" stroke="#DF8F1F" stroke-width="5" style="transform-origin:200px 442px"/><ellipse cx="200" cy="442" rx="120" ry="16" fill="none" stroke="#DF8F1F" stroke-width="5" style="transform-origin:200px 442px"/></g>
+  <g class="fx-think"><circle cx="${c.think[0]}" cy="${c.think[1]}" r="9" fill="#9FB3A6"/><circle cx="${c.think[0] + 26}" cy="${c.think[1] - 18}" r="11" fill="#9FB3A6"/><circle cx="${c.think[0] + 58}" cy="${c.think[1] - 40}" r="14" fill="#9FB3A6"/></g>
+  <g class="fx-q"><text x="${c.q[0]}" y="${c.q[1]}" font-family="Baloo 2, sans-serif" font-weight="800" font-size="64" fill="#DF8F1F">?</text></g>
+  <g class="fx-hint"><g style="transform-origin:${c.hint[0] + 30}px ${c.hint[1] + 30}px"><rect x="${c.hint[0]}" y="${c.hint[1]}" width="60" height="60" rx="12" fill="#fff" stroke="#DF8F1F" stroke-width="4"/><text x="${c.hint[0] + 30}" y="${c.hint[1] + 46}" text-anchor="middle" font-family="Baloo 2, sans-serif" font-weight="800" font-size="44" fill="#2F4234">C</text></g></g>
+  ${sparkles(c.spark)}`;
+const happyEyes = (l, r, y, col) => `<g class="eyes-happy part"><path d="M${l - 20},${y + 6} Q${l},${y - 16} ${l + 20},${y + 6}" fill="none" stroke="${col}" stroke-width="7" stroke-linecap="round"/><path d="M${r - 20},${y + 6} Q${r},${y - 16} ${r + 20},${y + 6}" fill="none" stroke="${col}" stroke-width="7" stroke-linecap="round"/></g>`;
+
+const CHARS = [
+  {
+    id: "shekru", name: "Shekru", mr: "शेकरू", voice: "Puck (playful)",
+    pitch: "Maharashtra's state animal: the Indian giant squirrel of Bhimashankar. Playful and a little cheeky, and the big tail shows the mood.",
+    strengths: "Distinctive and clearly Maharashtrian. A snout gives a readable mouth. The tail is a second channel for emotion: it puffs up on a correct answer and droops slightly on try again.",
+    watch: "Many city children won't know the animal yet (the app can teach it). The tail needs extra rigging. The ears drifted between sheets: smooth in the hero, tufted in the turnaround, so we need to choose one.",
+    mouth: { x: 200, y: 244, s: .85 }, pal: { lip: "#5E1A1A", tongue: "#E8737A", teeth: "#FFFFFF", line: "#7A2E26" },
+    think: [282, 92], q: [300, 110], hint: [330, 262], spark: [[90, 120, 14], [320, 90, 18], [70, 260, 12], [340, 220, 13], [200, 60, 15], [120, 60, 10]],
+    svg() { return `
+<g class="rig part" style="transform-origin:200px 440px">
+  <defs><clipPath id="shk-tailclip"><ellipse cx="300" cy="215" rx="88" ry="158" transform="rotate(14 300 215)"/></clipPath></defs>
+  <g class="tail part" style="transform-origin:250px 400px">
+    <path d="M232,420 C290,430 330,400 330,360 L300,300 Z" fill="#7E1838"/>
+    <ellipse cx="300" cy="215" rx="88" ry="158" transform="rotate(14 300 215)" fill="#7E1838"/>
+    <g clip-path="url(#shk-tailclip)"><ellipse cx="372" cy="70" rx="64" ry="72" fill="#FBE3BD"/><ellipse cx="252" cy="250" rx="30" ry="150" fill="#6A1230" opacity=".45"/></g>
+  </g>
+  <rect x="152" y="368" width="40" height="64" rx="19" fill="#D9803F"/><ellipse cx="168" cy="432" rx="30" ry="11" fill="#E8954E"/>
+  <rect x="208" y="368" width="40" height="64" rx="19" fill="#D9803F"/><ellipse cx="232" cy="432" rx="30" ry="11" fill="#E8954E"/>
+  <g class="upper part" style="transform-origin:200px 432px">
+    <ellipse cx="212" cy="342" rx="70" ry="76" fill="#7E1838"/>
+    <ellipse cx="200" cy="345" rx="70" ry="78" fill="#E8954E"/>
+    <ellipse cx="198" cy="352" rx="48" ry="64" fill="#FBE3BD"/>
+    <path d="M162,282 L238,382" stroke="#7FA64A" stroke-width="8" stroke-linecap="round"/>
+    <rect x="216" y="368" width="58" height="46" rx="11" fill="#8DB255"/><path d="M216,378 Q245,398 274,378 L274,372 Q274,368 268,368 L222,368 Q216,368 216,372 Z" fill="#6E9440"/><circle cx="245" cy="392" r="4" fill="#557532"/>
+    <g class="head part" style="transform-origin:200px 282px"><g style="transform-origin:200px 282px">
+      <g class="ears part" style="transform-origin:200px 140px">
+        <ellipse cx="128" cy="116" rx="27" ry="32" fill="#7E1838"/><ellipse cx="130" cy="120" rx="14" ry="18" fill="#5A0F27"/>
+        <ellipse cx="272" cy="116" rx="27" ry="32" fill="#7E1838"/><ellipse cx="270" cy="120" rx="14" ry="18" fill="#5A0F27"/></g>
+      <ellipse cx="200" cy="190" rx="102" ry="94" fill="#7E1838"/>
+      <path d="M108,210 C104,160 140,140 168,150 C186,158 194,190 200,214 C206,190 214,158 232,150 C260,140 296,160 292,210 C290,262 250,282 200,282 C150,282 110,262 108,210 Z" fill="#FBE3BD"/>
+      <ellipse cx="136" cy="238" rx="15" ry="9" fill="#F49A8E" opacity=".55"/><ellipse cx="264" cy="238" rx="15" ry="9" fill="#F49A8E" opacity=".55"/>
+      <g class="eyes part" style="transform-origin:200px 196px">
+        <ellipse cx="160" cy="196" rx="24" ry="26" fill="#fff"/><ellipse cx="240" cy="196" rx="24" ry="26" fill="#fff"/>
+        <g class="pupils part" style="transform-origin:200px 198px">
+          <circle cx="162" cy="199" r="17" fill="#5A2A12"/><circle cx="242" cy="199" r="17" fill="#5A2A12"/>
+          <circle cx="168" cy="191" r="6" fill="#fff"/><circle cx="248" cy="191" r="6" fill="#fff"/></g></g>
+      ${happyEyes(160, 240, 198, "#5A2A12")}
+      <g class="brows part"><path class="browL part" style="transform-origin:160px 160px" d="M144,163 Q160,154 176,160" fill="none" stroke="#5A0F27" stroke-width="5" stroke-linecap="round"/><path d="M224,160 Q240,154 256,163" fill="none" stroke="#5A0F27" stroke-width="5" stroke-linecap="round"/></g>
+      <ellipse cx="200" cy="222" rx="13" ry="9" fill="#F07C92"/>
+      <g class="mouth"></g>
+    </g></g>
+    <g class="armL part" style="transform-origin:152px 300px"><g style="transform-origin:152px 300px">
+      <rect x="139" y="294" width="27" height="70" rx="13.5" fill="#E8954E"/><circle cx="152" cy="368" r="15" fill="#E8954E"/></g></g>
+    <g class="armR part" style="transform-origin:248px 300px"><g style="transform-origin:248px 300px">
+      <rect x="234" y="294" width="27" height="70" rx="13.5" fill="#E8954E"/><circle cx="248" cy="368" r="15" fill="#E8954E"/></g></g>
+  </g>
+  ${commonFx(this)}
+</g>`; },
+  },
+  {
+    id: "tai", name: "Tai", mr: "ताई", voice: "Leda (youthful)",
+    pitch: "A 12-year-old older-sister figure. Warm and patient, and always on the child's side rather than acting like a teacher.",
+    strengths: "A human mouth gives the clearest shapes for letter sounds. Easy for children to relate to. Older sister (ताई) is a familiar, trusted role in Marathi homes.",
+    watch: "The most work to animate: braids, hands and clothing. A girl-only lead: consider a brother option (दादा) later. Skin tone, hair and clothes are representation choices to check with parents. Her mouth sheet came out in an uneven grid.",
+    mouth: { x: 200, y: 218, s: .92 }, pal: { lip: "#5B1F1A", tongue: "#E07A72", teeth: "#FFFFFF", line: "#8A3B2A" },
+    think: [278, 70], q: [298, 92], hint: [338, 236], spark: [[80, 110, 14], [320, 80, 18], [60, 250, 12], [345, 200, 13], [200, 40, 15], [120, 50, 10]],
+    svg() {
+      const braid = (x, dir) => `<g>${[0, 1, 2, 3].map(i => `<ellipse cx="${x + dir * i * 1.5}" cy="${238 + i * 30}" rx="16" ry="19" fill="#141414"/>`).join("")}
+        <path d="M${x - 12},${350} Q${x + dir * 4},${395} ${x + dir * 14},${405} Q${x + 10},${370} ${x + 12},${350} Z" fill="#141414"/>
+        <path d="M${x},${352} L${x - 22},${340} L${x - 22},${366} Z M${x},${352} L${x + 22},${340} L${x + 22},${366} Z" fill="#EE9A2E"/><circle cx="${x}" cy="352" r="6" fill="#D9821A"/></g>`;
+      return `
+<g class="rig part" style="transform-origin:200px 440px">
+  <defs><pattern id="tai-dots" width="16" height="16" patternUnits="userSpaceOnUse"><rect width="16" height="16" fill="#1F8A9C"/><circle cx="8" cy="8" r="1.8" fill="#BDE6EB"/></pattern></defs>
+  <g class="braids part" style="transform-origin:200px 210px">${braid(116, -1)}${braid(284, 1)}</g>
+  <rect x="170" y="372" width="26" height="58" rx="8" fill="#F6E3BD"/><rect x="206" y="372" width="26" height="58" rx="8" fill="#F6E3BD"/>
+  <ellipse cx="181" cy="434" rx="22" ry="9" fill="#C9785A"/><ellipse cx="221" cy="434" rx="22" ry="9" fill="#C9785A"/>
+  <path d="M164,430 Q181,426 198,430" stroke="#6E3B1E" stroke-width="6" fill="none"/><path d="M204,430 Q221,426 238,430" stroke="#6E3B1E" stroke-width="6" fill="none"/>
+  <g class="upper part" style="transform-origin:200px 432px">
+    <path d="M150,262 L250,262 L274,392 L126,392 Z" fill="url(#tai-dots)"/>
+    <path d="M188,262 L212,262 L200,290 Z" fill="#C9785A"/>
+    <g class="head part" style="transform-origin:200px 262px"><g style="transform-origin:200px 262px">
+      <circle cx="113" cy="178" r="17" fill="#B9694A"/><circle cx="287" cy="178" r="17" fill="#B9694A"/>
+      <ellipse cx="200" cy="168" rx="88" ry="93" fill="#CF8460"/>
+      <path d="M108,176 C98,82 158,58 204,60 C256,58 306,92 294,178 C286,128 252,100 214,92 C190,118 150,140 108,176 Z" fill="#141414"/>
+      <ellipse cx="142" cy="208" rx="14" ry="8" fill="#E5806E" opacity=".5"/><ellipse cx="258" cy="208" rx="14" ry="8" fill="#E5806E" opacity=".5"/>
+      <g class="eyes part" style="transform-origin:200px 170px">
+        <circle cx="164" cy="170" r="21" fill="#fff"/><circle cx="236" cy="170" r="21" fill="#fff"/>
+        <g class="pupils part" style="transform-origin:200px 172px">
+          <circle cx="165" cy="172" r="13" fill="#4A2814"/><circle cx="237" cy="172" r="13" fill="#4A2814"/>
+          <circle cx="169" cy="167" r="4" fill="#fff"/><circle cx="241" cy="167" r="4" fill="#fff"/></g></g>
+      ${happyEyes(164, 236, 172, "#4A2814")}
+      <g class="brows part"><path class="browL part" style="transform-origin:164px 138px" d="M148,140 Q164,131 180,138" fill="none" stroke="#6E3B1E" stroke-width="5" stroke-linecap="round"/><path d="M220,138 Q236,131 252,140" fill="none" stroke="#6E3B1E" stroke-width="5" stroke-linecap="round"/></g>
+      <path d="M196,186 Q210,184 206,197 Q202,203 195,199" fill="none" stroke="#9A5236" stroke-width="4" stroke-linecap="round"/>
+      <g class="mouth"></g>
+    </g></g>
+    <g class="armL part" style="transform-origin:150px 274px"><g style="transform-origin:150px 274px">
+      <rect x="139" y="272" width="23" height="84" rx="11.5" fill="#C9785A"/><rect x="133" y="264" width="34" height="34" rx="11" fill="#1F8A9C"/><circle cx="150" cy="358" r="13" fill="#C9785A"/></g></g>
+    <g class="armR part" style="transform-origin:250px 274px"><g style="transform-origin:250px 274px">
+      <rect x="238" y="272" width="23" height="84" rx="11.5" fill="#C9785A"/><rect x="233" y="264" width="34" height="34" rx="11" fill="#1F8A9C"/>
+      <rect x="244" y="360" width="10" height="28" rx="4" fill="#fff" stroke="#D8D8D8"/><circle cx="250" cy="358" r="13" fill="#C9785A"/></g></g>
+  </g>
+  ${commonFx(this)}
+</g>`; },
+  },
+  {
+    id: "pati", name: "Pati", mr: "पाटी", voice: "Sadachbia (lively)",
+    pitch: "A living school slate. Its body is the teaching surface: it writes the letter or word being taught on itself.",
+    strengths: "It shows the lesson on its own body: अ at rest, C for the hint, CAT on a correct answer. The rig is the cheapest because the frame is rigid. Original and tied to Indian classrooms.",
+    watch: "A narrower emotional range than an animal or a person. The face and the letter compete for space. Seen from the side it is a thin plank, as the turnaround shows. The mouth sheet came out cropped with printed labels, so it needs a redo.",
+    mouth: { x: 200, y: 212, s: 1.05 }, pal: { lip: "#3A1C12", tongue: "#B4583A", teeth: "#F7E6C4", line: "#F1E7D2" },
+    think: [300, 70], q: [318, 92], hint: [338, 262], spark: [[70, 110, 14], [330, 60, 18], [60, 250, 12], [350, 200, 13], [200, 30, 15], [130, 40, 10]],
+    svg() { return `
+<g class="rig part" style="transform-origin:200px 440px">
+  <rect x="166" y="372" width="24" height="56" rx="12" fill="#A85F2A"/><rect x="212" y="372" width="24" height="56" rx="12" fill="#A85F2A"/>
+  <ellipse cx="172" cy="430" rx="22" ry="10" fill="#B8692F"/><ellipse cx="230" cy="430" rx="22" ry="10" fill="#B8692F"/>
+  <g class="upper part" style="transform-origin:200px 432px">
+    <g class="head part" style="transform-origin:200px 380px"><g style="transform-origin:200px 380px">
+      <rect x="94" y="62" width="208" height="322" rx="28" fill="#9A5428"/>
+      <rect x="102" y="56" width="204" height="322" rx="28" fill="#C27838"/>
+      <rect x="124" y="78" width="160" height="278" rx="10" fill="#2F4234"/>
+      <rect x="124" y="78" width="160" height="10" rx="5" fill="#22322A"/>
+      <g class="eyes part" style="transform-origin:204px 162px">
+        <circle cx="170" cy="162" r="25" fill="#F7E6C4"/><circle cx="238" cy="162" r="25" fill="#F7E6C4"/>
+        <g class="pupils part" style="transform-origin:204px 164px">
+          <circle cx="172" cy="166" r="16" fill="#4A2416"/><circle cx="240" cy="166" r="16" fill="#4A2416"/>
+          <circle cx="177" cy="159" r="5" fill="#F7E6C4"/><circle cx="245" cy="159" r="5" fill="#F7E6C4"/></g></g>
+      ${happyEyes(170, 238, 166, "#F1E7D2")}
+      <g class="brows part"><path class="browL part" style="transform-origin:170px 126px" d="M152,128 Q170,118 188,126" fill="none" stroke="#F1E7D2" stroke-width="5" stroke-linecap="round" opacity=".9"/><path d="M220,126 Q238,118 256,128" fill="none" stroke="#F1E7D2" stroke-width="5" stroke-linecap="round" opacity=".9"/></g>
+      <g class="mouth"></g>
+      <text class="letter-txt" x="204" y="326" text-anchor="middle" font-size="86" fill="#F4F1EA">अ</text>
+    </g></g>
+    <g class="armL part" style="transform-origin:108px 270px"><g style="transform-origin:108px 270px">
+      <rect x="96" y="266" width="24" height="80" rx="12" fill="#B8692F"/><rect x="102" y="348" width="10" height="28" rx="4" fill="#fff" transform="rotate(-25 107 362)"/><circle cx="108" cy="350" r="14" fill="#B8692F"/></g></g>
+    <g class="armR part" style="transform-origin:298px 270px"><g style="transform-origin:298px 270px">
+      <rect x="286" y="266" width="24" height="80" rx="12" fill="#B8692F"/><circle cx="298" cy="350" r="14" fill="#B8692F"/></g></g>
+  </g>
+  ${commonFx(this)}
+</g>`; },
+    onState(el, st) {
+      const t = el.querySelector(".letter-txt");
+      const word = { hint: "C", correct: "CAT", talk: "CAT", bye: "उद्या" }[st] || "अ";
+      t.textContent = word;
+      t.setAttribute("font-size", word.length > 2 ? 58 : 86);
+    },
+  },
+];
+
+/* ---------- runtime ---------- */
+let CLIPS = {}, EL = {};
+const VOICES = [{ id: "gemini", label: "Puck · Gemini" }, { id: "r2/amit", label: "Amit" }, { id: "r2/omar", label: "Omar J" }, { id: "r2/vardan", label: "Vardan" }, { id: "r2/mukta", label: "Mukta" }, { id: "r1/mukta", label: "Mukta, undirected" }];
+const stagesEl = document.getElementById("stages");
+const chipsEl = document.getElementById("chips");
+const live = {};
+
+function setMouth(c, v) {
+  const g = live[c.id].mouth;
+  if (g.dataset.v === v) return;
+  g.dataset.v = v;
+  g.innerHTML = mouthSVG(v, c.pal, `${c.id}-mclip`);
+}
+function setState(c, st) {
+  const L = live[c.id];
+  L.state = st;
+  L.svg.dataset.state = st;
+  if (!L.talking) setMouth(c, BASE_MOUTH[st]);
+  c.onState && c.onState(L.svg, st);
+  const s = STATES.find(x => x.id === st);
+  L.cap.innerHTML = `<div class="state">${s.en} · ${s.mr}</div>` + (s.line ? `<div class="mrline">${CLIPS.lines?.[s.line] ?? ""}</div><div class="en">${EN[s.line]}</div>` : "");
+}
+function setCaption(c, html) { live[c.id].cap.innerHTML = html; }
+
+// Plays a line's viseme track; with sound=true it follows the audio clock.
+function speak(c, lineId, sound) {
+  const L = live[c.id];
+  const v = L.voice || "gemini";
+  const [round, name] = v.split("/");
+  const clip = v === "gemini" ? CLIPS.clips?.[c.id]?.[lineId] : EL[round]?.clips?.[name]?.[lineId];
+  if (L.stopSpeak) L.stopSpeak();
+  return new Promise(resolve => {
+    if (!clip) return resolve();
+    let audio = null, t0 = performance.now(), raf, done = false;
+    if (sound) { audio = new Audio(v === "gemini" ? `audio/${c.id}/${lineId}.mp3` : `audio/${round === "r1" ? "el" : "el2"}/${name}/${lineId}.mp3`); audio.play().catch(() => { audio = null; t0 = performance.now(); }); }
+    L.talking = true;
+    const finish = () => { if (done) return; done = true; cancelAnimationFrame(raf); L.talking = false; L.stopSpeak = null; if (audio) audio.pause(); setMouth(c, BASE_MOUTH[L.state]); resolve(); };
+    L.stopSpeak = finish;
+    if (audio) audio.addEventListener("ended", finish);
+    const ev = clip.events;
+    const tick = () => {
+      const t = audio ? audio.currentTime : (performance.now() - t0) / 1000;
+      let v = "rest";
+      for (let i = 0; i < ev.length && ev[i][0] <= t; i++) v = ev[i][1];
+      setMouth(c, v);
+      if (!audio && t > clip.duration) return finish();
+      raf = requestAnimationFrame(tick);
+    };
+    tick();
+  });
+}
+
+let actx;
+function chime() {
+  try {
+    actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+    [880, 1318].forEach((f, i) => {
+      const o = actx.createOscillator(), g = actx.createGain(), t = actx.currentTime + i * .12;
+      o.frequency.value = f; o.type = "sine";
+      g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(.18, t + .02); g.gain.exponentialRampToValueAtTime(.001, t + .5);
+      o.connect(g).connect(actx.destination); o.start(t); o.stop(t + .55);
+    });
+  } catch (e) {}
+}
+
+const wait = (ms, L) => new Promise((res, rej) => { const id = setTimeout(res, ms); L.cancel.push(() => { clearTimeout(id); rej("stop"); }); });
+
+async function lesson(c) {
+  const L = live[c.id];
+  const check = () => { if (L.stopped) throw "stop"; };
+  const say = async (st, line) => { check(); setState(c, st); await speak(c, line, true); check(); await wait(350, L); };
+  const listen = async (ms, answer) => {
+    check(); setState(c, "listen"); chime();
+    setCaption(c, `<div class="state">Listening · ऐकणे</div><div class="en">The mic is open: the child answers now.</div>`);
+    if (answer) { await wait(700, L); L.ans.textContent = answer; L.ans.classList.add("show"); }
+    await wait(ms, L); L.ans.classList.remove("show");
+  };
+  const think = async (ms) => { check(); setState(c, "think"); await wait(ms, L); };
+  await say("hello", "hello");
+  await say("talk", "teach");
+  await listen(2600, "");
+  await say("nohear", "nohear");
+  await listen(2400, "Child: C… A… K…");
+  await think(1300);
+  await say("tryagain", "tryagain");
+  await say("hint", "hint");
+  await listen(2400, "Child: C… A… T…");
+  await think(1100);
+  await say("correct", "correct");
+  await say("bye", "bye");
+  setState(c, "idle");
+}
+
+function stopLesson(c) {
+  const L = live[c.id];
+  L.stopped = true; L.cancel.forEach(f => f()); L.cancel = [];
+  if (L.stopSpeak) L.stopSpeak();
+  L.ans.classList.remove("show");
+}
+
+function selectChip(st) {
+  chipsEl.querySelectorAll(".chip").forEach(b => b.setAttribute("aria-pressed", b.dataset.st === st));
+}
+
+function build() {
+  chipsEl.innerHTML = STATES.map(s => `<button class="chip" type="button" id="chip-${s.id}" data-st="${s.id}" aria-pressed="${s.id === "idle"}">${s.en}<small>${s.mr}</small></button>`).join("");
+  stagesEl.innerHTML = CHARS.map(c => `
+    <article class="stage" id="stage-${c.id}">
+      <div class="stage-head"><h3>${c.name}</h3><span class="mr">${c.mr}</span></div>
+      <div class="booth">
+        <svg viewBox="0 0 420 470" role="img" aria-label="${c.name} animated">${c.svg()}</svg>
+        <div class="answer" aria-live="polite"></div>
+      </div>
+      <div class="controls">
+        <button class="btn primary" type="button" id="play-${c.id}">Play a lesson</button>
+        <button class="btn" type="button" id="hear-${c.id}">Hear this moment</button>
+      </div>
+      ${c.id === "shekru" ? `<div class="voices" role="group" aria-label="Shekru voice"><span class="bar-label">Voice</span>${VOICES.map(v => `<button class="chip" type="button" data-voice="${v.id}" aria-pressed="${v.id === "gemini"}">${v.label}</button>`).join("")}</div>` : ""}
+      <div class="caption" aria-live="polite"></div>
+    </article>`).join("");
+  CHARS.forEach(c => {
+    const root = document.getElementById(`stage-${c.id}`);
+    const svg = root.querySelector("svg");
+    const mouth = svg.querySelector(".mouth");
+    mouth.setAttribute("transform", `translate(${c.mouth.x} ${c.mouth.y}) scale(${c.mouth.s})`);
+    live[c.id] = { svg, mouth, cap: root.querySelector(".caption"), ans: root.querySelector(".answer"), cancel: [], state: "idle" };
+    setState(c, "idle");
+    const play = document.getElementById(`play-${c.id}`);
+    play.addEventListener("click", async () => {
+      const L = live[c.id];
+      if (L.running) { stopLesson(c); return; }
+      CHARS.forEach(o => { if (o !== c && live[o.id].running) stopLesson(o); });
+      L.running = true; L.stopped = false; L.cancel = [];
+      play.textContent = "Stop";
+      chime();
+      try { await lesson(c); } catch (e) { /* stopped */ }
+      L.running = false; play.textContent = "Play a lesson";
+      if (L.stopped) setState(c, "idle");
+    });
+    root.querySelectorAll("[data-voice]").forEach(b => b.addEventListener("click", () => {
+      const L = live[c.id];
+      if (L.running) document.getElementById(`play-${c.id}`).click();
+      else if (L.stopSpeak) L.stopSpeak();
+      L.voice = b.dataset.voice;
+      root.querySelectorAll("[data-voice]").forEach(x => x.setAttribute("aria-pressed", x === b));
+    }));
+    document.getElementById(`hear-${c.id}`).addEventListener("click", () => {
+      const L = live[c.id];
+      if (L.running) return;
+      const s = STATES.find(x => x.id === L.state);
+      if (s.id === "listen") { chime(); return; }
+      if (s.line) speak(c, s.line, true);
+    });
+  });
+  chipsEl.addEventListener("click", e => {
+    const b = e.target.closest(".chip"); if (!b) return;
+    const st = b.dataset.st; selectChip(st);
+    CHARS.forEach(c => {
+      if (live[c.id].running) stopLesson(c);
+      setState(c, st);
+      const s = STATES.find(x => x.id === st);
+      if (s.line) speak(c, s.line, false);
+    });
+  });
+  document.getElementById("dossiers").innerHTML = CHARS.map(c => `
+    <section class="dossier" aria-labelledby="d-${c.id}">
+      <div class="dossier-top">
+        <img class="hero-img" src="img/${c.id}-hero.jpg" alt="${c.name} concept art, waving" loading="lazy">
+        <div class="facts">
+          <span class="eyebrow">Character ${CHARS.indexOf(c) + 1} of 3</span>
+          <h2 id="d-${c.id}">${c.name} <span style="color:var(--muted)">${c.mr}</span></h2>
+          <p>${c.pitch}</p>
+          <dl>
+            <dt>Strengths</dt><dd>${c.strengths}</dd>
+            <dt>Watch out for</dt><dd>${c.watch}</dd>
+            <dt>Demo voice</dt><dd>${c.voice}, Gemini TTS</dd>
+            <dt>Small sizes</dt><dd><div class="sizes">${[40, 64, 96].map(px => `<figure><img src="img/${c.id}-hero.jpg" width="${px}" height="${px}" alt="${c.name} at ${px} px"><figcaption>${px} px</figcaption></figure>`).join("")}</div></dd>
+          </dl>
+        </div>
+      </div>
+      <div class="sheets">
+        ${[["turnaround", "Turnaround: front, three-quarter, side, back"], ["expressions", "Expressions and poses"], ["mouths", "Mouth shapes for lip sync"]].map(([k, label]) =>
+          `<button class="thumb" type="button" data-src="img/${c.id}-${k}.jpg" aria-label="Enlarge ${c.name} ${label}"><img src="img/${c.id}-${k}.jpg" alt="${c.name}: ${label}" loading="lazy"><span>${label}</span></button>`).join("")}
+      </div>
+    </section>`).join("");
+}
+
+build();
+
+const lb = document.getElementById("lightbox"), lbImg = document.getElementById("lightbox-img");
+document.getElementById("dossiers").addEventListener("click", e => {
+  const t = e.target.closest(".thumb"); if (!t) return;
+  lbImg.src = t.dataset.src; lbImg.alt = t.querySelector("img").alt; lb.hidden = false;
+  document.getElementById("lightbox-close").focus();
+});
+const closeLb = () => { lb.hidden = true; };
+document.getElementById("lightbox-close").addEventListener("click", closeLb);
+lb.addEventListener("click", e => { if (e.target === lb) closeLb(); });
+document.addEventListener("keydown", e => { if (e.key === "Escape") closeLb(); });
+
+fetch("visemes-el.json").then(r => r.json()).then(j => { EL.r1 = j; }).catch(() => {});
+fetch("visemes-el2.json").then(r => r.json()).then(j => { EL.r2 = j; }).catch(() => {});
+fetch("visemes.json").then(r => r.json()).then(j => { CLIPS = j; CHARS.forEach(c => setState(c, live[c.id].state)); }).catch(() => {});
+</script>

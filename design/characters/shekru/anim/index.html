@@ -1,0 +1,351 @@
+<!doctype html>
+<html lang="mr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Shekru animation review</title>
+<link rel="icon" href="data:,">
+<style>
+  :root {
+    --bg: #fff6e6; --card: #fffdf8; --ink: #3d1420; --muted: #8a6a66;
+    --maroon: #801936; --maroon-d: #650f2c; --orange: #ed9950; --green: #7ba04b; --cream: #fde6bd;
+    --line: #f0dcc0; --radius: 18px; --btn: #fff; --chip: #fbefd9;
+  }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+    --bg: #1c1215; --card: #261a1e; --ink: #f7ebe4; --muted: #c4a79f; --line: #4a3138; --btn: #2f2025; --chip: #3a2a2f; color-scheme: dark; } }
+  :root[data-theme="dark"] {
+    --bg: #1c1215; --card: #261a1e; --ink: #f7ebe4; --muted: #c4a79f; --line: #4a3138; --btn: #2f2025; --chip: #3a2a2f; color-scheme: dark; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--bg); color: var(--ink);
+    font: 16px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", "Noto Sans Devanagari", "Kohinoor Devanagari", sans-serif;
+    -webkit-font-smoothing: antialiased; overflow-x: hidden;
+  }
+  main { max-width: 1040px; margin: 0 auto; padding: 20px 16px 40px; display: grid; gap: 18px; grid-template-columns: minmax(0, 1fr); }
+  header h1 { margin: 0; font-size: 22px; letter-spacing: -0.01em; }
+  header p { margin: 2px 0 0; color: var(--muted); font-size: 14px; }
+  @media (min-width: 860px) {
+    main { grid-template-columns: minmax(0, 520px) minmax(0, 1fr); align-items: start; column-gap: 28px; }
+    header { grid-column: 1 / -1; }
+    .stage-col { position: sticky; top: 16px; }
+  }
+
+  .stage {
+    position: relative; width: 100%; aspect-ratio: 1 / 1; border-radius: 28px; overflow: hidden;
+    background:
+      radial-gradient(120% 60% at 50% 108%, #dfeac6 0 46%, transparent 47%),
+      radial-gradient(90% 70% at 50% 30%, #fffaf0 0, #ffeccc 100%);
+    box-shadow: 0 1px 0 #fff inset, 0 10px 30px -18px rgba(128, 25, 54, .45);
+    border: 1px solid var(--line);
+  }
+  .stage svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+  .shadow {
+    position: absolute; left: 14%; width: 62%; top: 85.2%; height: 5.6%; border-radius: 50%;
+    background: radial-gradient(closest-side, rgba(92, 70, 30, .28), rgba(92, 70, 30, 0));
+    transform-origin: 50% 50%; will-change: transform, opacity;
+  }
+  .turn {
+    position: absolute; top: 14px; right: 14px; display: flex; align-items: center; gap: 8px;
+    padding: 7px 12px 7px 10px; border-radius: 999px; background: var(--btn); border: 1px solid var(--line);
+    font-size: 14px; font-weight: 600; color: var(--maroon); opacity: 0; transform: translateY(-6px);
+    transition: opacity .25s ease, transform .25s ease;
+  }
+  .turn.on { opacity: 1; transform: none; }
+  .turn i { width: 10px; height: 10px; border-radius: 50%; background: var(--green); box-shadow: 0 0 0 0 rgba(123, 160, 75, .6); }
+  .turn.on i { animation: pulse 1.3s ease-out infinite; }
+  @keyframes pulse { to { box-shadow: 0 0 0 12px rgba(123, 160, 75, 0); } }
+
+  .caption {
+    margin-top: 12px; min-height: 64px; padding: 12px 16px; border-radius: var(--radius);
+    background: var(--card); border: 1px solid var(--line); display: flex; flex-direction: column; justify-content: center;
+  }
+  .caption .mr { font-size: 19px; font-weight: 600; line-height: 1.35; }
+  .caption .meta { font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--muted); margin-top: 2px; }
+
+  section { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px; }
+  section + section { margin-top: 14px; }
+  h2 { margin: 0 0 10px; font-size: 13px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); font-weight: 700; }
+  .states { display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 8px; }
+  button {
+    font: inherit; color: var(--ink); cursor: pointer; border: 1px solid var(--line); background: var(--btn);
+    border-radius: 14px; padding: 9px 10px; text-align: left; min-height: 56px;
+    transition: transform .12s ease, background .15s ease, border-color .15s ease, box-shadow .15s ease;
+  }
+  button:hover { border-color: var(--orange); }
+  button:active { transform: scale(.97); }
+  button:focus-visible { outline: 3px solid rgba(237, 153, 80, .55); outline-offset: 2px; }
+  button[disabled] { opacity: .45; cursor: default; }
+  button .mr { display: block; font-size: 17px; font-weight: 700; line-height: 1.25; }
+  button .en { display: block; font-size: 12px; color: var(--muted); }
+  button.active { background: var(--maroon); border-color: var(--maroon); box-shadow: 0 6px 14px -8px var(--maroon); }
+  button.active .mr { color: #fff; } button.active .en { color: var(--cream); }
+  .primary { background: var(--orange); border-color: var(--orange); color: #3d1420; font-weight: 700; text-align: center; min-height: 48px; padding: 10px 18px; }
+  .primary:hover { border-color: var(--maroon); }
+  .row { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; }
+  .steps { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; padding: 0; list-style: none; }
+  .steps li { font-size: 12px; padding: 3px 9px; border-radius: 999px; background: var(--chip); color: var(--muted); }
+  .steps li.done { background: #e9f0d8; color: #56733a; }
+  .steps li.now { background: var(--maroon); color: #fff; }
+  label.opt { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; min-height: 36px; }
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 999px; overflow: hidden; background: var(--btn); }
+  .seg button { border: 0; border-radius: 0; min-height: 36px; padding: 6px 14px; text-align: center; font-size: 14px; font-weight: 600; }
+  .seg button.active { box-shadow: none; color: #fff; }
+  input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--maroon); }
+  .note { font-size: 13px; color: var(--muted); margin: 10px 0 0; }
+  .err { color: #a11; font-weight: 600; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>शेकरू · Shekru animation review</h1>
+    <p>10 tutor states over an always-on alive layer. Motion is data (<code>shekru.anim.json</code>) played by <code>shekru-anim.js</code>.</p>
+  </header>
+
+  <div class="stage-col">
+    <div class="stage" id="stage">
+      <div class="shadow" id="shadow"></div>
+      <div class="turn" id="turn"><i></i><span>तुझी पाळी · your turn</span></div>
+    </div>
+    <div class="caption" aria-live="polite">
+      <div class="mr" id="caption">&nbsp;</div>
+      <div class="meta" id="meta">loading…</div>
+    </div>
+  </div>
+
+  <div>
+    <section>
+      <h2>States</h2>
+      <div class="states" id="states"></div>
+      <p class="note">A state with a voice line plays it and lip-syncs from <code>audio.currentTime</code>. ऐकणे plays the listening chime.</p>
+    </section>
+
+    <section>
+      <h2>Lesson</h2>
+      <div class="row">
+        <button class="primary" id="lesson">▶ Play a lesson</button>
+        <button id="stop" disabled style="min-height:48px;text-align:center">Stop</button>
+      </div>
+      <ol class="steps" id="steps"></ol>
+    </section>
+
+    <section>
+      <h2>Review tools</h2>
+      <div class="row">
+        <span class="seg" role="group" aria-label="Speed">
+          <button data-speed="0.5">0.5x</button><button data-speed="1" class="active">1x</button>
+        </span>
+        <label class="opt"><input type="checkbox" id="idle60"> <span id="idle60label">Show only idle for 60 s</span></label>
+        <label class="opt"><input type="checkbox" id="sound" checked> Voice on state buttons</label>
+        <label class="opt"><input type="checkbox" id="reduced"> Reduced motion</label>
+      </div>
+      <p class="note">Reduced motion follows the system setting on load: blink, mouth and a still pose per state.</p>
+    </section>
+  </div>
+</main>
+
+<script type="module">
+import { createRig, applyToDom } from './shekru-anim.js';
+
+const $ = (id) => document.getElementById(id);
+const STATES = [
+  ['hello', 'नमस्कार', 'hello'], ['idle', 'शांत', null], ['talking', 'बोलणे', 'teach'], ['listening', 'ऐकणे', null],
+  ['thinking', 'विचार', null], ['correct', 'बरोबर', 'correct'], ['tryagain', 'पुन्हा', 'tryagain'], ['hint', 'मदत', 'hint'],
+  ['nohear', 'ऐकू आलं नाही', 'nohear'], ['bye', 'बाय', 'bye'],
+];
+const LINE_OF = Object.fromEntries(STATES.map(([s, , l]) => [s, l]));
+const SILENT_CAPTION = { listening: 'तुझी पाळी! बोल…', thinking: 'हम्म…', idle: '' };
+// state, voice line (or null), seconds to hold when there is no line
+const LESSON = [
+  ['hello', 'hello'], ['talking', 'teach'], ['listening', null, 3], ['nohear', 'nohear'], ['listening', null, 3],
+  ['thinking', null, 2.4], ['tryagain', 'tryagain'], ['hint', 'hint'], ['listening', null, 3], ['thinking', null, 2.4],
+  ['correct', 'correct'], ['bye', 'bye'], ['idle', null, 0],
+];
+
+let rig, anim, visemes, svg, cache = {};
+let speed = 1, clock = 0, last = null;
+let current = null;          // playing <audio>
+let run = 0;                 // token; bumping it cancels a running lesson
+let audioCtx = null;
+const audio = {};
+
+async function boot() {
+  const [svgText, rigJson, animJson, vis] = await Promise.all([
+    fetch('shekru.svg').then((r) => r.text()),
+    fetch('shekru.rig.json').then((r) => r.json()),
+    fetch('shekru.anim.json').then((r) => r.json()),
+    fetch('visemes.json').then((r) => r.json()),
+  ]);
+  anim = animJson; visemes = vis;
+  $('stage').insertAdjacentHTML('beforeend', svgText);
+  svg = $('stage').querySelector('svg');
+  // effect shapes (thought bubble, sound waves) share the character's coordinate space and sit above it
+  if (anim.fx) {
+    const fx = new DOMParser().parseFromString(await fetch(anim.fx.asset).then((r) => r.text()), 'image/svg+xml');
+    for (const el of [...fx.documentElement.children]) svg.appendChild(document.importNode(el, true));
+    // hint card letter (in a lesson: the item being taught)
+    svg.querySelector('#fx-hint-letter')?.insertAdjacentHTML('beforeend',
+      '<text x="362" y="264" text-anchor="middle" font-family="Baloo 2, Mukta, system-ui, sans-serif" font-weight="800" font-size="48" fill="#3D1420">C</text>');
+  }
+  svg.setAttribute('viewBox', '-28 -8 512 512'); // centre the art; the file itself is untouched
+  svg.setAttribute('role', 'img'); svg.setAttribute('aria-label', 'Shekru the squirrel');
+  rig = createRig(rigJson, animJson, { seed: (Math.random() * 1e9) | 0 });
+  const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
+  const setReduced = (on) => { $('reduced').checked = on; rig.setReducedMotion(on); };
+  setReduced(mq.matches);
+  mq.addEventListener('change', (e) => setReduced(e.matches));
+  $('reduced').addEventListener('change', (e) => rig.setReducedMotion(e.target.checked));
+
+  for (const [, , line] of STATES) if (line) { audio[line] = new Audio(`audio/${line}.mp3`); audio[line].preload = 'auto'; }
+  buildUi();
+  window.__shekru = { rig, get frame() { return lastFrame; }, get audio() { return current; } };
+  requestAnimationFrame(tick);
+}
+
+let lastFrame = null;
+function tick(now) {
+  const dt = last == null ? 0 : Math.min(0.1, (now - last) / 1000);
+  last = now; clock += dt * speed;
+  const speaking = current && !current.paused && !current.ended;
+  const frame = rig.update(clock, { speechTime: speaking ? current.currentTime : undefined });
+  applyToDom(svg, frame, cache);
+  lastFrame = frame;
+  // ground shadow shrinks while he is in the air
+  const lift = -(frame.parts.shekru ? frame.parts.shekru.matrix[5] - (1 - frame.parts.shekru.matrix[3]) * 450.2 : 0);
+  const k = Math.max(0, Math.min(1, lift / 60));
+  $('shadow').style.transform = `scale(${1 - 0.3 * k})`;
+  $('shadow').style.opacity = String(1 - 0.45 * k);
+  if (uiState !== frame.state) markState(frame.state);
+  $('meta').textContent = `state ${frame.state} · mouth ${frame.viseme}${speaking ? ' · audio ' + current.currentTime.toFixed(2) + 's' : ''}`;
+  requestAnimationFrame(tick);
+}
+
+let uiState = null;
+function markState(name) {
+  uiState = name;
+  for (const b of $('states').children) b.classList.toggle('active', b.dataset.state === name);
+  $('turn').classList.toggle('on', name === 'listening');
+}
+
+function stopAudio() {
+  if (current) { current.pause(); current = null; }
+  rig.setSpeech(null);
+}
+function playLine(line) {
+  stopAudio();
+  const a = audio[line];
+  rig.setSpeech(visemes.clips.shekru[line].events);
+  a.currentTime = 0; a.playbackRate = speed;
+  current = a;
+  $('caption').textContent = visemes.lines[line];
+  return new Promise((resolve) => {
+    const done = () => { a.removeEventListener('ended', done); a.removeEventListener('pause', done); if (current === a) { current = null; rig.setSpeech(null); } resolve(); };
+    a.addEventListener('ended', done); a.addEventListener('pause', done);
+    a.play().catch((e) => { console.warn('audio blocked', e); done(); });
+  });
+}
+function chime() {
+  audioCtx ||= new (window.AudioContext || window.webkitAudioContext)();
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+  const t0 = audioCtx.currentTime + 0.02;
+  [[659.25, 0], [987.77, 0.13]].forEach(([freq, at]) => {
+    const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+    o.type = 'sine'; o.frequency.value = freq;
+    g.gain.setValueAtTime(0, t0 + at);
+    g.gain.linearRampToValueAtTime(0.16, t0 + at + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.0008, t0 + at + 0.55);
+    o.connect(g).connect(audioCtx.destination);
+    o.start(t0 + at); o.stop(t0 + at + 0.6);
+  });
+}
+// waits in animation time, so 0.5x also slows the holds
+const wait = (seconds, token) => new Promise((resolve) => {
+  const end = clock + seconds;
+  const poll = () => (token !== run || clock >= end ? resolve() : requestAnimationFrame(poll));
+  poll();
+});
+
+function show(state, withSound) {
+  rig.setState(state);
+  const line = LINE_OF[state];
+  if (line && withSound) return playLine(line);
+  stopAudio();
+  $('caption').textContent = line ? visemes.lines[line] : SILENT_CAPTION[state] ?? '';
+  if (state === 'listening' && withSound) chime();
+  return Promise.resolve();
+}
+
+async function playLesson() {
+  const token = ++run;
+  $('lesson').disabled = true; $('stop').disabled = false;
+  const items = [...$('steps').children];
+  items.forEach((li) => (li.className = ''));
+  for (let i = 0; i < LESSON.length && token === run; i++) {
+    const [state, line, hold] = LESSON[i];
+    items[i].className = 'now';
+    const started = clock;
+    await show(state, true);
+    if (token !== run) break;
+    // let one-shot gestures finish even when the line is shorter than the motion
+    const def = anim.states[state];
+    const min = line ? (def.loop ? 0 : def.duration) + 0.25 : hold;
+    await wait(Math.max(0, min - (clock - started)), token);
+    items[i].className = 'done';
+  }
+  if (token === run) { $('lesson').disabled = false; $('stop').disabled = true; }
+}
+function stopLesson(toIdle = true) {
+  run++; stopAudio();
+  $('lesson').disabled = false; $('stop').disabled = true;
+  [...$('steps').children].forEach((li) => (li.className = ''));
+  if (toIdle) { rig.setState('idle'); $('caption').innerHTML = '&nbsp;'; }
+}
+
+function buildUi() {
+  for (const [state, mr] of STATES) {
+    const b = document.createElement('button');
+    b.dataset.state = state;
+    b.innerHTML = `<span class="mr">${mr}</span><span class="en">${state}</span>`;
+    b.addEventListener('click', () => { stopLesson(false); show(state, $('sound').checked); });
+    $('states').appendChild(b);
+  }
+  for (const [state] of LESSON) {
+    const li = document.createElement('li');
+    li.textContent = STATES.find((s) => s[0] === state)[1];
+    $('steps').appendChild(li);
+  }
+  $('lesson').addEventListener('click', playLesson);
+  $('stop').addEventListener('click', () => stopLesson(true));
+  for (const b of document.querySelectorAll('[data-speed]')) {
+    b.addEventListener('click', () => {
+      speed = +b.dataset.speed;
+      document.querySelectorAll('[data-speed]').forEach((x) => x.classList.toggle('active', x === b));
+      if (current) current.playbackRate = speed;
+    });
+  }
+  let idleTimer = null;
+  $('idle60').addEventListener('change', (e) => {
+    clearInterval(idleTimer);
+    const on = e.target.checked;
+    for (const b of [...$('states').children, $('lesson')]) b.disabled = on;
+    $('idle60label').textContent = 'Show only idle for 60 s';
+    if (!on) return;
+    stopLesson(true);
+    for (const b of [...$('states').children, $('lesson')]) b.disabled = true;
+    let left = 60;
+    const paint = () => ($('idle60label').textContent = `Idle only: ${left} s left`);
+    paint();
+    idleTimer = setInterval(() => {
+      if (--left <= 0) { e.target.checked = false; e.target.dispatchEvent(new Event('change')); } else paint();
+    }, 1000);
+  });
+}
+
+boot().catch((err) => {
+  console.error(err);
+  $('meta').innerHTML = '<span class="err">Could not load. Serve this folder over http (python3 -m http.server) and reload.</span>';
+});
+</script>
+</body>
+</html>
