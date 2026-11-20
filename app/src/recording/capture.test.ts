@@ -1,7 +1,8 @@
+// GURU-10: the mic source resolves to Heard (TDD 2.2): the judge verdict maps to {kind, by: 'shekru'}; a tap passes through.
 import type { ClipJudge, Verdict } from '../asr/lessonJudge';
 import lessonsJson from '../content/generated/lessons.json';
 import type { AnswerSource } from '../lesson/answerSource';
-import type { Answer, Lesson } from '../lesson/types';
+import type { Heard, Lesson } from '../lesson/types';
 import { createMicSource, type CaptureContext, type ClipSink, type Mic } from './capture';
 import type { ClipMeta } from './clips';
 
@@ -87,8 +88,8 @@ function setup(opts: { context?: CaptureContext | null; verdict?: Verdict; judge
 }
 
 // Resolves to the answer, or 'pending' if the promise has not settled.
-const settle = async (p: Promise<Answer>) => {
-  let out: Answer | 'pending' = 'pending';
+const settle = async (p: Promise<Heard>) => {
+  let out: Heard | 'pending' = 'pending';
   void p.then((a) => (out = a));
   await flush();
   return out;
@@ -100,7 +101,7 @@ test('records after the chime, stops when the child goes quiet, and the judge de
   await flush();
   expect(log).toEqual(['prepare', 'record']);
   talk();
-  expect(await answer).toBe('wrong');
+  expect(await answer).toMatchObject({ kind: 'wrong', by: 'shekru' });
   expect(log).toEqual(['prepare', 'record', 'stop']);
   expect(judged).toEqual(['file:///cache/rec-1.wav']);
   expect(discarded).toEqual([]);
@@ -124,7 +125,7 @@ test('recording mode off: the take is judged, then deleted', async () => {
   const answer = source.listen(itemA, 'quiz');
   await flush();
   talk();
-  expect(await answer).toBe('correct');
+  expect(await answer).toMatchObject({ kind: 'correct', by: 'shekru' });
   expect(saved).toEqual([]);
   expect(discarded).toEqual(['file:///cache/rec-1.wav']);
 });
@@ -134,7 +135,7 @@ test('an unclear verdict is a silent answer', async () => {
   const answer = source.listen(itemA, 'quiz');
   await flush();
   talk();
-  expect(await answer).toBe('silent');
+  expect(await answer).toMatchObject({ kind: 'silent', by: 'shekru' });
 });
 
 test('a judge error counts as silent and is reported', async () => {
@@ -142,7 +143,7 @@ test('a judge error counts as silent and is reported', async () => {
   const answer = source.listen(itemA, 'quiz');
   await flush();
   talk();
-  expect(await answer).toBe('silent');
+  expect(await answer).toMatchObject({ kind: 'silent', by: 'shekru' });
   expect(errors).toEqual(['model missing']);
 });
 
@@ -154,7 +155,7 @@ test('nothing said: the mic stops after 4 s of quiet', async () => {
   expect(await settle(answer)).toBe('pending'); // 2 s: still waiting for speech
   feed(quiet);
   feed(quiet);
-  expect(await answer).toBe('silent');
+  expect(await answer).toMatchObject({ kind: 'silent', by: 'shekru' });
   expect(log).toEqual(['prepare', 'record', 'stop']);
   expect(judged).toHaveLength(1);
 });
@@ -218,19 +219,19 @@ test('a mic failure is reported and the lesson gets a silent answer', async () =
     { save: (_uri, meta) => { saved.push(meta); }, discard: () => {} },
     { startDelayMs: 0, judge: async () => judgement('correct'), context: () => CTX, onError: (e) => errors.push(e) },
   );
-  expect(await source.listen(itemA, 'teach')).toBe('silent');
+  expect(await source.listen(itemA, 'teach')).toMatchObject({ kind: 'silent', by: 'shekru' });
   expect(String(errors[0])).toContain('no permission');
   expect(saved).toEqual([]);
 });
 
 // Tester buttons without React.
 function fakeTester() {
-  let pending: ((a: Answer) => void) | null = null;
+  let pending: ((a: Heard) => void) | null = null;
   const source: AnswerSource = {
     listen: () => new Promise((r) => (pending = r)),
     cancel: () => (pending = null),
   };
-  return { source, give: (a: Answer) => pending?.(a) };
+  return { source, give: (a: Heard) => pending?.(a) };
 }
 
 test('tap mode: the tester button ends the take and is the answer; the judge scores alongside', async () => {
@@ -242,8 +243,8 @@ test('tap mode: the tester button ends the take and is the answer; the judge sco
   feed(quiet);
   feed(quiet); // silence does not end a tap-mode take
   expect(await settle(answer)).toBe('pending');
-  tester.give('correct');
-  expect(await answer).toBe('correct');
+  tester.give({ kind: 'correct', by: 'tap' });
+  expect(await answer).toEqual({ kind: 'correct', by: 'tap' });
   await flush();
   expect(log).toEqual(['prepare', 'record', 'stop']);
   expect(judged).toHaveLength(1);

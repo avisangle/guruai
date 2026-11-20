@@ -1,0 +1,136 @@
+{
+  "template_id": "tpl_test_words",
+  "title": "Test words",
+  "version": 1,
+  "status": "draft",
+  "lines": {
+    "intro": "चल, आज शब्द शिकूया!",
+    "quiz_intro": "आता मी विचारतो, तू सांग!",
+    "outro": "छान खेळलास! उद्या भेटू!"
+  },
+  "items": [
+    {
+      "id": "apple",
+      "item_key": "en:word:apple",
+      "display": "Apple",
+      "kind": "word",
+      "target_lang": "en",
+      "ask_direction": "picture_to_target",
+      "anchor": { "word": "ॲपल", "picture": "apple" },
+      "assessment": {
+        "mode": "say_word",
+        "expected": ["ॲपल"],
+        "accepted_variants": ["सफरचंद", "सेब"],
+        "langs": { "सफरचंद": ["mr"], "सेब": ["hi"] }
+      },
+      "lines": {
+        "teach_mr_led": "हे सफरचंद. इंग्लिशमध्ये ॲपल! आता तू म्हण!",
+        "teach_en_led": "धिस इज ॲन ॲपल. ॲपल! आता तू म्हण!",
+        "ask": "हे काय आहे? इंग्लिशमध्ये?",
+        "hint": "सफरचंद... इंग्लिशमध्ये?",
+        "correct": "हो, ॲपल!",
+        "ack_meaning": "हो, सफरचंद! इंग्लिशमध्ये?",
+        "model_mr": "सफरचंद"
+      },
+      "captions": {
+        "teach_mr_led": "हे सफरचंद. इंग्लिशमध्ये Apple! आता तू म्हण!",
+        "teach_en_led": "This is an apple. Apple! आता तू म्हण!",
+        "correct": "हो, Apple!"
+      }
+    },
+    {
+      "id": "cat",
+      "item_key": "en:word:cat",
+      "display": "Cat",
+      "kind": "word",
+      "target_lang": "en",
+      "ask_direction": "picture_to_target",
+      "anchor": { "word": "कॅट", "picture": "cat" },
+      "assessment": {
+        "mode": "say_word",
+        "expected": ["कॅट"],
+        "accepted_variants": ["मांजर", "बिल्ली"],
+        "langs": { "मांजर": ["mr"], "बिल्ली": ["hi"] }
+      },
+      "lines": {
+        "teach_mr_led": "ही मांजर. इंग्लिशमध्ये कॅट! आता तू म्हण!",
+        "teach_en_led": "धिस इज अ कॅट. कॅट! आता तू म्हण!",
+        "ask": "हे कोण आहे? इंग्लिशमध्ये?",
+        "hint": "मांजर... इंग्लिशमध्ये?",
+        "correct": "हो, कॅट!",
+        "ack_meaning": "हो, मांजर! इंग्लिशमध्ये?",
+        "model_mr": "मांजर"
+      },
+      "captions": {
+        "teach_mr_led": "ही मांजर. इंग्लिशमध्ये Cat! आता तू म्हण!",
+        "teach_en_led": "This is a cat. Cat! आता तू म्हण!",
+        "correct": "हो, Cat!"
+      }
+    },
+    {
+      "id": "tree",
+      "item_key": "mr:word:झाड",
+      "display": "Tree",
+      "kind": "word",
+      "target_lang": "mr",
+      "ask_direction": "word_to_meaning",
+      "anchor": { "word": "झाड", "picture": "tree" },
+      "assessment": {
+        "mode": "say_word",
+        "expected": ["झाड"],
+        "accepted_variants": ["पेड़"],
+        "langs": { "पेड़": ["hi"] }
+      },
+      "lines": {
+        "teach_mr_led": "हे झाड. झाड! आता तू म्हण!",
+        "teach_en_led": "ट्री म्हणजे झाड. झाड! आता तू म्हण!",
+        "ask": "ट्री म्हणजे काय?",
+        "hint": "हिरवी पानं, उंच उंच... काय आहे?",
+        "correct": "हो, झाड!",
+        "ack_meaning": "हो! मराठीत?",
+        "model_mr": "मराठीत झाड. झाड! आता तू म्हण!"
+      },
+      "captions": {
+        "teach_en_led": "Tree म्हणजे झाड. झाड! आता तू म्हण!",
+        "ask": "Tree म्हणजे काय?"
+      }
+    },
+    {
+      "id": "water",
+      "item_key": "mr:word:पाणी",
+      "display": "Water",
+      "kind": "word",
+      "target_lang": "mr",
+      "ask_direction": "word_to_meaning",
+      "ambiguous_lang": true,
+      "anchor": { "word": "पाणी", "picture": "water" },
+      "assessment": {
+        "mode": "say_word",
+        "expected": ["पाणी"],
+        "accepted_variants": ["पानी"],
+        "langs": { "पानी": ["hi"] }
+      },
+      "lines": {
+        "teach_mr_led": "हे पाणी. पाणी! आता तू म्हण!",
+        "teach_en_led": "वॉटर म्हणजे पाणी. पाणी! आता तू म्हण!",
+        "ask": "वॉटर म्हणजे काय?",
+        "hint": "आपण पितो ते... काय?",
+        "correct": "हो, पाणी!",
+        "ack_meaning": "हो! मराठीत?",
+        "model_mr": "मराठीत पाणी. पाणी! आता तू म्हण!"
+      },
+      "captions": {
+        "teach_en_led": "Water म्हणजे पाणी. पाणी! आता तू म्हण!",
+        "ask": "Water म्हणजे काय?"
+      }
+    }
+  ],
+  "flow": [
+    { "play": "intro", "state": "hello" },
+    { "phase": "teach", "order": ["Apple", "Cat", "Tree", "Water"] },
+    { "play": "quiz_intro", "state": "talking" },
+    { "phase": "quiz", "order": ["Apple", "Tree", "Cat", "Water"] },
+    { "phase": "retry" },
+    { "play": "outro", "state": "bye" }
+  ]
+}
