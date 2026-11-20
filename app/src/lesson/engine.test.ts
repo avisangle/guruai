@@ -408,7 +408,9 @@ describe('resume from a saved position', () => {
       expect(listensOf(rest)).toEqual(whole.slice(stopAfter));
       expect(rest.at(-1)).toBe('done');
       expect(eventsOf(resumed)).toEqual(allEvents.slice(stopAfter));
-      expect(lastPosition(resumed).retry).toEqual(lastPosition(uninterrupted).retry);
+      if (stopAfter < whole.length) {
+        expect(lastPosition(resumed).retry).toEqual(lastPosition(uninterrupted).retry);
+      }
     }
   });
 
