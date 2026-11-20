@@ -27,9 +27,10 @@ const langsOf = (item: Item, text: string): Lang[] => item.assessment.langs?.[te
 
 /**
  * Every answer of every item, in lesson order, each text once with every item and language tag; then
- * their child sound swaps (childSwaps), each with its own token ids.
+ * their child sound swaps (childSwaps), each with its own token ids. keep filters texts before and after
+ * swapping, so a dropped answer takes its swaps with it.
  */
-export function lessonCandidates(items: Item[]): Candidate[] {
+export function lessonCandidates(items: Item[], keep = (_text: string) => true): Candidate[] {
   const out = new Map<string, Omit<Candidate, 'ids'>>();
   for (const it of items) {
     for (const text of new Set([...it.assessment.expected, ...it.assessment.accepted_variants])) {
@@ -39,7 +40,8 @@ export function lessonCandidates(items: Item[]): Candidate[] {
       else out.set(text, { item_id: it.id, display: it.display, text, tags });
     }
   }
-  return childSwaps([...out.values()]).map((c) => {
+  const kept = (c: { text: string }) => keep(c.text);
+  return childSwaps([...out.values()].filter(kept)).filter(kept).map((c) => {
     const ids = TOKENS[c.text];
     if (!ids) throw new Error(`no tokens for "${c.text}": run tools/stt_bench/asr_tokens.py`);
     return { ...c, ids };
@@ -78,14 +80,14 @@ function match(item: Item, choice: string, text: string | undefined): Heard {
 }
 
 /**
- * A quiz listen drops the candidates Shekru just said (whole words of the prompt), so a child echoing the
- * hint word is not praised. Teach listens (repeat after me) keep them all.
+ * A quiz listen drops the candidates Shekru just said (whole words of the prompt) and their child sound
+ * swaps ("रॅबिट" takes "लॅबिट"), so a child echoing the hint word is not praised. Teach listens (repeat
+ * after me) keep them all.
  */
 function listenCandidates(listen: Listen, items: Item[]): Candidate[] {
-  const candidates = lessonCandidates(items);
-  if (listen.kind !== 'quiz') return candidates;
+  if (listen.kind !== 'quiz') return lessonCandidates(items);
   const prompt = ` ${normalise(listen.prompt)} `;
-  return candidates.filter((c) => !prompt.includes(` ${normalise(c.text)} `));
+  return lessonCandidates(items, (text) => !prompt.includes(` ${normalise(text)} `));
 }
 
 /** Judges a 16 kHz mono WAV clip; never throws (errors come back in the result). */
