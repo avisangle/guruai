@@ -41,10 +41,9 @@ export type DeviceUpdate = Partial<Pick<Device, 'parent_lang' | 'mic_last_grante
 const DEVICE_UPDATABLE = ['parent_lang', 'mic_last_granted_at'] as const satisfies readonly (keyof DeviceUpdate)[];
 
 /** Updates the given fields of the device row (created first if missing). */
-export function updateDevice(db: Db, patch: DeviceUpdate): Device {
+export function updateDevice(db: Db, patch: DeviceUpdate): void {
   getDevice(db);
   const columns = DEVICE_UPDATABLE.filter((c) => patch[c] !== undefined);
   const sets = [...columns.map((c) => `${c} = ?`), 'updated_at = ?'].join(', ');
   db.run(`UPDATE device SET ${sets}`, [...columns.map((c) => patch[c] ?? null), now()]);
-  return getDevice(db);
 }

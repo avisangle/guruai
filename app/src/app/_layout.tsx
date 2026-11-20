@@ -1,7 +1,7 @@
 import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { appDb } from '../data/appDb';
@@ -25,13 +25,14 @@ function readStart(): { lang: UiLang; hasChild: boolean } {
   }
 }
 
+const saveLang = (lang: UiLang) => updateDevice(appDb(), { parent_lang: lang });
+
 export default function RootLayout() {
   const [loaded, error] = useFonts(fontFiles);
   const ready = loaded || error != null; // on a load error, render with system fonts
   const [start] = useState(readStart);
   const [hasChild, setHasChild] = useState(start.hasChild);
   const firstRun = useMemo(() => ({ childAdded: () => setHasChild(true) }), []);
-  const saveLang = useCallback((lang: UiLang) => updateDevice(appDb(), { parent_lang: lang }), []);
 
   useEffect(() => {
     // Runs in the background; a missing CDN base or a bad manifest leaves the bundled content only.

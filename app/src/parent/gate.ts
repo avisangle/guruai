@@ -49,6 +49,10 @@ export function createGate({ db, auth, secureStore, crypto, now }: GateDeps) {
     return (await auth.getEnrolledLevelAsync()) >= SecurityLevel.SECRET;
   }
 
+  async function strongBiometricsAvailable() {
+    return (await auth.getEnrolledLevelAsync()) >= SecurityLevel.BIOMETRIC_STRONG;
+  }
+
   async function checkPin(pin: string, at: number): Promise<PinResult> {
     const current = row();
     const until = current.lockout_until ? Date.parse(current.lockout_until) : 0;
@@ -80,6 +84,9 @@ export function createGate({ db, auth, secureStore, crypto, now }: GateDeps) {
     },
 
     deviceLockAvailable,
+
+    /** Whether recoverWithBiometrics can work on this phone. */
+    strongBiometricsAvailable,
 
     /** Decision 25: device mode with no screen lock on the phone must set up a PIN. */
     async state(): Promise<GateState> {
@@ -113,7 +120,7 @@ export function createGate({ db, auth, secureStore, crypto, now }: GateDeps) {
      * can set a new PIN. False with no prompt when the phone has no strong biometrics.
      */
     async recoverWithBiometrics(promptMessage?: string): Promise<boolean> {
-      if ((await auth.getEnrolledLevelAsync()) < SecurityLevel.BIOMETRIC_STRONG) return false;
+      if (!(await strongBiometricsAvailable())) return false;
       const result = await auth.authenticateAsync({
         promptMessage,
         disableDeviceFallback: true,

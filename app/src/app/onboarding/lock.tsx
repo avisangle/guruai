@@ -1,12 +1,12 @@
 // First run 2 of 3: parent lock. The phone's screen lock by default; a GuruAI PIN, set and
 // confirmed here, when chosen or when the phone has no screen lock (D-GURU-13-parent-gate).
-import { getEnrolledLevelAsync, SecurityLevel } from 'expo-local-authentication';
 import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { StyleSheet } from 'react-native';
 
 import type { GateMode } from '../../parent/gate';
 import { appGate } from '../../parent/appGate';
+import { isValidPin } from '../../parent/pin';
 import { Button } from '../../ui/components/Button';
 import { Choice } from '../../ui/components/Choice';
 import { Field } from '../../ui/components/Field';
@@ -30,13 +30,14 @@ export default function Lock() {
 
   useEffect(() => {
     let live = true;
-    Promise.all([appGate().deviceLockAvailable(), getEnrolledLevelAsync()])
+    const gate = appGate();
+    Promise.all([gate.deviceLockAvailable(), gate.strongBiometricsAvailable()])
       // An unreadable lock state is treated as no screen lock: the PIN is the safe side.
-      .catch((): [boolean, number] => [false, SecurityLevel.NONE])
-      .then(([available, level]) => {
+      .catch(() => [false, false])
+      .then(([available, strong]) => {
         if (!live) return;
         setDeviceLock(available);
-        setStrongBiometrics(level >= SecurityLevel.BIOMETRIC_STRONG);
+        setStrongBiometrics(strong);
         if (!available) setChoice('pin');
       });
     return () => {
@@ -49,7 +50,7 @@ export default function Lock() {
     setPin(nextPin);
     setAgain(nextAgain);
     if (nextAgain) setMismatch(false);
-    if (nextPin.length < 4 || nextAgain.length < 4) return;
+    if (!isValidPin(nextPin) || !isValidPin(nextAgain)) return;
     if (nextPin !== nextAgain) {
       setMismatch(true);
       setAgain('');
