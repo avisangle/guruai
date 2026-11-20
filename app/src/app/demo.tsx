@@ -14,6 +14,8 @@ const STATES: [string, string, string | null][] = [
   ['hello', 'नमस्कार', 'hello'], ['idle', 'शांत', null], ['talking', 'बोलणे', 'teach'], ['listening', 'ऐकणे', null],
   ['thinking', 'विचार', null], ['correct', 'बरोबर', 'correct'], ['tryagain', 'पुन्हा', 'tryagain'], ['hint', 'मदत', 'hint'],
   ['nohear', 'ऐकू आलं नाही', 'nohear'], ['bye', 'बाय', 'bye'],
+  // surprises: silent one-shots
+  ['sneeze', 'शिंक', null], ['dropnut', 'दाणा पडला', null], ['dance', 'नाच', null], ['celebrate', 'जल्लोष', null],
 ];
 const LINE_OF = Object.fromEntries(STATES.map(([s, , l]) => [s, l]));
 const SILENT_CAPTION: Record<string, string> = { listening: 'तुझी पाळी! बोल…', thinking: 'हम्म…' };
