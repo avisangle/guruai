@@ -1,13 +1,13 @@
 // Listening turns from the microphone. After the chime the mic records until the
 // endpointer says the answer is over (or nothing was said), the on-device judge scores
-// the take, and its verdict is the child's answer. In recording mode the take is kept as
+// the take, and its Heard is the child's answer. In recording mode the take is kept as
 // a clip labelled by the judge; otherwise it is deleted.
 // Tap mode (tester switch): the tester's button ends the take and is the answer; the judge
 // still scores the clip, for comparison. Mic, storage and judge are injected for tests.
 import { createEndpointer, MAX_MS, type EndReason, type Endpointer } from '../asr/endpoint';
-import type { ClipJudge, Verdict } from '../asr/lessonJudge';
+import type { ClipJudge } from '../asr/lessonJudge';
 import type { AnswerSource } from '../lesson/answerSource';
-import type { Answer, Heard, Item } from '../lesson/types';
+import type { Answer, Heard, Listen } from '../lesson/types';
 import { clipId, clipMeta, compactStamp, type ClipMeta } from './clips';
 
 export type Mic = {
@@ -26,14 +26,13 @@ export type ClipSink = {
 // Who is being recorded; null when recording mode is off.
 export type CaptureContext = { child: string; age: number | null; templateId: string };
 
-const ANSWER: Record<Verdict, Answer> = { correct: 'correct', wrong: 'wrong', unclear: 'silent' };
-const fromJudge = (kind: Answer): Heard => ({ kind, by: 'shekru' });
+const SILENT: Heard = { kind: 'silent', by: 'shekru' };
 // Clip label: a right meaning is one of the item's accepted answers, so the bench scores it correct.
 const label = (heard: Heard): Answer => (heard.kind === 'meaning' ? 'correct' : heard.kind);
 
 export function createMicSource(mic: Mic, sink: ClipSink, opts: {
   startDelayMs: number; // let the chime finish before the mic opens
-  judge(uri: string, item: Item): Promise<ClipJudge>;
+  judge(uri: string, listen: Listen): Promise<ClipJudge>; // the prompt's words are not candidates
   context(): CaptureContext | null;
   tapped?: () => AnswerSource | null; // the tester's buttons, in tap mode
   now?: () => Date;
@@ -54,7 +53,8 @@ export function createMicSource(mic: Mic, sink: ClipSink, opts: {
   };
 
   return {
-    listen(item, kind) {
+    listen(step) {
+      const { item, kind } = step;
       const mine = ++turn;
       const live = () => mine === turn;
       const asked = Date.now();
@@ -82,7 +82,7 @@ export function createMicSource(mic: Mic, sink: ClipSink, opts: {
                 r('end');
               });
               if (tester) {
-                void tester.listen(item, kind).then((a) => {
+                void tester.listen(step).then((a) => {
                   tapped = a;
                   r('end');
                 });
@@ -96,13 +96,13 @@ export function createMicSource(mic: Mic, sink: ClipSink, opts: {
             const take = await mic.stop();
             open = false;
             if (!live()) return discard(take.uri);
-            if (!take.uri) return resolve(tapped ?? fromJudge('silent')); // nothing captured
+            if (!take.uri) return resolve(tapped ?? SILENT); // nothing captured
             if (tapped) resolve(tapped); // the lesson goes on while the judge scores the clip
 
-            const judge = await opts.judge(take.uri, item);
+            const judge = await opts.judge(take.uri, step);
             if (!tapped && !live()) return discard(take.uri);
             if (judge.error) opts.onError?.(judge.error);
-            const answer = tapped ?? fromJudge(judge.error ? 'silent' : ANSWER[judge.verdict]);
+            const answer = tapped ?? (judge.error ? SILENT : judge.heard);
             const clipLabel = label(answer);
             const ctx = opts.context();
             let meta: ClipMeta | null = null;
@@ -120,6 +120,7 @@ export function createMicSource(mic: Mic, sink: ClipSink, opts: {
                   kind,
                   label: clipLabel,
                   labelBy: tapped ? undefined : 'judge',
+                  matched: judge.heard,
                   recordedAt: started,
                   durationMs: take.durationMs || now().getTime() - started.getTime(),
                 }),
@@ -137,7 +138,7 @@ export function createMicSource(mic: Mic, sink: ClipSink, opts: {
               open = false;
               discard((await mic.stop().catch(() => ({ uri: null }))).uri);
             }
-            if (live()) resolve(fromJudge('silent')); // the lesson goes on: a broken mic counts as no answer
+            if (live()) resolve(SILENT); // the lesson goes on: a broken mic counts as no answer
           } finally {
             if (open && !live()) discard((await mic.stop().catch(() => ({ uri: null }))).uri);
           }

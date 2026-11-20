@@ -1,6 +1,7 @@
 // Closed-set judge: port of decide() in tools/stt_bench/providers/indicconformer.py (without the
 // opt-in vowel-length feature). Picks one lesson candidate, "other" or "nothing" from CTC log-probs.
 import { ctcLogLikelihood, ctcRepeatLogLikelihoods, decode, greedy, type LogProbs } from './ctc';
+import type { Lang } from '../lesson/types';
 import { normalise } from './normalise';
 
 // Same constants as the Python judge (D-STT-other-margin for the margin; the rest uncalibrated, pending.md).
@@ -15,9 +16,13 @@ export const UNSURE_PER_TOKEN = -10;
 // "<letter> for <any word>" ("ए फॉर एरोप्लेन"): the letter decides, the word is ignored (D-STT-letter-for-any-word).
 const FOR_WORDS = new Set(['फॉर', 'फोर', 'फर']); // how the model writes "for"
 
-export type Candidate = { item_id: string; display: string; text: string; ids: number[] };
+// Who an answer text belongs to and in which language. A text shared by items or languages carries every tag.
+export type Tag = { item_id: string; display: string; lang: Lang };
+// item_id and display are the first tag's: they decide choice, as in the Python judge.
+export type Candidate = { item_id: string; display: string; text: string; ids: number[]; tags: Tag[] };
 export type Judgement = {
   choice: string; // a candidate's display letter, "other" or "nothing"
+  text?: string; // the chosen candidate's text; absent for "other" and "nothing"
   scores: Record<string, number>; // candidate text -> CTC log-likelihood
   free: string; // greedy decode
   note: string;
@@ -98,12 +103,12 @@ export function decide(lp: LogProbs, wav: Float32Array, candidates: Candidate[],
   const byAnswer = new Map<string, Candidate>(); // later texts win, as the Python dict
   for (let k = 1; k <= REPEATS; k++) for (const c of candidates) byAnswer.set(normalise(Array(k).fill(c.text).join(' ')), c);
   const same = byAnswer.get(normalise(free));
-  if (same) return { choice: same.display, scores, free, note, unsure };
+  if (same) return { choice: same.display, text: same.text, scores, free, note, unsure };
   if (margin > OTHER_MARGIN_PER_TOKEN) {
     const hit = anyWord(lp, freeIds, freeLl, candidates, pieces);
     const tagged = hit ? `${note} any_word=${JSON.stringify(hit.best.text)}:${hit.margin.toFixed(2)}` : note;
     if (!hit || hit.margin > OTHER_MARGIN_PER_TOKEN) return { choice: freeIds.length ? 'other' : 'nothing', scores, free, note: tagged, unsure };
-    return { choice: hit.best.display, scores, free, note: tagged, unsure };
+    return { choice: hit.best.display, text: hit.best.text, scores, free, note: tagged, unsure };
   }
-  return { choice: best.display, scores, free, note, unsure };
+  return { choice: best.display, text: best.text, scores, free, note, unsure };
 }

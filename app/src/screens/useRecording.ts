@@ -118,7 +118,7 @@ export function useRecording(templateId: string, items: Item[], inner: AnswerSou
     };
     const judged = createMicSource(device, clipSink, {
       startDelayMs: CHIME_MS,
-      judge: (uri, item) => judgeClip(uri, item, itemsRef.current),
+      judge: (uri, listen) => judgeClip(uri, listen, itemsRef.current),
       context: () => context.current,
       tapped: () => (tapRef.current ? inner : null),
       onJudged: (judge, answer, saved, tapped) => {
@@ -131,7 +131,7 @@ export function useRecording(templateId: string, items: Item[], inner: AnswerSou
     // tap mode records only in recording mode, as before the judge drove lessons
     const useMic = () => (tapRef.current ? context.current != null && micRef.current === 'granted' : judgeReady());
     return {
-      listen: (item, kind) => (useMic() ? judged : inner).listen(item, kind),
+      listen: (step) => (useMic() ? judged : inner).listen(step),
       cancel: () => {
         judged.cancel();
         inner.cancel();

@@ -3,7 +3,8 @@
 import { strToU8, zipSync, type Zippable } from 'fflate';
 
 import type { ClipJudge } from '../asr/lessonJudge';
-import type { Answer, Item, ListenKind } from '../lesson/types';
+import { matchedOf } from '../lesson/engine';
+import type { Answer, Heard, Item, Lang, ListenKind } from '../lesson/types';
 
 // One manifest entry. Key order follows docs/clip-export.md.
 export type ClipMeta = {
@@ -20,6 +21,8 @@ export type ClipMeta = {
   kind: ListenKind;
   label: Answer;
   label_by?: 'judge'; // absent: the tester's tap (clips before the judge drove lessons)
+  matched_text?: string; // the answer text the judge matched; absent for other and nothing
+  matched_lang?: Lang; // its language, when it is the asked item's answer
   recorded_at: string;
   duration_ms: number;
   judge?: ClipJudge; // the on-device judge's verdict on this clip
@@ -62,6 +65,7 @@ export function clipMeta(args: {
   kind: ListenKind;
   label: Answer;
   labelBy?: 'judge';
+  matched?: Heard; // the judge's Heard
   recordedAt: Date;
   durationMs: number;
 }): ClipMeta {
@@ -80,6 +84,7 @@ export function clipMeta(args: {
     kind: args.kind,
     label: args.label,
     ...(args.labelBy ? { label_by: args.labelBy } : {}),
+    ...(args.matched ? matchedOf(args.matched) : {}),
     recorded_at: isoSeconds(args.recordedAt),
     duration_ms: Math.max(0, Math.round(args.durationMs)),
   };
