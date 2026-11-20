@@ -1,6 +1,7 @@
 // Which praise or closing family a moment calls for (PRD Tutor variety 2).
+import type { Family } from './lines';
 
-export type PraiseFamily = 'praise_first' | 'praise_hint' | 'praise_streak' | 'praise_comeback';
+export type PraiseFamily = Extract<Family, `praise_${string}`>;
 
 export type PraiseMoment = {
   attempt: number; // 1 = first try
@@ -16,6 +17,6 @@ export function praiseFamily({ attempt, streak, previousMissed }: PraiseMoment):
   return 'praise_first';
 }
 
-export function endFamily(missedAny: boolean): 'end_misses' | 'end_all' {
+export function endFamily(missedAny: boolean): Extract<Family, `end_${string}`> {
   return missedAny ? 'end_misses' : 'end_all';
 }

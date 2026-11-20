@@ -53,11 +53,11 @@ export function shuffleQuiz(displays: string[], rng: () => number): string[] {
 export function interleaveRevision(newIds: string[], revisionIds: string[], rng: () => number): string[] {
   const gaps = Math.max(newIds.length - 1, 0);
   const chosen = new Set(fisherYates([...Array(gaps).keys()], rng).slice(0, revisionIds.length));
-  const rev = [...revisionIds];
   const out: string[] = [];
+  let k = 0;
   newIds.forEach((id, i) => {
     out.push(id);
-    if (chosen.has(i)) out.push(rev.shift()!);
+    if (chosen.has(i)) out.push(revisionIds[k++]);
   });
-  return [...out, ...rev];
+  return [...out, ...revisionIds.slice(k)];
 }
