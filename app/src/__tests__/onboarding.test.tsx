@@ -35,7 +35,7 @@
 import { createElement as h } from 'react';
 import { Text } from 'react-native';
 import { render } from '@testing-library/react-native';
-import { act, cleanup, fireEvent, renderRouter, screen, waitFor } from 'expo-router/testing-library';
+import { act, fireEvent, renderRouter, screen, waitFor } from 'expo-router/testing-library';
 
 import { openDb, type Db } from '../data/db';
 import { getDevice } from '../data/device';
@@ -220,20 +220,21 @@ beforeEach(() => {
 });
 
 describe('GURU-24 onboarding', () => {
-  test('root routing: with no child profile the app opens at the welcome screen in Marathi; with one it never does', async () => {
+  test('no child profile opens the welcome screen in Marathi', async () => {
     const first = await renderRouter(routes(), { initialUrl: '/' });
     await expectPath(first, '/onboarding/welcome');
     expect(await screen.findByText(mr.getStarted)).toBeTruthy();
     expect(screen.getByText(mr.langMr)).toBeTruthy();
     expect(screen.getByText(mr.langEn)).toBeTruthy();
     expect(screen.queryByText('child-picker')).toBeNull();
-    cleanup();
+  });
 
+  test('with a child profile it never does', async () => {
     createChild(db, { nickname: 'Chinu', picture: 'any', class: 'UKG', medium: 'mr' });
     const second = await renderRouter(routes(), { initialUrl: '/' });
     expect(await screen.findByText('child-picker')).toBeTruthy();
     await act(async () => {
-      await new Promise((r) => setTimeout(r, 50)); // let any late redirect run
+      jest.advanceTimersByTime(50); // let any late redirect run
     });
     expect(second.getPathname()).toBe('/');
     expect(screen.queryByText(mr.getStarted)).toBeNull();
@@ -337,7 +338,7 @@ describe('GURU-24 onboarding', () => {
       fireEvent.press(next);
     }
     await act(async () => {
-      await new Promise((r) => setTimeout(r, 50));
+      jest.advanceTimersByTime(50);
     });
     expect(router.getPathname()).toBe('/onboarding/lock');
     expect(screen.getByTestId('pin-new')).toBeTruthy();
@@ -377,7 +378,7 @@ describe('GURU-24 onboarding', () => {
     expect(await screen.findByTestId('pin-mismatch')).toBeTruthy();
     expect(screen.getByTestId('pin-again').props.value ?? '').toBe('');
     await act(async () => {
-      await new Promise((r) => setTimeout(r, 50));
+      jest.advanceTimersByTime(50);
     });
     expect(router.getPathname()).toBe('/onboarding/lock');
     expect(gateMode()).toBe('device');
@@ -397,7 +398,7 @@ describe('GURU-24 onboarding', () => {
     await fillWho({ nickname: '   ', cls: 'Nursery', medium: 'mr' });
     fireEvent.press(screen.getByTestId('who-handover'));
     await act(async () => {
-      await new Promise((r) => setTimeout(r, 50));
+      jest.advanceTimersByTime(50);
     });
     expect(router.getPathname()).toBe('/onboarding/who');
     expect(childCount()).toBe(0);
