@@ -19,8 +19,6 @@ function randomChildCode(): string {
   return Array.from(getRandomBytes(4), (b) => CODE_ALPHABET[b % 32]).join('');
 }
 
-const JSON_COLUMNS = new Set(['goals', 'setup_done']);
-
 // Whitelist: column names are interpolated into SQL.
 const UPDATABLE = [
   'nickname',
@@ -92,9 +90,11 @@ export function createChild(db: Db, input: NewChild, ids: Ids = {}): ChildProfil
 /** Updates the given fields; returns the updated child, or null if the id is unknown. */
 export function updateChild(db: Db, id: string, patch: ChildUpdate): ChildProfile | null {
   const columns = UPDATABLE.filter((c) => patch[c] !== undefined);
-  const values: SqlParam[] = columns.map((c) =>
-    JSON_COLUMNS.has(c) ? JSON.stringify(patch[c]) : (patch[c] as SqlParam),
-  );
+  // Array fields (goals, setup_done) are stored as JSON text.
+  const values: SqlParam[] = columns.map((c) => {
+    const v = patch[c];
+    return Array.isArray(v) ? JSON.stringify(v) : (v as SqlParam);
+  });
   const sets = [...columns.map((c) => `${c} = ?`), 'updated_at = ?'].join(', ');
   db.run(`UPDATE child_profile SET ${sets} WHERE id = ?`, [...values, now(), id]);
   return getChild(db, id);

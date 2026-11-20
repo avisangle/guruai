@@ -1,4 +1,4 @@
-// The single device row: created on first read.
+// The single device row: created on first read; parent_lang defaults to 'mr' in the schema.
 import { randomUUID } from 'expo-crypto';
 
 import { now, type Db } from './db';
@@ -22,14 +22,15 @@ function toDevice(row: DeviceRow): Device {
 }
 
 export function getDevice(db: Db, ids: Ids = {}): Device {
-  const existing = db.get<DeviceRow>('SELECT * FROM device LIMIT 1');
-  if (existing) return toDevice(existing);
-
-  const uuid = ids.uuid ?? randomUUID;
-  const at = now();
-  db.run(
-    "INSERT INTO device (id, device_id, parent_lang, created_at, updated_at) VALUES (?, ?, 'mr', ?, ?)",
-    [uuid(), uuid(), at, at],
-  );
+  if (!db.get('SELECT 1 FROM device')) {
+    const uuid = ids.uuid ?? randomUUID;
+    const at = now();
+    db.run('INSERT INTO device (id, device_id, created_at, updated_at) VALUES (?, ?, ?, ?)', [
+      uuid(),
+      uuid(),
+      at,
+      at,
+    ]);
+  }
   return toDevice(db.get<DeviceRow>('SELECT * FROM device LIMIT 1')!);
 }

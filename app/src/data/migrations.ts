@@ -118,12 +118,10 @@ const MIGRATIONS: string[] = [
 /** Applies every migration above the database's user_version, each in its own transaction. */
 export function migrate(db: Db): void {
   const current = db.get<{ user_version: number }>('PRAGMA user_version')!.user_version;
-  MIGRATIONS.forEach((sql, i) => {
-    const version = i + 1;
-    if (version <= current) return;
+  for (let version = current + 1; version <= MIGRATIONS.length; version++) {
     db.transaction(() => {
-      db.exec(sql);
+      db.exec(MIGRATIONS[version - 1]);
       db.exec(`PRAGMA user_version = ${version}`);
     });
-  });
+  }
 }
