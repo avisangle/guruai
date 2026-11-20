@@ -1,5 +1,6 @@
 // Shapes of content/lessons/<template>.json and content/prompts/<lang>.json.
 import type { StyleLevel } from '../data/types';
+import type { SURPRISE_STATES } from '../shekru/contract';
 
 export type Anchor = { word: string; picture: string };
 
@@ -91,7 +92,14 @@ export type Say = {
 };
 // prompt: voice text of the line that opened the mic (the judge ignores words in it)
 export type Listen = { type: 'listen'; item: Item; kind: ListenKind; showAnchor: boolean; prompt: string };
-export type Step = Say | Listen | { type: 'done' };
+// Between two items (D-GURU-19-tutor-variety): a silent one-shot state, then for all but
+// celebrate a surprise_line joke or fact the player speaks over talking (D-GURU-7-tutor-state-contract).
+export type SurpriseState = (typeof SURPRISE_STATES)[number];
+export type Surprise = { type: 'surprise'; state: SurpriseState; line?: string; text?: string };
+export type Step = Say | Listen | Surprise | { type: 'done' };
+
+// An item from another lesson, asked in this lesson's quiz.
+export type RevisionItem = { template_id: string; item: Item };
 
 // Where the child is in one lesson. Saved after every answer.
 export type Position = {
@@ -105,7 +113,12 @@ export type Position = {
   bridged?: boolean; // the current word item already had its bridge step (a right meaning)
   followup?: 'ask' | 'model'; // Hindi follow-up turn on a Marathi-target item: asked, or word modelled
   retry: string[]; // item ids missed in the quiz
-  last: Record<string, string>; // last variant used per family (ok, ask, wrong)
+  last: Record<string, string[]>; // shared line family -> its last 5 picks, oldest first
+  quiz?: string[]; // this run's quiz order: item ids, revision items as `<template_id>.<id>`
+  streak?: number; // correct scored answers in a row
+  missedLast?: boolean; // the previous scored item ended in a miss
+  missed?: boolean; // some scored item ended in a miss
+  surprise?: { flow: number; index: number }; // the item the run's surprise plays before, until it plays
 };
 
 // Word-item teaching style, picked once per lesson from the child's level.
