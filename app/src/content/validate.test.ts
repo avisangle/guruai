@@ -13,6 +13,7 @@ import path from 'node:path';
 
 import tokensJson from '../asr/generated/mr-tokens.json';
 import generatedLessons from './generated/lessons.json';
+import { FAMILIES } from '../lesson/lines';
 import type { DecidedBy, Heard, Item, ItemKind, Lang, Lesson, Prompts } from '../lesson/types';
 import { validateContent } from './validate';
 
@@ -20,6 +21,15 @@ const APP = path.join(__dirname, '../..');
 const ROOT = path.join(APP, '..');
 const TOKENS = tokensJson.tokens as Record<string, number[]>;
 const NO_PROMPTS: Prompts = { lines: {} };
+// GURU-11: shared pools with every family of FAMILIES at exactly its minimum, ids `<family>_<n>`.
+// The lesson tests pass these so the pool-size rule stays quiet; NO_PROMPTS now fails it.
+const fullPools = (): Prompts => ({
+  lines: Object.fromEntries(
+    Object.entries(FAMILIES).flatMap(([family, min]) =>
+      Array.from({ length: min }, (_, i) => [`${family}_${i + 1}`, `${family} ${i + 1}`]),
+    ),
+  ),
+});
 
 const readJson = (p: string) => JSON.parse(fs.readFileSync(p, 'utf8'));
 const contentLessons = (): Lesson[] =>
@@ -92,7 +102,7 @@ const baseTokens = (): Record<string, number[]> => ({
 });
 
 const item = (lesson: Lesson, id: string) => lesson.items.find((i) => i.id === id)!;
-const run = (lesson: Lesson, tokens = baseTokens()) => validateContent([lesson], NO_PROMPTS, tokens);
+const run = (lesson: Lesson, tokens = baseTokens()) => validateContent([lesson], fullPools(), tokens);
 
 // ---- behaviour
 
@@ -326,6 +336,243 @@ describe('npm run build:content', () => {
   }, 60_000);
 });
 
+// ---- GURU-11: shared line pools, style samples, picture reactions. Contract: TDD 2.4 in the Epic GURU-1.
+//
+// Real data read, not assumed:
+// - content/prompts/mr.json before this issue: nohear, ask_1..3, ok_1..3, wrong_1..2, retry_intro, again_1, moveon_1.
+// - A family's lines are `<family>_<n>` or the bare family id (the engine's rule, D-GURU-19-tutor-variety), so
+//   ask_mr_1 and ask_grownup_mic_1 are not `ask` lines.
+// - content/audio/visemes.json (owner's machine, not in git) is { lines: {id: text}, clips: {tutor: {id: clip}} };
+//   content/audio/<tutor>/<id>.mp3 holds the voiced lines.
+// - The engine opens the mic right after ask, ask_mr, meaning_hi_ack and nohear lines.
+
+const OLD_LINES: Record<string, string> = {
+  ok_1: 'छान!',
+  ok_2: 'मस्त!',
+  ok_3: 'वा, एकदम छान!',
+  wrong_1: 'अं हं, हे वेगळं अक्षर आहे. ही घे एक मदत.',
+  wrong_2: 'हम्म, नाही. थांब, ही घे एक मदत.',
+  nohear: 'मला ऐकू आलं नाही, पुन्हा सांग.',
+};
+const RENAMED: Record<string, string> = {
+  ok_1: 'praise_first_1',
+  ok_2: 'praise_first_2',
+  ok_3: 'praise_first_3',
+  wrong_1: 'tryagain_1',
+  wrong_2: 'tryagain_2',
+  nohear: 'nohear_1',
+};
+const PRAISE = ['praise_first', 'praise_hint', 'praise_streak', 'praise_comeback'];
+const SAMPLES = ['sample_mr_led', 'sample_en_led'];
+const MIC_OPENING = ['ask', 'ask_mr', 'meaning_hi_ack', 'nohear'];
+const PRAISE_WORDS = ['शाब्बास', 'शाबास', 'बरोबर', 'वा', 'छान', 'मस्त', 'हुशार', 'भारी', 'Great', 'Good', 'Well'];
+const HINDI_WORDS = ['है', 'हैं', 'बहुत', 'अच्छा', 'अच्छी', 'बढ़िया', 'क्या', 'नहीं', 'मैं', 'तुम', 'आप', 'चलो', 'कौन', 'यह', 'वह'];
+const FIRST_PERSON = ['देतो', 'देते', 'सांगतो', 'सांगते', 'दाखवतो', 'दाखवते', 'शिकवतो', 'शिकवते'];
+
+const wordsOf = (s: string) => s.split(/[\s,.!?।"'()]+/).filter(Boolean);
+const familyIds = (lines: Record<string, string>, family: string) =>
+  Object.keys(lines).filter((id) => new RegExp(`^${family}(_\\d+)?$`).test(id));
+// Absence scan: Hindi words and gendered verb forms (content/README.md writing rules).
+const ruleBreaks = (text: string) =>
+  wordsOf(text).filter(
+    (w) => HINDI_WORDS.includes(w) || FIRST_PERSON.includes(w) || w.endsWith('लास') || w.endsWith('लीस'),
+  );
+
+describe('GURU-11: validator rules for shared pools and pilot reactions', () => {
+  test('a family below its FAMILIES minimum, or missing, is one error naming it; at the minimum is clean', () => {
+    expect(validateContent([baseLesson()], fullPools(), baseTokens())).toEqual([]);
+
+    // every family, not only some: drop one line from a family sitting at its minimum
+    for (const [family, min] of Object.entries(FAMILIES)) {
+      const prompts = fullPools();
+      delete prompts.lines[`${family}_${min}`];
+      const errors = validateContent([baseLesson()], prompts, baseTokens());
+      expect([family, errors.length]).toEqual([family, 1]);
+      expect([family, errors[0].includes(family)]).toEqual([family, true]);
+    }
+
+    // a family with no lines at all
+    const none = fullPools();
+    for (const id of familyIds(none.lines, 'ask_grownup_mic')) delete none.lines[id];
+    expect(validateContent([baseLesson()], none, baseTokens()).filter((e) => e.includes('ask_grownup_mic'))).toHaveLength(1);
+  });
+
+  test('lines of a sibling family never count toward a shorter family name (ask_mr_*, ask_grownup_* are not ask)', () => {
+    const prompts = fullPools();
+    delete prompts.lines.ask_8; // ask at 7, one short
+    for (let n = 2; n <= 9; n++) {
+      prompts.lines[`ask_mr_${n}`] = 'मराठीत काय म्हणतात? आता तू सांग!';
+      prompts.lines[`ask_grownup_mic_${n}`] = 'मोठ्या माणसाला बोलाव.';
+    }
+    prompts.lines.askfoo_1 = 'x';
+    const errors = validateContent([baseLesson()], prompts, baseTokens());
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toMatch(/\bask\b/);
+  });
+
+  test('an item in a pilot lesson without any react_* line is an error; react_2 alone is enough; draft lessons are not held to it', () => {
+    const pilot = baseLesson();
+    pilot.status = 'pilot';
+    expect(run(pilot)).toEqual([]); // both base items carry react_1
+
+    delete (item(pilot, 'a').lines as Record<string, string>).react_1;
+    const errors = run(pilot);
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toContain('tpl_test.a');
+    expect(errors[0]).toContain('react');
+
+    (item(pilot, 'a').lines as Record<string, string>).react_2 = 'वा, अननस!';
+    expect(run(pilot)).toEqual([]);
+
+    const draft = baseLesson();
+    delete (item(draft, 'a').lines as Record<string, string>).react_1;
+    delete (item(draft, 'apple').lines as Record<string, string>).react_1;
+    expect(run(draft)).toEqual([]);
+  });
+});
+
+describe('GURU-11: content/prompts/mr.json pools', () => {
+  const prompts = realPrompts();
+  const lines = prompts.lines;
+
+  test('every family meets its FAMILIES minimum; praise 15+ in total; surprise_line 6+; both style samples exist', () => {
+    for (const [family, min] of Object.entries(FAMILIES)) {
+      expect([family, familyIds(lines, family).length >= min]).toEqual([family, true]);
+    }
+    const praise = PRAISE.reduce((sum, f) => sum + familyIds(lines, f).length, 0);
+    expect(praise).toBeGreaterThanOrEqual(15);
+    expect(familyIds(lines, 'surprise_line').length).toBeGreaterThanOrEqual(6);
+    for (const family of SAMPLES) expect([family, familyIds(lines, family).length >= 1]).toEqual([family, true]);
+
+    // every id belongs to a known family, so no stray old id (ok_1, wrong_1, bare nohear) survives
+    const known = [...Object.keys(FAMILIES), ...SAMPLES];
+    for (const id of Object.keys(lines)) {
+      expect([id, known.some((f) => familyIds({ [id]: '' }, f).length === 1)]).toEqual([id, true]);
+      expect([id, typeof lines[id] === 'string' && lines[id].trim().length > 0]).toEqual([id, true]);
+    }
+    for (const old of Object.keys(OLD_LINES)) expect([old, old in lines]).toEqual([old, false]);
+  });
+
+  test('renamed ids keep their voiced text, so the renamed audio still matches', () => {
+    for (const [old, renamed] of Object.entries(RENAMED)) expect([renamed, lines[renamed]]).toEqual([renamed, OLD_LINES[old]]);
+  });
+
+  test('writing rules: Devanagari voice text, no Hindi or gendered forms, mic-opening lines end with आता तू सांग!/म्हण!, samples captioned in Latin', () => {
+    const captions = prompts.captions ?? {};
+    for (const [id, text] of Object.entries(lines)) {
+      expect([id, /[A-Za-z]/.test(text)]).toEqual([id, false]);
+      expect([id, ruleBreaks(text)]).toEqual([id, []]);
+    }
+    for (const family of MIC_OPENING) {
+      for (const id of familyIds(lines, family)) {
+        if (id === 'nohear_1') continue; // keeps the voiced text of the old nohear line
+        expect([id, /आता तू (सांग|म्हण)!$/.test(lines[id].trim())]).toEqual([id, true]);
+      }
+    }
+    // style samples voice English words: Devanagari in the voice text, Latin in the caption
+    for (const family of SAMPLES) {
+      for (const id of familyIds(lines, family)) {
+        expect([id, typeof captions[id], /[A-Za-z]/.test(captions[id] ?? '')]).toEqual([id, 'string', true]);
+      }
+    }
+    for (const id of Object.keys(captions)) expect([id, id in lines]).toEqual([id, true]);
+  });
+});
+
+describe('GURU-11: the 8 lessons have picture reactions and praise-free correct lines', () => {
+  const lessons = contentLessons();
+
+  test('every item has its own react_1 that does not open the mic and keeps to the writing rules', () => {
+    const seen = new Map<string, string>();
+    for (const lesson of lessons) {
+      for (const it of lesson.items) {
+        const where = `${lesson.template_id}.${it.id}`;
+        const react = (it.lines as Record<string, string | undefined>).react_1;
+        expect([where, typeof react === 'string' && react.trim().length > 0]).toEqual([where, true]);
+        expect([where, /आता तू (सांग|म्हण)!$/.test(react!.trim())]).toEqual([where, false]);
+        expect([where, ruleBreaks(react!), /[A-Za-z]/.test(react!)]).toEqual([where, [], false]);
+        // tied to its own picture: no reaction is shared by two items
+        expect([where, seen.get(react!.trim())]).toEqual([where, undefined]);
+        seen.set(react!.trim(), where);
+      }
+    }
+    expect(seen.size).toBe(lessons.reduce((n, l) => n + l.items.length, 0));
+  });
+
+  test('every correct line, and its caption, names the answer without praise words', () => {
+    const praiseLines = Object.entries(realPrompts().lines)
+      .filter(([id]) => PRAISE.some((f) => familyIds({ [id]: '' }, f).length === 1))
+      .map(([, text]) => text.trim());
+    for (const lesson of lessons) {
+      for (const it of lesson.items) {
+        const where = `${lesson.template_id}.${it.id}`;
+        const correct = it.lines.correct;
+        expect([where, wordsOf(correct).filter((w) => PRAISE_WORDS.includes(w))]).toEqual([where, []]);
+        expect([where, praiseLines.filter((p) => correct.includes(p))]).toEqual([where, []]);
+        expect([where, wordsOf(correct).includes(it.assessment.expected[0])]).toEqual([where, true]);
+        const caption = it.captions?.correct;
+        if (caption !== undefined) {
+          expect([where, wordsOf(caption).filter((w) => PRAISE_WORDS.includes(w))]).toEqual([where, []]);
+          expect([where, wordsOf(caption).includes(it.display)]).toEqual([where, true]);
+        }
+      }
+    }
+    // the issue's own example
+    const a = lessons.find((l) => l.template_id === 'tpl_kg_en_letters_1')!.items.find((i) => i.id === 'a')!;
+    expect([a.lines.correct, a.captions?.correct]).toEqual(['ए फॉर ॲपल!', 'A for Apple!']);
+  });
+});
+
+describe('GURU-11: tools/rename_line_ids.py', () => {
+  // Runs on a scratch audio folder, never on content/audio.
+  const SCRIPT = path.join(ROOT, 'tools/rename_line_ids.py');
+  const venvPython = path.join(ROOT, 'venv/bin/python');
+  const PY = fs.existsSync(venvPython) ? venvPython : 'python3';
+  let tmp: string;
+  beforeEach(() => {
+    tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'guru11-audio-'));
+  });
+  afterEach(() => fs.rmSync(tmp, { recursive: true, force: true }));
+
+  test('renames old ids to their families in every tutor folder and in visemes.json; a second run changes nothing', () => {
+    const clip = (d: number) => ({ duration: d, events: [[0.1, 'AA']] });
+    const tutors = ['shekru', 'other'];
+    const ids = ['ok_1', 'ok_2', 'ok_3', 'wrong_1', 'wrong_2', 'nohear', 'ask_1', 'retry_intro', 'tpl_x.a.correct'];
+    for (const t of tutors) {
+      fs.mkdirSync(path.join(tmp, t));
+      for (const id of ids) fs.writeFileSync(path.join(tmp, t, `${id}.mp3`), `${t}:${id}`);
+    }
+    const visemes = {
+      lines: Object.fromEntries(ids.map((id) => [id, OLD_LINES[id] ?? `text of ${id}`])),
+      clips: Object.fromEntries(tutors.map((t, n) => [t, Object.fromEntries(ids.map((id, i) => [id, clip(n * 10 + i)]))])),
+    };
+    fs.writeFileSync(path.join(tmp, 'visemes.json'), JSON.stringify(visemes, null, 2));
+
+    const runScript = () => spawnSync(PY, [SCRIPT, '--audio', tmp], { encoding: 'utf8' });
+    const first = runScript();
+    expect([first.status, first.status === 0 ? '' : `${first.stdout}\n${first.stderr}`]).toEqual([0, '']);
+
+    const newId = (id: string) => RENAMED[id] ?? id;
+    for (const t of tutors) {
+      expect(fs.readdirSync(path.join(tmp, t)).sort()).toEqual(ids.map((id) => `${newId(id)}.mp3`).sort());
+      // contents moved with the name, not swapped between ids
+      for (const id of ids) expect(fs.readFileSync(path.join(tmp, t, `${newId(id)}.mp3`), 'utf8')).toBe(`${t}:${id}`);
+    }
+    const expected = {
+      lines: Object.fromEntries(Object.entries(visemes.lines).map(([id, text]) => [newId(id), text])),
+      clips: Object.fromEntries(
+        Object.entries(visemes.clips).map(([t, c]) => [t, Object.fromEntries(Object.entries(c).map(([id, v]) => [newId(id), v]))]),
+      ),
+    };
+    expect(readJson(path.join(tmp, 'visemes.json'))).toEqual(expected);
+
+    const second = runScript();
+    expect(second.status).toBe(0);
+    for (const t of tutors) expect(fs.readdirSync(path.join(tmp, t)).sort()).toEqual(ids.map((id) => `${newId(id)}.mp3`).sort());
+    expect(readJson(path.join(tmp, 'visemes.json'))).toEqual(expected);
+  });
+});
+
 // ---- contract for dependents (shape only)
 // GURU-10, GURU-18: Lang, DecidedBy, Heard, ItemKind and the v2 Item fields in app/src/lesson/types.ts.
 // GURU-11, GURU-16: validateContent(lessons, prompts, tokens) in app/src/content/validate.ts, run by build-content.mjs.
@@ -367,4 +614,28 @@ test('contract (GURU-10, GURU-11, GURU-16, GURU-17, GURU-18): exported types and
   const some = validateContent([{ ...baseLesson(), flow: [{ phase: 'teach', order: ['ZQX'] }] }], NO_PROMPTS, baseTokens());
   expect(some.length).toBeGreaterThan(0);
   for (const e of some) expect(typeof e).toBe('string');
+});
+
+// ---- GURU-11 contract for dependents (shape only)
+// GURU-19 (engine, PR #14), GURU-28 (lesson player): every shared family the engine picks from has lines in
+// content/prompts/mr.json under `<family>_<n>` (or the bare family id), so no step carries an undefined line.
+// GURU-17 (gen_voice): sample_mr_led / sample_en_led lines with captions. Owner: tools/rename_line_ids.py --audio <dir>.
+test('contract (GURU-17, GURU-19, GURU-28): engine families and samples resolve to text; pool errors are strings; rename script exists', () => {
+  const { lines } = realPrompts();
+  const engineFamilies = [
+    'praise_first', 'praise_hint', 'praise_streak', 'praise_comeback', 'end_all', 'end_misses', 'tryagain',
+    'nohear', 'ask', 'ask_mr', 'again', 'moveon', 'retry_intro', 'meaning_hi_ack', 'surprise_line',
+  ];
+  for (const family of [...engineFamilies, ...SAMPLES]) {
+    const ids = familyIds(lines, family);
+    expect([family, ids.length > 0]).toEqual([family, true]);
+    for (const id of ids) expect([id, typeof lines[id]]).toEqual([id, 'string']);
+  }
+
+  const errors = validateContent([], NO_PROMPTS, {});
+  expect(Array.isArray(errors)).toBe(true);
+  expect(errors.length).toBeGreaterThan(0); // empty pools now fail
+  for (const e of errors) expect(typeof e).toBe('string');
+
+  expect(fs.existsSync(path.join(ROOT, 'tools/rename_line_ids.py'))).toBe(true);
 });
