@@ -23,6 +23,9 @@
     "quiz_intro": "आता एक खेळ! अक्षर बघ आणि त्याचं नाव सांग.",
     "outro": "आजचा अभ्यास संपला! आज आपण के, एल, एम, एन, ओ शिकलो. उद्या भेटूया!"
   },
+  "captions": {
+    "outro": "आजचा अभ्यास संपला! आज आपण K, L, M, N, O शिकलो. उद्या भेटूया!"
+  },
   "flow": [
     {
       "play": "intro",
@@ -68,6 +71,8 @@
       "id": "k",
       "item_key": "en:letter:K",
       "display": "K",
+      "kind": "letter",
+      "target_lang": "en",
       "anchor": {
         "word": "काइट",
         "picture": "kite"
@@ -88,12 +93,19 @@
         "teach": "हे बघ, के. के फॉर काइट! आता तू म्हण!",
         "hint": "हे अक्षर काइटचं आहे. काइट! आता तू सांग!",
         "correct": "शाब्बास! के फॉर काइट!"
+      },
+      "captions": {
+        "teach": "हे बघ, K. K for Kite! आता तू म्हण!",
+        "hint": "हे अक्षर Kiteचं आहे. Kite! आता तू सांग!",
+        "correct": "शाब्बास! K for Kite!"
       }
     },
     {
       "id": "l",
       "item_key": "en:letter:L",
       "display": "L",
+      "kind": "letter",
+      "target_lang": "en",
       "anchor": {
         "word": "लायन",
         "picture": "lion"
@@ -114,12 +126,19 @@
         "teach": "हे बघ, एल. एल फॉर लायन! आता तू म्हण!",
         "hint": "हे अक्षर लायनचं आहे. लायन! आता तू सांग!",
         "correct": "अगदी बरोबर! एल फॉर लायन!"
+      },
+      "captions": {
+        "teach": "हे बघ, L. L for Lion! आता तू म्हण!",
+        "hint": "हे अक्षर Lionचं आहे. Lion! आता तू सांग!",
+        "correct": "अगदी बरोबर! L for Lion!"
       }
     },
     {
       "id": "m",
       "item_key": "en:letter:M",
       "display": "M",
+      "kind": "letter",
+      "target_lang": "en",
       "anchor": {
         "word": "मँगो",
         "picture": "mango"
@@ -140,12 +159,19 @@
         "teach": "हे बघ, एम. एम फॉर मँगो! आता तू म्हण!",
         "hint": "हे अक्षर मँगोचं आहे. मँगो! आता तू सांग!",
         "correct": "शाब्बास! एम फॉर मँगो!"
+      },
+      "captions": {
+        "teach": "हे बघ, M. M for Mango! आता तू म्हण!",
+        "hint": "हे अक्षर Mangoचं आहे. Mango! आता तू सांग!",
+        "correct": "शाब्बास! M for Mango!"
       }
     },
     {
       "id": "n",
       "item_key": "en:letter:N",
       "display": "N",
+      "kind": "letter",
+      "target_lang": "en",
       "anchor": {
         "word": "नेस्ट",
         "picture": "nest"
@@ -166,12 +192,19 @@
         "teach": "हे बघ, एन. एन फॉर नेस्ट! आता तू म्हण!",
         "hint": "हे अक्षर नेस्टचं आहे. नेस्ट! आता तू सांग!",
         "correct": "अगदी बरोबर! एन फॉर नेस्ट!"
+      },
+      "captions": {
+        "teach": "हे बघ, N. N for Nest! आता तू म्हण!",
+        "hint": "हे अक्षर Nestचं आहे. Nest! आता तू सांग!",
+        "correct": "अगदी बरोबर! N for Nest!"
       }
     },
     {
       "id": "o",
       "item_key": "en:letter:O",
       "display": "O",
+      "kind": "letter",
+      "target_lang": "en",
       "anchor": {
         "word": "ऑरेंज",
         "picture": "orange"
@@ -192,6 +225,11 @@
         "teach": "हे बघ, ओ. ओ फॉर ऑरेंज! आता तू म्हण!",
         "hint": "हे अक्षर ऑरेंजचं आहे. ऑरेंज! आता तू सांग!",
         "correct": "शाब्बास! ओ फॉर ऑरेंज!"
+      },
+      "captions": {
+        "teach": "हे बघ, O. O for Orange! आता तू म्हण!",
+        "hint": "हे अक्षर Orangeचं आहे. Orange! आता तू सांग!",
+        "correct": "शाब्बास! O for Orange!"
       }
     }
   ]

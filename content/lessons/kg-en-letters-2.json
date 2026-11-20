@@ -23,6 +23,9 @@
     "quiz_intro": "आता एक खेळ! अक्षर बघ आणि त्याचं नाव सांग.",
     "outro": "आजचा अभ्यास संपला! आज आपण एफ, जी, एच, आय, जे शिकलो. उद्या भेटूया!"
   },
+  "captions": {
+    "outro": "आजचा अभ्यास संपला! आज आपण F, G, H, I, J शिकलो. उद्या भेटूया!"
+  },
   "flow": [
     {
       "play": "intro",
@@ -68,6 +71,8 @@
       "id": "f",
       "item_key": "en:letter:F",
       "display": "F",
+      "kind": "letter",
+      "target_lang": "en",
       "anchor": {
         "word": "फिश",
         "picture": "fish"
@@ -88,12 +93,19 @@
         "teach": "हे बघ, एफ. एफ फॉर फिश! आता तू म्हण!",
         "hint": "हे अक्षर फिशचं आहे. फिश! आता तू सांग!",
         "correct": "शाब्बास! एफ फॉर फिश!"
+      },
+      "captions": {
+        "teach": "हे बघ, F. F for Fish! आता तू म्हण!",
+        "hint": "हे अक्षर Fishचं आहे. Fish! आता तू सांग!",
+        "correct": "शाब्बास! F for Fish!"
       }
     },
     {
       "id": "g",
       "item_key": "en:letter:G",
       "display": "G",
+      "kind": "letter",
+      "target_lang": "en",
       "anchor": {
         "word": "ग्रेप्स",
         "picture": "grapes"
@@ -114,12 +126,19 @@
         "teach": "हे बघ, जी. जी फॉर ग्रेप्स! आता तू म्हण!",
         "hint": "हे अक्षर ग्रेप्सचं आहे. ग्रेप्स! आता तू सांग!",
         "correct": "अगदी बरोबर! जी फॉर ग्रेप्स!"
+      },
+      "captions": {
+        "teach": "हे बघ, G. G for Grapes! आता तू म्हण!",
+        "hint": "हे अक्षर Grapesचं आहे. Grapes! आता तू सांग!",
+        "correct": "अगदी बरोबर! G for Grapes!"
       }
     },
     {
       "id": "h",
       "item_key": "en:letter:H",
       "display": "H",
+      "kind": "letter",
+      "target_lang": "en",
       "anchor": {
         "word": "हॅट",
         "picture": "hat"
@@ -140,12 +159,19 @@
         "teach": "हे बघ, एच. एच फॉर हॅट! आता तू म्हण!",
         "hint": "हे अक्षर हॅटचं आहे. हॅट! आता तू सांग!",
         "correct": "शाब्बास! एच फॉर हॅट!"
+      },
+      "captions": {
+        "teach": "हे बघ, H. H for Hat! आता तू म्हण!",
+        "hint": "हे अक्षर Hatचं आहे. Hat! आता तू सांग!",
+        "correct": "शाब्बास! H for Hat!"
       }
     },
     {
       "id": "i",
       "item_key": "en:letter:I",
       "display": "I",
+      "kind": "letter",
+      "target_lang": "en",
       "anchor": {
         "word": "आइस्क्रीम",
         "picture": "icecream"
@@ -166,12 +192,19 @@
         "teach": "हे बघ, आय. आय फॉर आइस्क्रीम! आता तू म्हण!",
         "hint": "हे अक्षर आइस्क्रीमचं आहे. आइस्क्रीम! आता तू सांग!",
         "correct": "अगदी बरोबर! आय फॉर आइस्क्रीम!"
+      },
+      "captions": {
+        "teach": "हे बघ, I. I for Ice cream! आता तू म्हण!",
+        "hint": "हे अक्षर Ice creamचं आहे. Ice cream! आता तू सांग!",
+        "correct": "अगदी बरोबर! I for Ice cream!"
       }
     },
     {
       "id": "j",
       "item_key": "en:letter:J",
       "display": "J",
+      "kind": "letter",
+      "target_lang": "en",
       "anchor": {
         "word": "जीप",
         "picture": "jeep"
@@ -192,6 +225,11 @@
         "teach": "हे बघ, जे. जे फॉर जीप! आता तू म्हण!",
         "hint": "हे अक्षर जीपचं आहे. जीप! आता तू सांग!",
         "correct": "शाब्बास! जे फॉर जीप!"
+      },
+      "captions": {
+        "teach": "हे बघ, J. J for Jeep! आता तू म्हण!",
+        "hint": "हे अक्षर Jeepचं आहे. Jeep! आता तू सांग!",
+        "correct": "शाब्बास! J for Jeep!"
       }
     }
   ]

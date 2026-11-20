@@ -47,7 +47,7 @@
     "web": "expo start --web",
     "build:shekru": "node scripts/build-shekru.mjs",
     "typecheck": "tsc --noEmit",
-    "build:content": "node scripts/build-content.mjs",
+    "build:content": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/build-content.mjs",
     "test": "jest",
     "lint": "expo lint"
   },

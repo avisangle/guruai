@@ -28,6 +28,8 @@
       "id": "e",
       "item_key": "mr:letter:ए",
       "display": "ए",
+      "kind": "letter",
+      "target_lang": "mr",
       "anchor": {
         "word": "एडका",
         "picture": "ram"
@@ -52,6 +54,8 @@
       "id": "ai",
       "item_key": "mr:letter:ऐ",
       "display": "ऐ",
+      "kind": "letter",
+      "target_lang": "mr",
       "anchor": {
         "word": "ऐना",
         "picture": "mirror"
@@ -76,6 +80,8 @@
       "id": "o",
       "item_key": "mr:letter:ओ",
       "display": "ओ",
+      "kind": "letter",
+      "target_lang": "mr",
       "anchor": {
         "word": "ओठ",
         "picture": "lips"
@@ -100,6 +106,8 @@
       "id": "au",
       "item_key": "mr:letter:औ",
       "display": "औ",
+      "kind": "letter",
+      "target_lang": "mr",
       "anchor": {
         "word": "औषध",
         "picture": "medicine"
@@ -124,6 +132,8 @@
       "id": "am",
       "item_key": "mr:letter:अं",
       "display": "अं",
+      "kind": "letter",
+      "target_lang": "mr",
       "anchor": {
         "word": "अंगठी",
         "picture": "ring"

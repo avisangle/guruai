@@ -23,6 +23,9 @@
     "quiz_intro": "आता एक खेळ! अक्षर बघ आणि त्याचं नाव सांग.",
     "outro": "आजचा अभ्यास संपला! आज आपण ए, बी, सी, डी, ई शिकलो. उद्या भेटूया!"
   },
+  "captions": {
+    "outro": "आजचा अभ्यास संपला! आज आपण A, B, C, D, E शिकलो. उद्या भेटूया!"
+  },
   "flow": [
     {
       "play": "intro",
@@ -68,6 +71,8 @@
       "id": "a",
       "item_key": "en:letter:A",
       "display": "A",
+      "kind": "letter",
+      "target_lang": "en",
       "anchor": {
         "word": "ॲपल",
         "picture": "apple"
@@ -88,12 +93,19 @@
         "teach": "हे बघ, ए. ए फॉर ॲपल! आता तू म्हण!",
         "hint": "हे अक्षर ॲपलचं आहे. ॲपल! आता तू सांग!",
         "correct": "शाब्बास! ए फॉर ॲपल!"
+      },
+      "captions": {
+        "teach": "हे बघ, A. A for Apple! आता तू म्हण!",
+        "hint": "हे अक्षर Appleचं आहे. Apple! आता तू सांग!",
+        "correct": "शाब्बास! A for Apple!"
       }
     },
     {
       "id": "b",
       "item_key": "en:letter:B",
       "display": "B",
+      "kind": "letter",
+      "target_lang": "en",
       "anchor": {
         "word": "बॉल",
         "picture": "ball"
@@ -114,12 +126,19 @@
         "teach": "हे बघ, बी. बी फॉर बॉल! आता तू म्हण!",
         "hint": "हे अक्षर बॉलचं आहे. बॉल! आता तू सांग!",
         "correct": "अगदी बरोबर! बी फॉर बॉल!"
+      },
+      "captions": {
+        "teach": "हे बघ, B. B for Ball! आता तू म्हण!",
+        "hint": "हे अक्षर Ballचं आहे. Ball! आता तू सांग!",
+        "correct": "अगदी बरोबर! B for Ball!"
       }
     },
     {
       "id": "c",
       "item_key": "en:letter:C",
       "display": "C",
+      "kind": "letter",
+      "target_lang": "en",
       "anchor": {
         "word": "कॅट",
         "picture": "cat"
@@ -140,12 +159,19 @@
         "teach": "हे बघ, सी. सी फॉर कॅट! आता तू म्हण!",
         "hint": "हे अक्षर कॅटचं आहे. कॅट! आता तू सांग!",
         "correct": "शाब्बास! सी फॉर कॅट!"
+      },
+      "captions": {
+        "teach": "हे बघ, C. C for Cat! आता तू म्हण!",
+        "hint": "हे अक्षर Catचं आहे. Cat! आता तू सांग!",
+        "correct": "शाब्बास! C for Cat!"
       }
     },
     {
       "id": "d",
       "item_key": "en:letter:D",
       "display": "D",
+      "kind": "letter",
+      "target_lang": "en",
       "anchor": {
         "word": "डॉग",
         "picture": "dog"
@@ -166,12 +192,19 @@
         "teach": "हे बघ, डी. डी फॉर डॉग! आता तू म्हण!",
         "hint": "हे अक्षर डॉगचं आहे. डॉग! आता तू सांग!",
         "correct": "अगदी बरोबर! डी फॉर डॉग!"
+      },
+      "captions": {
+        "teach": "हे बघ, D. D for Dog! आता तू म्हण!",
+        "hint": "हे अक्षर Dogचं आहे. Dog! आता तू सांग!",
+        "correct": "अगदी बरोबर! D for Dog!"
       }
     },
     {
       "id": "e",
       "item_key": "en:letter:E",
       "display": "E",
+      "kind": "letter",
+      "target_lang": "en",
       "anchor": {
         "word": "एलिफंट",
         "picture": "elephant"
@@ -192,6 +225,11 @@
         "teach": "हे बघ, ई. ई फॉर एलिफंट! आता तू म्हण!",
         "hint": "हे अक्षर एलिफंटचं आहे. एलिफंट! आता तू सांग!",
         "correct": "शाब्बास! ई फॉर एलिफंट!"
+      },
+      "captions": {
+        "teach": "हे बघ, E. E for Elephant! आता तू म्हण!",
+        "hint": "हे अक्षर Elephantचं आहे. Elephant! आता तू सांग!",
+        "correct": "शाब्बास! E for Elephant!"
       }
     }
   ]

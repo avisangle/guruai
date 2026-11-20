@@ -28,6 +28,8 @@
       "id": "ka",
       "item_key": "mr:letter:क",
       "display": "क",
+      "kind": "letter",
+      "target_lang": "mr",
       "anchor": {
         "word": "कमळ",
         "picture": "lotus"
@@ -52,6 +54,8 @@
       "id": "kha",
       "item_key": "mr:letter:ख",
       "display": "ख",
+      "kind": "letter",
+      "target_lang": "mr",
       "anchor": {
         "word": "खार",
         "picture": "squirrel"
@@ -78,6 +82,8 @@
       "id": "ga",
       "item_key": "mr:letter:ग",
       "display": "ग",
+      "kind": "letter",
+      "target_lang": "mr",
       "anchor": {
         "word": "गाय",
         "picture": "cow"
@@ -102,6 +108,8 @@
       "id": "gha",
       "item_key": "mr:letter:घ",
       "display": "घ",
+      "kind": "letter",
+      "target_lang": "mr",
       "anchor": {
         "word": "घर",
         "picture": "house"
@@ -126,6 +134,8 @@
       "id": "cha",
       "item_key": "mr:letter:च",
       "display": "च",
+      "kind": "letter",
+      "target_lang": "mr",
       "anchor": {
         "word": "चमचा",
         "picture": "spoon"

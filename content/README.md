@@ -11,6 +11,28 @@ The judge reports the matched answer as its item's card letter (`display`), and 
 
 Line ids are character-neutral. Each tutor gets its own audio pack for the same ids (`docs/decisions/D-CHAR-swap-ready-tutor.md`).
 
+## Item kind, language and captions
+
+Types: `app/src/lesson/types.ts`. Answer-language design: `docs/decisions/D-GURU-2-answer-language-tags.md`.
+
+- `kind`: `"letter"` or `"word"`. Styles (Marathi-led and English-led teaching) apply to word items only.
+- `target_lang`: `"mr"` or `"en"`, the language the child should answer in. Letter items take the lesson's `learning_language` (`mr-IN` gives `mr`, `en-IN` gives `en`).
+- `ask_direction` (word items): `"picture_to_target"` ("हे काय आहे? इंग्लिशमध्ये?") or `"word_to_meaning"` ("Apple म्हणजे काय?").
+- `assessment.langs` (optional): answer text to its languages, from `"mr"`, `"en"`, `"hi"`, e.g. `{ "पानी": ["hi"] }`. An answer not listed is `[target_lang]`; a text may carry several. Every key must be one of the item's `expected` or `accepted_variants` texts.
+- `ambiguous_lang` (optional): `true` when answers in different languages cannot be told apart (see the build check below).
+- Lines. Letter items: `teach`, `hint`, `correct`. Word items: `teach_mr_led`, `teach_en_led` (in place of `teach`), `ask` (the question in the target language, per `ask_direction`), `hint` (the Marathi bridge), `correct`, `ack_meaning` ("हो, सफरचंद! इंग्लिशमध्ये?"), `model_mr` (the Marathi word for the Hindi follow-up). Both kinds may add `react_1` and `react_2` (picture reactions).
+- `captions` (optional, on lessons, on items, and on `prompts/<lang>.json`): line name to the on-screen text, with English letters and words in Latin letters ("हे बघ, A. A for Apple! आता तू म्हण!" for the voice line "हे बघ, ए. ए फॉर ॲपल! आता तू म्हण!"). A line without a caption shows its voice text. Captions are never voiced. Every line that speaks an English letter name or word gets one.
+
+## Build check
+
+`npm run build:content` (from `app/`) runs `validateContent` (`app/src/content/validate.ts`) first, prints every error and exits non-zero without writing anything when there are any. It reports:
+
+- a flow `order` entry that names no item `display`;
+- an item without a valid `kind` or `target_lang`, or missing a line its kind requires;
+- an `assessment.langs` key that is not one of the item's answers;
+- an answer with no entry in `app/src/asr/generated/mr-tokens.json` (run `tools/stt_bench/asr_tokens.py`);
+- **language ambiguity:** two answers of one item whose language sets share no language, and whose normalised text (`app/src/asr/normalise.ts`) is equal or whose token id sequences are within edit distance 2. The judge could not tell which language the child used, so the build fails unless the item sets `ambiguous_lang: true`. Example: "पाणी" (mr) and "पानी" (hi), or "हात" (mr) and "हाथ" (hi).
+
 ## Writing rules for tutor lines
 
 - **No gendered verb forms** for the child or the tutor. Marathi marks gender on intransitive past tense ("तू आलास / आलीस") and on first-person verbs ("देतो / देते"). Use imperatives ("सांग", "म्हण", "बघ"), transitive past, "आपण" forms, or set phrases ("ही घे एक मदत").
