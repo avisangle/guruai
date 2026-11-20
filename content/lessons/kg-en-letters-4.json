@@ -23,6 +23,9 @@
     "quiz_intro": "आता एक खेळ! अक्षर बघ आणि त्याचं नाव सांग.",
     "outro": "आजचा अभ्यास संपला! आज आपण पी, क्यू, आर, एस, टी शिकलो. उद्या भेटूया!"
   },
+  "captions": {
+    "outro": "आजचा अभ्यास संपला! आज आपण P, Q, R, S, T शिकलो. उद्या भेटूया!"
+  },
   "flow": [
     {
       "play": "intro",
@@ -68,6 +71,8 @@
       "id": "p",
       "item_key": "en:letter:P",
       "display": "P",
+      "kind": "letter",
+      "target_lang": "en",
       "anchor": {
         "word": "पॅरट",
         "picture": "parrot"
@@ -88,12 +93,19 @@
         "teach": "हे बघ, पी. पी फॉर पॅरट! आता तू म्हण!",
         "hint": "हे अक्षर पॅरटचं आहे. पॅरट! आता तू सांग!",
         "correct": "शाब्बास! पी फॉर पॅरट!"
+      },
+      "captions": {
+        "teach": "हे बघ, P. P for Parrot! आता तू म्हण!",
+        "hint": "हे अक्षर Parrotचं आहे. Parrot! आता तू सांग!",
+        "correct": "शाब्बास! P for Parrot!"
       }
     },
     {
       "id": "q",
       "item_key": "en:letter:Q",
       "display": "Q",
+      "kind": "letter",
+      "target_lang": "en",
       "anchor": {
         "word": "क्वीन",
         "picture": "queen"
@@ -114,12 +126,19 @@
         "teach": "हे बघ, क्यू. क्यू फॉर क्वीन! आता तू म्हण!",
         "hint": "हे अक्षर क्वीनचं आहे. क्वीन! आता तू सांग!",
         "correct": "अगदी बरोबर! क्यू फॉर क्वीन!"
+      },
+      "captions": {
+        "teach": "हे बघ, Q. Q for Queen! आता तू म्हण!",
+        "hint": "हे अक्षर Queenचं आहे. Queen! आता तू सांग!",
+        "correct": "अगदी बरोबर! Q for Queen!"
       }
     },
     {
       "id": "r",
       "item_key": "en:letter:R",
       "display": "R",
+      "kind": "letter",
+      "target_lang": "en",
       "anchor": {
         "word": "रॅबिट",
         "picture": "rabbit"
@@ -140,12 +159,19 @@
         "teach": "हे बघ, आर. आर फॉर रॅबिट! आता तू म्हण!",
         "hint": "हे अक्षर रॅबिटचं आहे. रॅबिट! आता तू सांग!",
         "correct": "शाब्बास! आर फॉर रॅबिट!"
+      },
+      "captions": {
+        "teach": "हे बघ, R. R for Rabbit! आता तू म्हण!",
+        "hint": "हे अक्षर Rabbitचं आहे. Rabbit! आता तू सांग!",
+        "correct": "शाब्बास! R for Rabbit!"
       }
     },
     {
       "id": "s",
       "item_key": "en:letter:S",
       "display": "S",
+      "kind": "letter",
+      "target_lang": "en",
       "anchor": {
         "word": "सन",
         "picture": "sun"
@@ -166,12 +192,19 @@
         "teach": "हे बघ, एस. एस फॉर सन! आता तू म्हण!",
         "hint": "हे अक्षर सनचं आहे. सन! आता तू सांग!",
         "correct": "अगदी बरोबर! एस फॉर सन!"
+      },
+      "captions": {
+        "teach": "हे बघ, S. S for Sun! आता तू म्हण!",
+        "hint": "हे अक्षर Sunचं आहे. Sun! आता तू सांग!",
+        "correct": "अगदी बरोबर! S for Sun!"
       }
     },
     {
       "id": "t",
       "item_key": "en:letter:T",
       "display": "T",
+      "kind": "letter",
+      "target_lang": "en",
       "anchor": {
         "word": "टायगर",
         "picture": "tiger"
@@ -192,6 +225,11 @@
         "teach": "हे बघ, टी. टी फॉर टायगर! आता तू म्हण!",
         "hint": "हे अक्षर टायगरचं आहे. टायगर! आता तू सांग!",
         "correct": "शाब्बास! टी फॉर टायगर!"
+      },
+      "captions": {
+        "teach": "हे बघ, T. T for Tiger! आता तू म्हण!",
+        "hint": "हे अक्षर Tigerचं आहे. Tiger! आता तू सांग!",
+        "correct": "शाब्बास! T for Tiger!"
       }
     }
   ]

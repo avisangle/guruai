@@ -23,6 +23,9 @@
     "quiz_intro": "आता एक खेळ! अक्षर बघ आणि त्याचं नाव सांग.",
     "outro": "आजचा अभ्यास संपला! आज आपण यू, व्ही, डबल्यू, एक्स, वाय, झेड शिकलो. उद्या भेटूया!"
   },
+  "captions": {
+    "outro": "आजचा अभ्यास संपला! आज आपण U, V, W, X, Y, Z शिकलो. उद्या भेटूया!"
+  },
   "flow": [
     {
       "play": "intro",
@@ -70,6 +73,8 @@
       "id": "u",
       "item_key": "en:letter:U",
       "display": "U",
+      "kind": "letter",
+      "target_lang": "en",
       "anchor": {
         "word": "अंब्रेला",
         "picture": "umbrella"
@@ -90,12 +95,19 @@
         "teach": "हे बघ, यू. यू फॉर अंब्रेला! आता तू म्हण!",
         "hint": "हे अक्षर अंब्रेलाचं आहे. अंब्रेला! आता तू सांग!",
         "correct": "शाब्बास! यू फॉर अंब्रेला!"
+      },
+      "captions": {
+        "teach": "हे बघ, U. U for Umbrella! आता तू म्हण!",
+        "hint": "हे अक्षर Umbrellaचं आहे. Umbrella! आता तू सांग!",
+        "correct": "शाब्बास! U for Umbrella!"
       }
     },
     {
       "id": "v",
       "item_key": "en:letter:V",
       "display": "V",
+      "kind": "letter",
+      "target_lang": "en",
       "anchor": {
         "word": "व्हॅन",
         "picture": "van"
@@ -116,12 +128,19 @@
         "teach": "हे बघ, व्ही. व्ही फॉर व्हॅन! आता तू म्हण!",
         "hint": "हे अक्षर व्हॅनचं आहे. व्हॅन! आता तू सांग!",
         "correct": "अगदी बरोबर! व्ही फॉर व्हॅन!"
+      },
+      "captions": {
+        "teach": "हे बघ, V. V for Van! आता तू म्हण!",
+        "hint": "हे अक्षर Vanचं आहे. Van! आता तू सांग!",
+        "correct": "अगदी बरोबर! V for Van!"
       }
     },
     {
       "id": "w",
       "item_key": "en:letter:W",
       "display": "W",
+      "kind": "letter",
+      "target_lang": "en",
       "anchor": {
         "word": "वॉच",
         "picture": "watch"
@@ -143,12 +162,19 @@
         "teach": "हे बघ, डबल्यू. डबल्यू फॉर वॉच! आता तू म्हण!",
         "hint": "हे अक्षर वॉचचं आहे. वॉच! आता तू सांग!",
         "correct": "शाब्बास! डबल्यू फॉर वॉच!"
+      },
+      "captions": {
+        "teach": "हे बघ, W. W for Watch! आता तू म्हण!",
+        "hint": "हे अक्षर Watchचं आहे. Watch! आता तू सांग!",
+        "correct": "शाब्बास! W for Watch!"
       }
     },
     {
       "id": "x",
       "item_key": "en:letter:X",
       "display": "X",
+      "kind": "letter",
+      "target_lang": "en",
       "anchor": {
         "word": "एक्स रे",
         "picture": "xray"
@@ -169,12 +195,19 @@
         "teach": "हे बघ, एक्स. एक्स फॉर एक्स रे! आता तू म्हण!",
         "hint": "हे अक्षर एक्स रेचं आहे. एक्स रे! आता तू सांग!",
         "correct": "अगदी बरोबर! एक्स फॉर एक्स रे!"
+      },
+      "captions": {
+        "teach": "हे बघ, X. X for X-ray! आता तू म्हण!",
+        "hint": "हे अक्षर X-rayचं आहे. X-ray! आता तू सांग!",
+        "correct": "अगदी बरोबर! X for X-ray!"
       }
     },
     {
       "id": "y",
       "item_key": "en:letter:Y",
       "display": "Y",
+      "kind": "letter",
+      "target_lang": "en",
       "anchor": {
         "word": "योयो",
         "picture": "yoyo"
@@ -195,12 +228,19 @@
         "teach": "हे बघ, वाय. वाय फॉर योयो! आता तू म्हण!",
         "hint": "हे अक्षर योयोचं आहे. योयो! आता तू सांग!",
         "correct": "शाब्बास! वाय फॉर योयो!"
+      },
+      "captions": {
+        "teach": "हे बघ, Y. Y for Yo-yo! आता तू म्हण!",
+        "hint": "हे अक्षर Yo-yoचं आहे. Yo-yo! आता तू सांग!",
+        "correct": "शाब्बास! Y for Yo-yo!"
       }
     },
     {
       "id": "z",
       "item_key": "en:letter:Z",
       "display": "Z",
+      "kind": "letter",
+      "target_lang": "en",
       "anchor": {
         "word": "झेब्रा",
         "picture": "zebra"
@@ -222,6 +262,11 @@
         "teach": "हे बघ, झेड. झेड फॉर झेब्रा! आता तू म्हण!",
         "hint": "हे अक्षर झेब्राचं आहे. झेब्रा! आता तू सांग!",
         "correct": "अगदी बरोबर! झेड फॉर झेब्रा!"
+      },
+      "captions": {
+        "teach": "हे बघ, Z. Z for Zebra! आता तू म्हण!",
+        "hint": "हे अक्षर Zebraचं आहे. Zebra! आता तू सांग!",
+        "correct": "अगदी बरोबर! Z for Zebra!"
       }
     }
   ]

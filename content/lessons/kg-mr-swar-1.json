@@ -25,7 +25,7 @@
 
   "items": [
     {
-      "id": "a", "item_key": "mr:letter:अ", "display": "अ", "anchor": { "word": "अननस", "picture": "pineapple" },
+      "id": "a", "item_key": "mr:letter:अ", "display": "अ", "kind": "letter", "target_lang": "mr", "anchor": { "word": "अननस", "picture": "pineapple" },
       "assessment": { "mode": "say_word", "expected": ["अ"], "accepted_variants": ["अ अननसाचा", "अननस"] },
       "lines": {
         "teach": "हे बघ, अ. अ अननसाचा! आता तू म्हण!",
@@ -34,7 +34,7 @@
       }
     },
     {
-      "id": "aa", "item_key": "mr:letter:आ", "display": "आ", "anchor": { "word": "आगगाडी", "picture": "train" },
+      "id": "aa", "item_key": "mr:letter:आ", "display": "आ", "kind": "letter", "target_lang": "mr", "anchor": { "word": "आगगाडी", "picture": "train" },
       "assessment": { "mode": "say_word", "expected": ["आ"], "accepted_variants": ["आ आगगाडीचा", "आगगाडी"] },
       "lines": {
         "teach": "हे बघ, आ. आ आगगाडीचा! आता तू म्हण!",
@@ -43,7 +43,7 @@
       }
     },
     {
-      "id": "i", "item_key": "mr:letter:इ", "display": "इ", "anchor": { "word": "इमारत", "picture": "building" },
+      "id": "i", "item_key": "mr:letter:इ", "display": "इ", "kind": "letter", "target_lang": "mr", "anchor": { "word": "इमारत", "picture": "building" },
       "assessment": { "mode": "say_word", "expected": ["इ"], "accepted_variants": ["इ इमारतीचा", "इमारत"], "also_correct": ["ई"] },
       "lines": {
         "teach": "हे बघ, इ. इ इमारतीचा! आता तू म्हण!",
@@ -52,7 +52,7 @@
       }
     },
     {
-      "id": "ii", "item_key": "mr:letter:ई", "display": "ई", "anchor": { "word": "ईडलिंबू", "picture": "citron" },
+      "id": "ii", "item_key": "mr:letter:ई", "display": "ई", "kind": "letter", "target_lang": "mr", "anchor": { "word": "ईडलिंबू", "picture": "citron" },
       "assessment": { "mode": "say_word", "expected": ["ई"], "accepted_variants": ["ई ईडलिंबाचा", "ईडलिंबू"], "also_correct": ["इ"] },
       "lines": {
         "teach": "हे बघ, ई. ई ईडलिंबाचा! आता तू म्हण!",
@@ -61,7 +61,7 @@
       }
     },
     {
-      "id": "u", "item_key": "mr:letter:उ", "display": "उ", "anchor": { "word": "उंदीर", "picture": "mouse" },
+      "id": "u", "item_key": "mr:letter:उ", "display": "उ", "kind": "letter", "target_lang": "mr", "anchor": { "word": "उंदीर", "picture": "mouse" },
       "assessment": { "mode": "say_word", "expected": ["उ"], "accepted_variants": ["उ उंदराचा", "उंदीर"], "also_correct": ["ऊ"] },
       "lines": {
         "teach": "हे बघ, उ. उ उंदराचा! आता तू म्हण!",
@@ -70,7 +70,7 @@
       }
     },
     {
-      "id": "uu", "item_key": "mr:letter:ऊ", "display": "ऊ", "anchor": { "word": "ऊस", "picture": "sugarcane" },
+      "id": "uu", "item_key": "mr:letter:ऊ", "display": "ऊ", "kind": "letter", "target_lang": "mr", "anchor": { "word": "ऊस", "picture": "sugarcane" },
       "assessment": { "mode": "say_word", "expected": ["ऊ"], "accepted_variants": ["ऊ ऊसाचा", "ऊ उसाचा", "ऊस"], "also_correct": ["उ"] },
       "lines": {
         "teach": "हे बघ, ऊ. ऊ ऊसाचा! आता तू म्हण!",
