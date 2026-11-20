@@ -1,0 +1,124 @@
+// Parent gate (D-GURU-13-parent-gate): the phone's screen lock by default, or a GuruAI PIN.
+// SQLite holds only the mode and wrong-PIN counters; the PIN record is in secure store.
+import { SecurityLevel } from 'expo-local-authentication';
+import type * as LocalAuthentication from 'expo-local-authentication';
+import type * as SecureStore from 'expo-secure-store';
+
+import type { Db } from '../data/db';
+import { lockoutFor } from './lockout';
+import { createPinRecord, isValidPin, pinMatches, toHex, type PinCrypto, type PinRecord } from './pin';
+
+export type GateMode = 'device' | 'pin';
+export type GateState = GateMode | 'needs_pin_setup';
+export type PinResult = { ok: boolean; waitUntil?: number };
+
+export type GateDeps = {
+  db: Db;
+  auth: Pick<typeof LocalAuthentication, 'getEnrolledLevelAsync' | 'authenticateAsync'>;
+  secureStore: Pick<typeof SecureStore, 'getItemAsync' | 'setItemAsync'>;
+  crypto: PinCrypto;
+  /** Epoch ms. */
+  now: () => number;
+};
+
+const PIN_KEY = 'guru.parent_pin';
+
+type GateRow = { mode: GateMode; failed: number; lockout_until: string | null };
+
+export function createGate({ db, auth, secureStore, crypto, now }: GateDeps) {
+  const stamp = () => new Date(now()).toISOString();
+
+  function row(): GateRow {
+    if (!db.get('SELECT 1 FROM parent_gate')) {
+      const at = stamp();
+      db.run('INSERT INTO parent_gate (id, created_at, updated_at) VALUES (?, ?, ?)', [
+        toHex(crypto.getRandomBytes(16)),
+        at,
+        at,
+      ]);
+    }
+    return db.get<GateRow>('SELECT mode, failed, lockout_until FROM parent_gate LIMIT 1')!;
+  }
+
+  function resetCounters() {
+    row();
+    db.run('UPDATE parent_gate SET failed = 0, lockout_until = NULL, lockout_stage = 0, updated_at = ?', [stamp()]);
+  }
+
+  async function deviceLockAvailable() {
+    return (await auth.getEnrolledLevelAsync()) >= SecurityLevel.SECRET;
+  }
+
+  return {
+    async mode(): Promise<GateMode> {
+      return row().mode;
+    },
+
+    deviceLockAvailable,
+
+    /** Decision 25: device mode with no screen lock on the phone must set up a PIN. */
+    async state(): Promise<GateState> {
+      if (row().mode === 'pin') return 'pin';
+      return (await deviceLockAvailable()) ? 'device' : 'needs_pin_setup';
+    },
+
+    /** System unlock prompt; the phone's PIN or pattern is accepted as well as biometrics. */
+    async unlockWithDevice(promptMessage?: string): Promise<boolean> {
+      const result = await auth.authenticateAsync({ promptMessage, disableDeviceFallback: false });
+      return result.success;
+    },
+
+    /** Stores a new 4-digit PIN and switches the gate to pin mode. */
+    async setPin(pin: string): Promise<void> {
+      if (!isValidPin(pin)) throw new Error('PIN must be 4 digits');
+      const record = await createPinRecord(crypto, pin);
+      await secureStore.setItemAsync(PIN_KEY, JSON.stringify(record));
+      row();
+      db.run("UPDATE parent_gate SET mode = 'pin', updated_at = ?", [stamp()]);
+    },
+
+    /** During a wait, refuses without checking. Every 3rd wrong PIN starts a wait. */
+    async verifyPin(pin: string, at: number = now()): Promise<PinResult> {
+      const current = row();
+      const until = current.lockout_until ? Date.parse(current.lockout_until) : 0;
+      if (at < until) return { ok: false, waitUntil: until };
+
+      const stored = await secureStore.getItemAsync(PIN_KEY);
+      if (stored && (await pinMatches(crypto, pin, JSON.parse(stored) as PinRecord))) {
+        resetCounters();
+        return { ok: true };
+      }
+
+      const failed = current.failed + 1;
+      const wait = lockoutFor(failed);
+      if (!wait) {
+        db.run('UPDATE parent_gate SET failed = ?, updated_at = ?', [failed, stamp()]);
+        return { ok: false };
+      }
+      const waitUntil = at + wait;
+      db.run(
+        'UPDATE parent_gate SET failed = ?, lockout_until = ?, lockout_stage = lockout_stage + 1, updated_at = ?',
+        [failed, new Date(waitUntil).toISOString(), stamp()],
+      );
+      return { ok: false, waitUntil };
+    },
+
+    /**
+     * Forgotten PIN: strong biometrics only, never the phone's PIN or pattern (a child
+     * may know it). Works during a wait; on success clears the counters so the caller
+     * can set a new PIN. False with no prompt when the phone has no strong biometrics.
+     */
+    async recoverWithBiometrics(promptMessage?: string): Promise<boolean> {
+      if ((await auth.getEnrolledLevelAsync()) < SecurityLevel.BIOMETRIC_STRONG) return false;
+      const result = await auth.authenticateAsync({
+        promptMessage,
+        disableDeviceFallback: true,
+        biometricsSecurityLevel: 'strong',
+      });
+      if (result.success) resetCounters();
+      return result.success;
+    },
+  };
+}
+
+export type Gate = ReturnType<typeof createGate>;
