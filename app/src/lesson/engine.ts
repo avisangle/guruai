@@ -1,9 +1,19 @@
 // Lesson engine: turns a lesson file into steps and reacts to answers.
 // No React, no audio, no clock. The rules live in the lesson file's
 // `rules` and `flow`; this implements them, plus the word-item language rules
-// (PRD Language design, D-GURU-10-language-design). It reports one event per
+// (PRD Language design, D-GURU-10-language-design) and tutor variety
+// (PRD Tutor variety, D-GURU-19-tutor-variety). It reports one event per
 // answer; mastery is derived from the events elsewhere.
-import type { AnswerEvent, FlowEntry, Heard, Item, Lang, Lesson, Listen, Position, Prompts, Say, Step, StyleLevel } from './types';
+import { pickLine } from './lines';
+import { endFamily, praiseFamily } from './praise';
+import { interleaveRevision, shuffleQuiz } from './quizOrder';
+import type {
+  AnswerEvent, FlowEntry, Heard, Item, Lang, Lesson, Listen, Position, Prompts, RevisionItem, Say, Step, StyleLevel,
+  Surprise, SurpriseState,
+} from './types';
+
+const SURPRISES: readonly SurpriseState[] = ['sneeze', 'dropnut', 'dance', 'celebrate'];
+const CHANCE = 0.5; // of a picture reaction after a right teach answer, and of a surprise in a lesson
 
 /** What the judge matched, as AnswerEvent and the clip manifest record it. */
 export function matchedOf(heard: Heard): { matched_text?: string; matched_lang?: Lang } {
@@ -37,38 +47,58 @@ export function createLesson(
     styleLevel?: StyleLevel;
     wordItemsGated?: boolean; // D-GURU-12-word-items-practice-only
     rng?: () => number;
+    revision?: RevisionItem[]; // mixed into the quiz, never taught
   } = {},
 ): LessonEngine {
-  const { styleLevel = 'mr_led', wordItemsGated = false, rng = Math.random } = opts;
-  const pos: Position = opts.position && opts.position.version === lesson.version
-    ? structuredClone(opts.position)
-    : newPosition(lesson);
+  const { styleLevel = 'mr_led', wordItemsGated = false, rng = Math.random, revision = [] } = opts;
+  const resumed = !!opts.position && opts.position.version === lesson.version;
+  const pos: Position = resumed ? structuredClone(opts.position!) : newPosition(lesson);
+  // saves before GURU-19 kept one id per family
+  for (const [family, h] of Object.entries(pos.last)) if (typeof h === 'string') pos.last[family] = [h];
   const queue: Step[] = [];
   let listening: Listen | null = null;
+
+  const templateOf = new Map(revision.map((r) => [r.item, r.template_id]));
+  const tpl = (item: Item) => templateOf.get(item) ?? lesson.template_id;
+  const revisionRef = (r: RevisionItem) => `${r.template_id}.${r.item.id}`;
 
   const byId = (id: string) => {
     const item = lesson.items.find((i) => i.id === id);
     if (!item) throw new Error(`Unknown item id "${id}"`);
     return item;
   };
+  // An entry of Position.quiz: a lesson item id, or a revision item's ref.
+  const byRef = (ref: string) => {
+    if (!ref.includes('.')) return byId(ref);
+    const r = revision.find((x) => revisionRef(x) === ref);
+    if (!r) throw new Error(`Revision item "${ref}" was not passed in`);
+    return r.item;
+  };
   const byDisplay = (display: string) => {
     const item = lesson.items.find((i) => i.display === display);
     if (!item) throw new Error(`Flow names "${display}" but no item displays it`);
     return item;
   };
+  // A family's lines: `<family>_<n>`, or the bare family id.
   const variants = (family: string) => {
-    const n = (id: string) => +id.slice(family.length + 1);
-    return Object.keys(prompts.lines)
-      .filter((id) => new RegExp(`^${family}_\\d+$`).test(id))
-      .sort((a, b) => n(a) - n(b));
+    const re = new RegExp(`^${family}(_\\d+)?$`);
+    return Object.keys(prompts.lines).filter((id) => re.test(id));
+  };
+  // Random line of the family, not among its last 5 picks (TDD 2.4).
+  const pick = (family: string) => {
+    const { id, history } = pickLine(family, variants(family), pos.last[family] ?? [], rng);
+    pos.last[family] = history;
+    return id;
   };
 
-  const shared = (id: string, state: string, item: Item | null = null, showAnchor = false): Say =>
-    ({ type: 'say', line: id, text: prompts.lines[id], state, item, showAnchor });
+  const shared = (family: string, state: string, item: Item | null = null, showAnchor = false): Say => {
+    const id = pick(family);
+    return { type: 'say', line: id, text: prompts.lines[id], state, item, showAnchor };
+  };
   const lessonLine = (name: string, state: string): Say =>
     ({ type: 'say', line: `${lesson.template_id}.${name}`, text: lesson.lines[name], state, item: null, showAnchor: false });
   const itemLine = (item: Item, name: string, state: string, showAnchor: boolean): Say =>
-    ({ type: 'say', line: `${lesson.template_id}.${item.id}.${name}`, text: (item.lines as Record<string, string>)[name], state, item, showAnchor });
+    ({ type: 'say', line: `${tpl(item)}.${item.id}.${name}`, text: (item.lines as Record<string, string>)[name], state, item, showAnchor });
   // A line that opens the mic, and the listen it opens.
   const ask = (say: Say, kind: Listen['kind']): [Say, Listen] =>
     [say, { type: 'listen', item: say.item!, kind, showAnchor: say.showAnchor, prompt: say.text }];
@@ -78,21 +108,12 @@ export function createLesson(
   const hint = (item: Item) => ask(itemLine(item, 'hint', 'hint', true), 'quiz');
   const gated = (item: Item) => wordItemsGated && item.kind === 'word';
 
-  // Random variant, never the one used last time.
-  const pickRandom = (family: string) => {
-    const all = variants(family);
-    const pool = all.length > 1 ? all.filter((id) => id !== pos.last[family]) : all;
-    return (pos.last[family] = pool[Math.floor(rng() * pool.length)]);
-  };
-  // Variants in order, wrapping around.
-  const pickNext = (family: string) => {
-    const all = variants(family);
-    return (pos.last[family] = all[(all.indexOf(pos.last[family]) + 1) % all.length]);
-  };
-
   const itemsOf = (entry: FlowEntry): Item[] => {
     if (!('phase' in entry)) return [];
-    return entry.phase === 'retry' ? pos.retry.map(byId) : entry.order.map(byDisplay);
+    if (entry.phase === 'retry') return pos.retry.map(byId);
+    if (entry.phase === 'teach') return entry.order.map(byDisplay);
+    // before the run's order is drawn, and in saves from before GURU-19
+    return pos.quiz ? pos.quiz.map(byRef) : [...entry.order.map(byDisplay), ...revision.map((r) => r.item)];
   };
   const nextItem = () => {
     pos.index++;
@@ -111,6 +132,21 @@ export function createLesson(
   // Some item is still to be asked, from the current position on.
   const itemsLeft = () => lesson.flow.slice(pos.flow).some((e, i) => itemsOf(e).length > (i === 0 ? pos.index : 0));
 
+  // A fresh run may get one surprise, before any teach or quiz item but the first.
+  if (!resumed && rng() < CHANCE) {
+    const slots = lesson.flow
+      .flatMap((e, flow) => ('phase' in e && e.phase !== 'retry' ? itemsOf(e).map((_, index) => ({ flow, index })) : []))
+      .slice(1);
+    if (slots.length) pos.surprise = slots[Math.floor(rng() * slots.length)];
+  }
+  const surprise = (): Surprise => {
+    delete pos.surprise;
+    const state = SURPRISES[Math.floor(rng() * SURPRISES.length)];
+    if (state === 'celebrate') return { type: 'surprise', state };
+    const line = pick('surprise_line');
+    return { type: 'surprise', state, line, text: prompts.lines[line] };
+  };
+
   // Queues the steps that open the current position. Also used on resume,
   // so a half-finished item restarts from its last mic-opening line.
   const fill = () => {
@@ -118,37 +154,52 @@ export function createLesson(
       const entry = lesson.flow[pos.flow];
       if (!entry) { queue.push({ type: 'done' }); return; }
       if ('play' in entry) {
+        // the closing line comes right after the last phase
+        if ('phase' in (lesson.flow[pos.flow - 1] ?? {}) && !lesson.flow.slice(pos.flow).some((e) => 'phase' in e)) {
+          queue.push(shared(endFamily(!!pos.missed), pos.missed ? 'talking' : 'correct'));
+        }
         queue.push(lessonLine(entry.play, entry.state));
         nextEntry();
         return;
       }
+      if (entry.phase === 'quiz' && !pos.quiz && pos.index === 0) {
+        pos.quiz = interleaveRevision(shuffleQuiz(entry.order, rng).map((d) => byDisplay(d).id), revision.map(revisionRef), rng);
+      }
       const items = itemsOf(entry);
       if (pos.index >= items.length) { nextEntry(); continue; } // empty retry round
       const item = items[pos.index];
+      const opening = !pos.attempts && !pos.silences && !pos.repeats && !pos.reveal && !pos.bridged && !pos.followup;
+      if (opening && pos.surprise?.flow === pos.flow && pos.surprise.index === pos.index) queue.push(surprise());
       if (entry.phase === 'teach') {
         queue.push(...teach(item));
         return;
       }
       if (pos.followup === 'ask') {
-        queue.push(...ask(shared(pickRandom('ask_mr'), 'talking', item, true), 'quiz'));
+        queue.push(...ask(shared('ask_mr', 'talking', item, true), 'quiz'));
         return;
       }
       if (pos.followup === 'model') {
         queue.push(...ask(itemLine(item, 'model_mr', 'talking', true), 'teach'));
         return;
       }
-      const fresh = pos.index === 0 && pos.attempts === 0 && pos.silences === 0 && !pos.reveal && !pos.bridged;
-      if (entry.phase === 'retry' && fresh) queue.push(shared('retry_intro', 'talking'));
+      if (entry.phase === 'retry' && opening && pos.index === 0) queue.push(shared('retry_intro', 'talking'));
       if (pos.reveal) queue.push(...teach(item));
       else if (pos.attempts === 1) queue.push(...hint(item));
       else if (item.kind === 'word') queue.push(...ask(itemLine(item, 'ask', 'talking', false), 'quiz'));
-      else queue.push(...ask(shared(pickNext('ask'), 'talking', item), 'quiz'));
+      else queue.push(...ask(shared('ask', 'talking', item), 'quiz'));
       return;
     }
   };
 
+  // A picture reaction after a right teach-phase answer. Each item has one teach turn per run,
+  // so it reacts at most once.
+  const react = (item: Item) => {
+    const names = (['react_1', 'react_2'] as const).filter((n) => item.lines[n]);
+    if (names.length && rng() < CHANCE) queue.push(itemLine(item, names[Math.floor(rng() * names.length)], 'talking', true));
+  };
+
   // rules.teach_response; also closes the repeat after a reveal.
-  const teachResponse = (item: Item, heard: Heard) => {
+  const teachResponse = (item: Item, heard: Heard, inTeach: boolean) => {
     // on a word item a meaning is not the word being taught
     const kind = heard.kind === 'meaning' ? 'wrong' : heard.kind;
     if (kind === 'silent') {
@@ -160,36 +211,48 @@ export function createLesson(
     } else if (kind === 'wrong') {
       if (!pos.repeats) {
         pos.repeats = 1; // model the item again and listen again
-        queue.push(shared(pickRandom('again'), 'tryagain', item, true), ...teach(item));
+        queue.push(shared('again', 'tryagain', item, true), ...teach(item));
         return;
       }
-      queue.push(shared(pickRandom('moveon'), 'talking', item, true)); // no praise for a wrong repeat
+      queue.push(shared('moveon', 'talking', item, true)); // no praise for a wrong repeat
     } else {
-      queue.push(shared(pickRandom('ok'), 'correct', item, true));
+      queue.push(shared('praise_first', 'correct', item, true));
+      if (inTeach) react(item);
     }
     nextItem();
   };
 
-  // rules.quiz_attempts: a missed try. wrong_* says "a different letter", so it is
+  // rules.quiz_attempts: a missed try. tryagain says "a different letter", so it is
   // only for a wrong letter, never after silence or on a word item.
   // Returns whether the miss counts.
-  const miss = (item: Item, phase: 'quiz' | 'retry', wrongLine: boolean) => {
+  const miss = (item: Item, phase: 'quiz' | 'retry' | 'revision', wrongLine: boolean) => {
+    const counts = !gated(item);
     pos.silences = 0;
     pos.attempts++;
+    if (counts) pos.streak = 0;
     if (pos.attempts === 1) {
-      if (wrongLine) queue.push(shared(pickRandom('wrong'), 'tryagain', item));
+      if (wrongLine) queue.push(shared('tryagain', 'tryagain', item));
       queue.push(...hint(item));
     } else {
       pos.reveal = true;
+      if (counts) pos.missedLast = pos.missed = true;
       // rules.retry_round: a miss in the retry round is not queued again
-      if (phase === 'quiz' && !gated(item) && !pos.retry.includes(item.id)) pos.retry.push(item.id);
+      if (phase === 'quiz' && counts && !pos.retry.includes(item.id)) pos.retry.push(item.id);
       queue.push(...teach(item));
     }
-    return !gated(item);
+    return counts;
+  };
+
+  // A right scored answer: the moment's praise, then the item's line naming the answer.
+  const right = (item: Item) => {
+    pos.streak = (pos.streak ?? 0) + 1;
+    const family = praiseFamily({ attempt: pos.attempts + 1, streak: pos.streak, previousMissed: !!pos.missedLast });
+    pos.missedLast = false;
+    queue.push(shared(family, 'correct', item, true), itemLine(item, 'correct', 'correct', true));
   };
 
   // Returns whether the answer counts.
-  const quizAnswer = (item: Item, heard: Heard, phase: 'quiz' | 'retry'): boolean => {
+  const quizAnswer = (item: Item, heard: Heard, phase: 'quiz' | 'retry' | 'revision'): boolean => {
     // A right meaning on a word item, other than Hindi on a Marathi-target item, is the
     // bridge step (PRD Language design 8): acknowledge and ask again, not an attempt.
     if (heard.kind === 'meaning' && !(item.target_lang === 'mr' && heard.lang === 'hi')) {
@@ -199,13 +262,13 @@ export function createLesson(
       pos.bridged = true;
       const shown = listening!.showAnchor;
       const ack = heard.lang === 'hi'
-        ? shared(pickRandom('meaning_hi_ack'), 'talking', item, shown) // never repeats the Hindi word
+        ? shared('meaning_hi_ack', 'talking', item, shown) // never repeats the Hindi word
         : itemLine(item, 'ack_meaning', 'talking', shown);
       queue.push(...ask(ack, 'quiz'));
       return false;
     }
     if (heard.kind === 'correct' || heard.kind === 'meaning') {
-      queue.push(itemLine(item, 'correct', 'correct', true));
+      right(item);
       // Hindi right meaning on a Marathi-target item (PRD Language design 7)
       if (heard.kind === 'meaning') {
         if (!item.ambiguous_lang) {
@@ -229,7 +292,7 @@ export function createLesson(
   // The unscored Marathi follow-up: right gets short praise; anything else
   // models the word (fill) and listens once for the repeat.
   const followupAnswer = (item: Item, heard: Heard) => {
-    if (heard.kind === 'correct') queue.push(shared(pickRandom('ok'), 'correct', item, true));
+    if (heard.kind === 'correct') queue.push(shared('praise_first', 'correct', item, true));
     else if (pos.followup === 'ask') {
       pos.followup = 'model';
       return;
@@ -250,19 +313,19 @@ export function createLesson(
       const entry = lesson.flow[pos.flow];
       if (!('phase' in entry)) throw new Error('Listening outside a phase');
       const { item } = listening;
-      const phase = pos.followup ? 'followup' : entry.phase;
+      const phase = pos.followup ? 'followup' : templateOf.has(item) ? 'revision' : entry.phase;
       const attempt = pos.attempts + 1;
       // a meaning on a letter item names the letter
       const rule: Heard = heard.kind === 'meaning' && item.kind === 'letter' ? { ...heard, kind: 'correct' } : heard;
       let counts = false;
       if (phase === 'followup') followupAnswer(item, rule);
-      else if (phase === 'teach' || pos.reveal) teachResponse(item, rule);
+      else if (phase === 'teach' || pos.reveal) teachResponse(item, rule, phase === 'teach');
       else counts = quizAnswer(item, rule, phase);
       listening = null;
       // After the last answer, queue the closing lines now so the saved position is finished.
       if (!queue.some((s) => s.type === 'listen') && !itemsLeft()) while (queue.at(-1)?.type !== 'done') fill();
       const event: AnswerEvent = {
-        template_id: lesson.template_id,
+        template_id: tpl(item),
         item_key: item.item_key,
         item_kind: item.kind,
         target_lang: item.target_lang,
