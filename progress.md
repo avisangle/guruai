@@ -64,3 +64,4 @@
 - 2026-11-19 wireframes-v3: palette B, 3-screen onboarding, lessons goal, Latin captions, parent-only helps switch applied and published (v3); independent review: PRD clarified (session, revision, downloads, praise, hints), 3 owner questions opened, designer round 3 running (not a git repo)
 - 2026-11-19 wireframes-v4: review fixes applied and published (51 frames; c-ready, c-ask-weak, l-hint-letter added; dashed trail stops); 3 owner questions open: Hindi on English items, mic timing, PIN (not a git repo)
 - 2026-11-20 project-setup: owner decisions (phone lock by default + optional app PIN, mic at hand-over, Hindi correct only on Marathi-target items) in PRD and wireframes v5; Jira GURU created; public repo avisangle/guruai; project CLAUDE.md
+- 2026-11-20 GURU-1 breakdown: M1 pilot split into 38 stories over 7 levels under Epic GURU-1 (GURU-2..GURU-39), TDD in the Epic (no commit)
