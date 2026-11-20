@@ -342,7 +342,7 @@ describe("GURU-13 parent gate", () => {
     expect(await gate.verifyPin("4821", T0)).toEqual({ ok: true });
 
     // After a wait ends, the right PIN opens and clears it.
-    for (const _ of [1, 2, 3]) await gate.verifyPin("0000", T0);
+    for (let i = 0; i < 3; i++) await gate.verifyPin("0000", T0);
     expect(await gate.verifyPin("4821", T0 + 30 * SEC)).toEqual({ ok: true });
     expect(failedCount(db)).toBe(0);
     expect(await gate.verifyPin("0000", T0 + 30 * SEC)).toEqual({ ok: false });
@@ -351,7 +351,7 @@ describe("GURU-13 parent gate", () => {
   it("recoverWithBiometrics needs strong biometrics, works during a wait, resets counters and allows a new PIN", async () => {
     const { gate, db, auth } = setup(BIOMETRIC_STRONG);
     await gate.setPin("4821");
-    for (const _ of [1, 2, 3]) await gate.verifyPin("0000", T0);
+    for (let i = 0; i < 3; i++) await gate.verifyPin("0000", T0);
     expect((await gate.verifyPin("4821", T0 + SEC)).ok).toBe(false);
 
     auth.authenticateAsync.mockClear();
@@ -371,7 +371,7 @@ describe("GURU-13 parent gate", () => {
     // A failed or cancelled biometric prompt changes nothing.
     const failing = setup(BIOMETRIC_STRONG, false);
     await failing.gate.setPin("4821");
-    for (const _ of [1, 2, 3]) await failing.gate.verifyPin("0000", T0);
+    for (let i = 0; i < 3; i++) await failing.gate.verifyPin("0000", T0);
     expect(await failing.gate.recoverWithBiometrics()).toBe(false);
     expect(failedCount(failing.db)).toBe(3);
 
@@ -409,7 +409,7 @@ describe("GURU-13 parent gate", () => {
     await gate.setPin("4821");
     const wrong = await gate.verifyPin("0000", T0);
     expect(typeof wrong.ok).toBe("boolean");
-    for (const _ of [1, 2]) await gate.verifyPin("0000", T0);
+    for (let i = 0; i < 2; i++) await gate.verifyPin("0000", T0);
     expect(typeof (await gate.verifyPin("4821", T0)).waitUntil).toBe("number");
     expect(typeof (await gate.recoverWithBiometrics())).toBe("boolean");
   });
