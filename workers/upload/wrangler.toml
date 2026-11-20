@@ -3,12 +3,11 @@ main = "src/index.ts"
 compatibility_date = "2026-11-01"
 
 [vars]
-ACCOUNT_ID = ""
 BUCKET = "guru-uploads"
 
 # Set with `wrangler secret put`.
 [secrets]
-required = ["APP_KEY", "R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY"]
+required = ["ACCOUNT_ID", "APP_KEY", "R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY"]
 
 [[r2_buckets]]
 binding = "UPLOADS"

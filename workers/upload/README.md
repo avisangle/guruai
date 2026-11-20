@@ -41,11 +41,12 @@ npx wrangler login
 
 2. In the Cloudflare dashboard, R2, "Manage API tokens", create an API token with **Object Read & Write** on `guru-uploads` only. Note the access key id and secret access key.
 
-3. Set `ACCOUNT_ID` in `wrangler.toml` `[vars]` to the Cloudflare account id. `BUCKET` and `bucket_name` must both name the bucket from step 1. The rate limiter's `namespace_id` is any integer string unused by another rate limiter in the account.
+3. In `wrangler.toml`, `BUCKET` and `bucket_name` must both name the bucket from step 1. The rate limiter's `namespace_id` is any integer string unused by another rate limiter in the account.
 
-4. Set the secrets. `APP_KEY` is any long random string, for example `openssl rand -hex 32`:
+4. Set the secrets. `ACCOUNT_ID` is the Cloudflare account id; `APP_KEY` is any long random string, for example `openssl rand -hex 32`:
 
    ```sh
+   npx wrangler secret put ACCOUNT_ID
    npx wrangler secret put APP_KEY
    npx wrangler secret put R2_ACCESS_KEY_ID
    npx wrangler secret put R2_SECRET_ACCESS_KEY
