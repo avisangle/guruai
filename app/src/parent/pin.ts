@@ -4,14 +4,14 @@ import type * as ExpoCrypto from 'expo-crypto';
 
 export type PinCrypto = Pick<typeof ExpoCrypto, 'getRandomBytes' | 'digest'>;
 
-export type PinRecord = { salt: string; rounds: number; hash: string };
+type PinRecord = { salt: string; rounds: number; hash: string };
 
 const ROUNDS = 1000;
 const SALT_BYTES = 16;
 
 export const isValidPin = (pin: string) => /^\d{4}$/.test(pin);
 
-export const toHex = (bytes: Uint8Array) =>
+const toHex = (bytes: Uint8Array) =>
   Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
 
 const fromHex = (hex: string) => Uint8Array.from(hex.match(/../g) ?? [], (h) => parseInt(h, 16));
@@ -27,11 +27,15 @@ async function hashPin(crypto: PinCrypto, pin: string, salt: Uint8Array, rounds:
   return toHex(new Uint8Array(h));
 }
 
-export async function createPinRecord(crypto: PinCrypto, pin: string): Promise<PinRecord> {
+/** The PIN record as the JSON string to keep in secure store. */
+export async function createPinRecord(crypto: PinCrypto, pin: string): Promise<string> {
   const salt = crypto.getRandomBytes(SALT_BYTES);
-  return { salt: toHex(salt), rounds: ROUNDS, hash: await hashPin(crypto, pin, salt, ROUNDS) };
+  const record: PinRecord = { salt: toHex(salt), rounds: ROUNDS, hash: await hashPin(crypto, pin, salt, ROUNDS) };
+  return JSON.stringify(record);
 }
 
-export async function pinMatches(crypto: PinCrypto, pin: string, record: PinRecord) {
+/** `stored` is a string from `createPinRecord`. */
+export async function pinMatches(crypto: PinCrypto, pin: string, stored: string) {
+  const record = JSON.parse(stored) as PinRecord;
   return (await hashPin(crypto, pin, fromHex(record.salt), record.rounds)) === record.hash;
 }

@@ -1,12 +1,13 @@
 // Parent gate (D-GURU-13-parent-gate): the phone's screen lock by default, or a GuruAI PIN.
 // SQLite holds only the mode and wrong-PIN counters; the PIN record is in secure store.
+import { randomUUID } from 'expo-crypto';
 import { SecurityLevel } from 'expo-local-authentication';
 import type * as LocalAuthentication from 'expo-local-authentication';
 import type * as SecureStore from 'expo-secure-store';
 
 import type { Db } from '../data/db';
 import { lockoutFor } from './lockout';
-import { createPinRecord, isValidPin, pinMatches, toHex, type PinCrypto, type PinRecord } from './pin';
+import { createPinRecord, isValidPin, pinMatches, type PinCrypto } from './pin';
 
 export type GateMode = 'device' | 'pin';
 export type GateState = GateMode | 'needs_pin_setup';
@@ -28,21 +29,20 @@ type GateRow = { mode: GateMode; failed: number; lockout_until: string | null };
 export function createGate({ db, auth, secureStore, crypto, now }: GateDeps) {
   const stamp = () => new Date(now()).toISOString();
 
-  function row(): GateRow {
-    if (!db.get('SELECT 1 FROM parent_gate')) {
-      const at = stamp();
-      db.run('INSERT INTO parent_gate (id, created_at, updated_at) VALUES (?, ?, ?)', [
-        toHex(crypto.getRandomBytes(16)),
-        at,
-        at,
-      ]);
-    }
-    return db.get<GateRow>('SELECT mode, failed, lockout_until FROM parent_gate LIMIT 1')!;
+  // The single parent_gate row, created with the gate.
+  if (!db.get('SELECT 1 FROM parent_gate')) {
+    const at = stamp();
+    db.run('INSERT INTO parent_gate (id, created_at, updated_at) VALUES (?, ?, ?)', [
+      randomUUID(),
+      at,
+      at,
+    ]);
   }
 
+  const row = () => db.get<GateRow>('SELECT mode, failed, lockout_until FROM parent_gate LIMIT 1')!;
+
   function resetCounters() {
-    row();
-    db.run('UPDATE parent_gate SET failed = 0, lockout_until = NULL, lockout_stage = 0, updated_at = ?', [stamp()]);
+    db.run('UPDATE parent_gate SET failed = 0, lockout_until = NULL, updated_at = ?', [stamp()]);
   }
 
   async function deviceLockAvailable() {
@@ -55,23 +55,20 @@ export function createGate({ db, auth, secureStore, crypto, now }: GateDeps) {
     if (at < until) return { ok: false, waitUntil: until };
 
     const stored = await secureStore.getItemAsync(PIN_KEY);
-    if (stored && (await pinMatches(crypto, pin, JSON.parse(stored) as PinRecord))) {
+    if (stored && (await pinMatches(crypto, pin, stored))) {
       resetCounters();
       return { ok: true };
     }
 
     const failed = current.failed + 1;
     const wait = lockoutFor(failed);
-    if (!wait) {
-      db.run('UPDATE parent_gate SET failed = ?, updated_at = ?', [failed, stamp()]);
-      return { ok: false };
-    }
     const waitUntil = at + wait;
-    db.run(
-      'UPDATE parent_gate SET failed = ?, lockout_until = ?, lockout_stage = lockout_stage + 1, updated_at = ?',
-      [failed, new Date(waitUntil).toISOString(), stamp()],
-    );
-    return { ok: false, waitUntil };
+    db.run('UPDATE parent_gate SET failed = ?, lockout_until = ?, updated_at = ?', [
+      failed,
+      wait ? new Date(waitUntil).toISOString() : current.lockout_until,
+      stamp(),
+    ]);
+    return wait ? { ok: false, waitUntil } : { ok: false };
   }
 
   // One check at a time: overlapping calls would read the same `failed` and lose a count.
@@ -99,9 +96,7 @@ export function createGate({ db, auth, secureStore, crypto, now }: GateDeps) {
     /** Stores a new 4-digit PIN and switches the gate to pin mode. */
     async setPin(pin: string): Promise<void> {
       if (!isValidPin(pin)) throw new Error('PIN must be 4 digits');
-      const record = await createPinRecord(crypto, pin);
-      await secureStore.setItemAsync(PIN_KEY, JSON.stringify(record));
-      row();
+      await secureStore.setItemAsync(PIN_KEY, await createPinRecord(crypto, pin));
       db.run("UPDATE parent_gate SET mode = 'pin', updated_at = ?", [stamp()]);
     },
 
