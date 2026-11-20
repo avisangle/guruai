@@ -30,6 +30,12 @@ export type Family = keyof typeof FAMILIES;
 
 const HISTORY = 5;
 
+/** A family's line ids in `lines`: `<family>_<n>`, or the bare family id. */
+export function familyLines(family: string, lines: Record<string, string>): string[] {
+  const re = new RegExp(`^${family}(_\\d+)?$`);
+  return Object.keys(lines).filter((id) => re.test(id));
+}
+
 // Uniform pick from `available` minus the family's last 5 picks (minus only the
 // last pick when the pool has 5 or fewer lines). `history` is oldest first;
 // the returned history keeps at most 5. `family` names the pool for callers that

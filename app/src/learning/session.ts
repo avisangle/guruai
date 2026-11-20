@@ -87,6 +87,11 @@ export function lessonsDoneToday(db: Db, childId: string, date: string): number 
   )!.n;
 }
 
+/** Lessons the child ever finished, repeats included: the stars, which are never taken away (decision 5). */
+export function lessonsFinished(db: Db, childId: string): number {
+  return db.get<{ n: number }>(`SELECT COUNT(*) AS n FROM event WHERE child_id = ? AND type = 'lesson_end'`, [childId])!.n;
+}
+
 /** True once the child has finished their lessons_per_day on that local day. */
 export function goalMetToday(db: Db, childId: string, date: string): boolean {
   const child = getChild(db, childId);
