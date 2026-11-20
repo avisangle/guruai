@@ -152,6 +152,25 @@ const THINK = {
 };
 // hint: a letter card pops out of the pointing paw; the letter goes in the empty `slot` group (filled by the player)
 const CARD = { id: 'fx-hint-card', slot: 'fx-hint-letter', x: 326, y: 212, size: 72, r: 14, pivot: [326, 284], stroke: '#DF8F1F', line: 4 };
+// surprises: colours are design/foundations/tokens.json color.child values, named after their token.
+// Copied, not read: this script must run from a copy of anim/ and svg/ alone.
+const TOK = { primary: '#ED9950', success: '#2E7D4F', brand: '#801936', tryAgain: '#FFE7A3', onTryAgain: '#6B4700', trailStop: '#B08B66' };
+const hex = (k) => TOK[k];
+// sneeze: a puff and four droplets burst from the nose
+const SNEEZE = { puff: 'fx-sneeze-puff', c: [155, 286], lobes: [[-19, 3, 15], [0, -9, 17], [19, 3, 15], [0, 11, 15]], line: 3,
+  drops: ['fx-sneeze-drop-1', 'fx-sneeze-drop-2', 'fx-sneeze-drop-3', 'fx-sneeze-drop-4'], dropR: 5.5, fly: [[-84, -4], [-62, 44], [62, 44], [84, -4]] };
+// dropnut: an acorn, drawn at the grip point of the resting screen-left paw (arm-l-lower space)
+const NUT = { id: 'fx-nut', c: [88, 404], rx: 19, ry: 21, shell: hex('trailStop'), cap: hex('onTryAgain'), shine: hex('tryAgain'), line: 3 };
+// dance: two music notes float up above the head
+const NOTES = [{ id: 'fx-note-1', c: [50, 104], fill: FX_INK }, { id: 'fx-note-2', c: [196, 84], fill: FX_GREEN }];
+// celebrate: confetti bursts above the head and drifts down either side of the face.
+// piece = [dx, rise, fall, delay, spin]; |dx| stays wide so nothing crosses the face on the way down
+const CONFETTI = {
+  at: [148.8, 112], colors: [hex('primary'), hex('success'), hex('brand'), hex('tryAgain')],
+  pieces: [[-112, 62, 150, 0, 300], [104, 78, 170, 0.02, -260], [-132, 44, 190, 0.04, -340], [150, 56, 200, 0.03, 380], [-120, 88, 120, 0.06, 220], [126, 92, 130, 0.07, -300], [-146, 70, 210, 0.09, 420], [172, 34, 180, 0.08, -220],
+    [-110, 80, 180, 0.32, -280], [112, 60, 190, 0.34, 320], [-138, 58, 140, 0.36, 260], [158, 76, 160, 0.38, -360], [-124, 96, 200, 0.4, 340], [138, 98, 150, 0.42, 240]],
+};
+CONFETTI.ids = CONFETTI.pieces.map((_, i) => `fx-confetti-${i + 1}`);
 const fxParts = { 'fx-listen': { pivot: WAVE.ear }, [THINK.root]: { pivot: THINK.centre }, [THINK.cloud]: { pivot: THINK.pop } };
 const fxRest = { [THINK.cloud]: { o: 0 } };
 function fxSvg() {
@@ -181,6 +200,42 @@ function fxSvg() {
   const { x, y, size: w, r } = CARD, h = (x0, y0, s) => `M ${x0 + r} ${y0} H ${x0 + s - r} A ${r} ${r} 0 0 1 ${x0 + s} ${y0 + r} V ${y0 + s - r} A ${r} ${r} 0 0 1 ${x0 + s - r} ${y0 + s} H ${x0 + r} A ${r} ${r} 0 0 1 ${x0} ${y0 + s - r} V ${y0 + r} A ${r} ${r} 0 0 1 ${x0 + r} ${y0} Z`;
   fxParts[CARD.id] = { pivot: CARD.pivot }; fxRest[CARD.id] = { o: 0 };
   L.push(`    <g id="${CARD.id}">`, `      <path d="${h(x, y, w)}" fill="${FX_WHITE}" stroke="${CARD.stroke}" stroke-width="${CARD.line}"/>`, `      <g id="${CARD.slot}"></g>`, '    </g>');
+  // sneeze
+  fxParts[SNEEZE.puff] = { pivot: SNEEZE.c }; fxRest[SNEEZE.puff] = { o: 0 };
+  L.push(`    <g id="${SNEEZE.puff}">`);
+  for (const pad of [SNEEZE.line, 0]) for (const [dx, dy, pr] of SNEEZE.lobes) L.push(`      <circle cx="${n2(SNEEZE.c[0] + dx)}" cy="${n2(SNEEZE.c[1] + dy)}" r="${pr + pad}" fill="${pad ? FX_INK : FX_WHITE}"/>`);
+  L.push('    </g>');
+  for (const id of SNEEZE.drops) {
+    fxParts[id] = { pivot: SNEEZE.c }; fxRest[id] = { o: 0 };
+    L.push(`    <g id="${id}">`, `      <circle cx="${SNEEZE.c[0]}" cy="${SNEEZE.c[1]}" r="${SNEEZE.dropR + 2.4}" fill="${FX_INK}"/>`, `      <circle cx="${SNEEZE.c[0]}" cy="${SNEEZE.c[1]}" r="${SNEEZE.dropR}" fill="${FX_WHITE}"/>`, '    </g>');
+  }
+  // nut: shell, cap, stalk, shine
+  {
+    const [cx, cy] = NUT.c, { rx, ry } = NUT, capY = n2(cy - ry * 0.45), cw = rx + 3;
+    fxParts[NUT.id] = { pivot: NUT.c }; fxRest[NUT.id] = { o: 0 };
+    L.push(`    <g id="${NUT.id}">`,
+      `      <path d="M ${cx + 1} ${n2(cy - ry - 4)} Q ${cx + 2} ${n2(cy - ry - 9)} ${cx + 6} ${n2(cy - ry - 11)}" fill="none" stroke="${FX_INK}" stroke-width="4.5" stroke-linecap="round"/>`,
+      `      <path d="M ${cx - rx} ${capY} C ${cx - rx} ${n2(cy + ry * 0.55)} ${cx - rx * 0.45} ${cy + ry} ${cx} ${n2(cy + ry + 2)} C ${n2(cx + rx * 0.45)} ${cy + ry} ${cx + rx} ${n2(cy + ry * 0.55)} ${cx + rx} ${capY} Z" fill="${NUT.shell}" stroke="${FX_INK}" stroke-width="${NUT.line}" stroke-linejoin="round"/>`,
+      `      <ellipse cx="${n2(cx - rx * 0.42)}" cy="${n2(cy + ry * 0.22)}" rx="3.5" ry="6.5" fill="${NUT.shine}"/>`,
+      `      <path d="M ${cx - cw} ${n2(capY + 2)} C ${cx - cw} ${n2(cy - ry - 3)} ${cx - cw * 0.5} ${n2(cy - ry - 5)} ${cx} ${n2(cy - ry - 5)} C ${n2(cx + cw * 0.5)} ${n2(cy - ry - 5)} ${cx + cw} ${n2(cy - ry - 3)} ${cx + cw} ${n2(capY + 2)} Q ${cx} ${n2(capY + 7)} ${cx - cw} ${n2(capY + 2)} Z" fill="${NUT.cap}" stroke="${FX_INK}" stroke-width="${NUT.line}" stroke-linejoin="round"/>`,
+      '    </g>');
+  }
+  // music notes: a quaver and a beamed pair
+  NOTES.forEach(({ id, c: [x, y], fill }, i) => {
+    fxParts[id] = { pivot: [x, y] }; fxRest[id] = { o: 0 };
+    const head = (hx, hy) => `      <ellipse cx="${hx}" cy="${hy}" rx="8.5" ry="6.5" fill="${fill}"/>`;
+    const line = (d) => `      <path d="${d}" fill="none" stroke="${fill}" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>`;
+    L.push(`    <g id="${id}">`);
+    if (i === 0) L.push(head(x - 4, y + 13), line(`M ${x + 3} ${y + 12} V ${y - 15} Q ${x + 14} ${y - 11} ${x + 13} ${y - 1}`));
+    else L.push(head(x - 12, y + 15), head(x + 10, y + 10), line(`M ${x - 5} ${y + 14} V ${y - 11} L ${x + 17} ${y - 16} V ${y + 9}`));
+    L.push('    </g>');
+  });
+  // confetti: strips and dots
+  CONFETTI.ids.forEach((id, i) => {
+    const [x, y] = CONFETTI.at, fill = CONFETTI.colors[i % CONFETTI.colors.length];
+    fxParts[id] = { pivot: CONFETTI.at }; fxRest[id] = { o: 0 };
+    L.push(`    <g id="${id}">`, i % 3 === 2 ? `      <circle cx="${x}" cy="${y}" r="8.5" fill="${fill}"/>` : `      <path d="M ${x - 12} ${y - 6.5} H ${x + 12} V ${y + 6.5} H ${x - 12} Z" fill="${fill}"/>`, '    </g>');
+  });
   L.push('  </g>', '</svg>');
   return L.join('\n') + '\n';
 }
@@ -190,6 +245,22 @@ function clip(keys, D) {
   const out = keys.filter((k) => k[0] < D - 1e-9);
   out.push([D, +evalKeys(keys, D).toFixed(4), 'linear']);
   return out.map(([t, v, e]) => (e ? [+t.toFixed(4), v, e] : [+t.toFixed(4), v]));
+}
+
+// one-shot fx: put a channel back at its hidden rest value at D (validate() checks the seam on one-shots too)
+const home = (keys, D) => (keys[keys.length - 1][1] === keys[0][1] ? keys : [...keys, [D, keys[0][1], 'step']]);
+// A held prop: fx shapes are not parented to a limb, so the prop is keyed to where the paw is on stage.
+const RIG = JSON.parse(fs.readFileSync(path.join(here, '../../svg/shekru.rig.json'), 'utf8')).parts;
+const UPPER_PIVOT = [148.8, 420];
+// stage position at time t of a point given in arm-<side>-lower space (state tracks only, base layers ignored)
+function pawAt(tr, side, t, point) {
+  let [x, y] = point;
+  for (const [id, pivot] of [[`arm-${side}-lower`], [`arm-${side}-upper`], ['upper', UPPER_PIVOT], ['shekru']]) {
+    const k = tr[id] || {}, v = (ch, d) => (k[ch] ? evalKeys(k[ch], t) : d), [px, py] = pivot || RIG[id].pivot;
+    const a = (v('r', 0) * Math.PI) / 180, dx = (x - px) * v('sx', 1), dy = (y - py) * v('sy', 1);
+    [x, y] = [px + v('tx', 0) + dx * Math.cos(a) - dy * Math.sin(a), py + v('ty', 0) + dx * Math.sin(a) + dy * Math.cos(a)];
+  }
+  return [x, y];
 }
 
 // ---------------------------------------------------------------- states
@@ -451,6 +522,214 @@ const states = {};
     filmstrip: [0.2, 0.5, 0.8, 1.22, 1.57, 1.92, 2.27, 2.7, 2.95, 3.3, 3.6, 3.95] };
 }
 
+// 11. sneeze: nose tickle, two rising "ah"s as the eyes squeeze shut, a whole-body "choo" that pops him off his feet, dazed head shake
+{
+  const tr = tracksOf(), D = 2.6, A1 = 0.5, A2 = 1.08, C = 1.2, HIT = 1.3;
+  set(tr, 'nose', 'sx', [[0, 1], [0.07, 1.2], [0.14, 0.88], [0.21, 1.18], [0.28, 0.9], [0.36, 1.12], [A1, 1], [C, 1], [HIT, 1.3, 'outQuad'], [1.5, 1], [1.84, 1], [1.91, 1.16], [1.98, 0.9], [2.05, 1.12], [2.14, 1]]);
+  set(tr, 'nose', 'sy', [[0, 1], [0.07, 0.88], [0.14, 1.14], [0.21, 0.9], [0.28, 1.12], [0.36, 0.94], [A1, 1], [1.84, 1], [1.91, 0.9], [1.98, 1.1], [2.05, 0.94], [2.14, 1]]);
+  set(tr, 'nose', 'tx', [[0, 0], [0.07, -1.6], [0.14, 1.6], [0.21, -1.6], [0.28, 1.4], [0.36, 0]]);
+  set(tr, 'shekru', 'sy', [[0, 1], [0.3, 1], [A1, 1.03, 'outQuad'], [0.64, 1], [A2, 1.075, 'outCubic'], [C, 1.085], [HIT, 0.84, 'inCubic'], [1.44, 1.07, 'outQuad'], [1.62, 0.93, 'inQuad'], [1.78, 1.025], [1.94, 1]]);
+  set(tr, 'shekru', 'sx', [[0, 1], [0.3, 1], [A1, 0.985, 'outQuad'], [0.64, 1], [A2, 0.965, 'outCubic'], [C, 0.96], [HIT, 1.1, 'inCubic'], [1.44, 0.96, 'outQuad'], [1.62, 1.05, 'inQuad'], [1.78, 0.99], [1.94, 1]]);
+  set(tr, 'shekru', 'ty', [[0, 0], [HIT + 0.02, 0], [1.46, -16, 'outQuad'], [1.6, 0, 'inQuad']]);
+  set(tr, 'upper', 'r', [[0, 0], [0.3, 0], [A1, -1.5, 'outQuad'], [0.64, -0.5], [A2, -3.5, 'outCubic'], [C, -4], [HIT, 2, 'inCubic'], [1.5, -1], [1.7, 0]]);
+  set(tr, 'head', 'ty', [[0, 0], [0.3, 0], [A1, -4, 'outQuad'], [0.64, -1], [A2, -9, 'outCubic'], [C, -10], [HIT, 14, 'inCubic'], [1.46, -3, 'outQuad'], [1.64, 2], [1.8, 0]]);
+  set(tr, 'head', 'r', [[0, 0], [0.3, 0], [A1, -3, 'outQuad'], [0.64, -1], [A2, -6, 'outCubic'], [C, -7], [HIT, 3, 'inCubic'], [1.5, 0], [1.66, 0], [1.8, -6], [1.94, 5], [2.08, -3.5], [2.22, 2], [2.38, 0]]);
+  for (const [s, k] of [['l', 1], ['r', -1]]) {
+    // cross-eyed look down at the tickle; a little cross-eyed again while dazed
+    setAll(tr, [`eye-${s}-pupil`, `eye-${s}-highlight`], 'tx', [[0, 0], [0.06, 0], [0.18, 4 * k, 'outCubic'], [0.38, 4 * k], [A1, 0], [1.66, 0], [1.76, 2.5 * k, 'outCubic'], [2.12, 2.5 * k], [2.3, 0]]);
+    setAll(tr, [`eye-${s}-pupil`, `eye-${s}-highlight`], 'ty', [[0, 0], [0.06, 0], [0.18, 4, 'outCubic'], [0.38, 4], [A1, -2], [1.66, 1], [2.12, 1], [2.3, 0]]);
+    // lids droop on each "ah", shut for the choo
+    set(tr, `eye-${s}-eyelid`, 'v', [[0, 0], [0.4, 1, 'step'], [1.76, 0, 'step']]);
+    set(tr, `eye-${s}-eyelid`, 'sy', [[0, 1], [0.4, 0.06, 'step'], [A1, 0.5, 'outQuad'], [0.64, 0.25], [0.9, 0.7], [A2, 1], [1.66, 1], [1.76, 0.06, 'outQuad'], [1.8, 1, 'step']]);
+    set(tr, `eye-${s}`, 'sx', [[0, 1], [1.66, 1], [1.8, 1.1, 'outBack'], [2.2, 1.06], [2.42, 1]]);
+    set(tr, `eye-${s}`, 'sy', [[0, 1], [1.66, 1], [1.8, 1.1, 'outBack'], [2.2, 1.06], [2.42, 1]]);
+    // paws creep up toward the nose, then fling out
+    set(tr, `arm-${s}-upper`, 'r', [[0, 0], [0.3, 0], [A1, 14 * k, 'outQuad'], [0.64, 9 * k], [A2, 30 * k, 'outCubic'], [C, 33 * k], [HIT, 52 * k, 'inCubic'], [1.5, 30 * k], [1.68, 10 * k], [1.9, -2 * k], [2.1, 0]]);
+    set(tr, `arm-${s}-lower`, 'r', [[0, 0], [0.3, 0], [A1, -40 * k, 'outQuad'], [0.64, -28 * k], [A2, -95 * k, 'outCubic'], [C, -102 * k], [HIT + 0.02, 34 * k, 'inCubic'], [1.52, 12 * k], [1.72, -10 * k], [1.96, 3 * k], [2.16, 0]]);
+    set(tr, `ear-${s}`, 'r', [[0, 0], [0.3, 0], [A1, -5 * k], [0.64, -2 * k], [A2, -11 * k, 'outCubic'], [C, -12 * k], [HIT, 16 * k, 'inCubic'], [1.46, -12 * k], [1.62, 7 * k], [1.78, -3 * k], [1.94, 0]]);
+  }
+  setAll(tr, ['brow-l', 'brow-r'], 'ty', [[0, 0], [0.1, -3, 'outQuad'], [0.36, -3], [A1, -5], [0.64, -3], [A2, -7, 'outCubic'], [C, -7], [HIT, 3, 'inCubic'], [1.66, 3], [1.8, -6, 'outBack'], [2.2, -4], [2.45, 0]]);
+  set(tr, 'bag', 'r', [[0, 0], [C, 0], [HIT, 5], [1.48, -7], [1.68, 4], [1.9, -2], [2.1, 0]]);
+  set(tr, 'bag', 'ty', [[0, 0], [HIT, 0], [1.46, -5], [1.62, 3], [1.8, 0]]);
+  tail(tr, [[0, 0], [0.3, 0], [A1, -3], [0.64, -1], [A2, -5, 'outCubic'], [C, -5.5], [HIT, 6, 'inCubic'], [1.5, -6], [1.72, 3.5], [1.96, -2], [2.2, 0]], { delay: 0.06 });
+  // fx: the puff swells and sinks away from the nose, droplets fly out to both sides
+  const fx = tracksOf(), P = HIT - 0.04;
+  set(fx, SNEEZE.puff, 'o', [[0, 0], [P, 0], [P + 0.03, 1, 'linear'], [P + 0.28, 1], [P + 0.58, 0]]);
+  for (const ch of ['sx', 'sy']) set(fx, SNEEZE.puff, ch, home([[0, 0.4], [P, 0.4], [P + 0.16, 1.15, 'outCubic'], [P + 0.58, 1.45]], D));
+  set(fx, SNEEZE.puff, 'ty', home([[0, 0], [P, 0], [P + 0.58, 24, 'outCubic']], D));
+  SNEEZE.drops.forEach((id, i) => {
+    const [dx, dy] = SNEEZE.fly[i], t0 = P + 0.02 * (i % 2);
+    set(fx, id, 'o', [[0, 0], [t0, 0], [t0 + 0.04, 1, 'linear'], [t0 + 0.26, 1], [t0 + 0.44, 0]]);
+    set(fx, id, 'tx', home([[0, 0], [t0, 0], [t0 + 0.44, dx, 'outCubic']], D));
+    set(fx, id, 'ty', home([[0, 0], [t0, 0], [t0 + 0.44, dy, 'outQuad']], D));
+  });
+  states.sneeze = { duration: D, loop: false, next: 'idle', still: 1.36, tracks: tr, fx: { still: 1.36, tracks: fx }, mix: { tail: 0.3, speech: 0.5, breath: 0.5 },
+    mouth: [[0, 'rest'], [0.3, 'AA'], [0.62, 'MBP'], [0.72, 'AA'], [C, 'OO'], [1.5, 'O'], [1.76, 'rest'], [2.3, 'EE'], [2.5, 'rest']],
+    filmstrip: [0.1, 0.24, 0.5, 0.64, 0.9, 1.1, 1.26, 1.32, 1.46, 1.64, 1.8, 2.3] };
+}
+
+// 12. dropnut: holds a nut up proudly beside his face, it slips and bounces on the ground, he gapes, bends to pick it up,
+//     hugs it in relief and tucks it into the bag. The nut is fx, keyed to the screen-left paw while he holds it.
+{
+  const tr = tracksOf(), D = 3.9;
+  const UP = 0.55, SLIP = 1.05, GROUND = 1.5, REST = 1.95, GRAB = 2.38, HUG = 2.86, TUCK = 3.2, IN = 3.5;
+  const GU = 11, GL = 8; // arm angles that put the paw on the fallen nut
+  set(tr, 'arm-l-upper', 'r', [[0, 0], [0.12, -6, 'outQuad'], [UP, 104, 'inOutQuad'], [0.74, 96], [SLIP, 96], [SLIP + 0.08, 106, 'outQuad'], [SLIP + 0.28, 98], [REST - 0.15, 98], [GRAB, GU, 'inOutQuad'], [GRAB + 0.1, GU], [HUG, 15, 'inOutQuad'], [TUCK, 15], [TUCK + 0.2, -22, 'inOutQuad'], [IN, -22], [D - 0.08, 0, 'inOutQuad']]);
+  set(tr, 'arm-l-lower', 'r', [[0, 0], [0.08, -8, 'outQuad'], [0.38, 92, 'inOutQuad'], [UP + 0.03, 60], [0.74, 52], [0.86, 60], [0.96, 52], [SLIP, 52], [SLIP + 0.07, 26, 'outQuad'], [SLIP + 0.2, 66], [SLIP + 0.36, 56], [REST - 0.15, 56], [GRAB, GL, 'inOutQuad'], [GRAB + 0.1, GL], [HUG, -125, 'inOutQuad'], [HUG + 0.14, -118], [TUCK, -120], [TUCK + 0.2, -48, 'inOutQuad'], [IN, -48], [IN + 0.08, -40], [D - 0.05, 0, 'inOutQuad']]);
+  set(tr, 'arm-r-upper', 'r', [[0, 0], [UP, -8], [SLIP, -6], [SLIP + 0.1, -30, 'outQuad'], [GROUND, -18], [REST, -12], [GRAB, -34, 'inOutQuad'], [HUG, -15, 'inOutQuad'], [TUCK, -15], [TUCK + 0.22, 4, 'inOutQuad'], [IN, 4], [D - 0.1, 0]]);
+  set(tr, 'arm-r-lower', 'r', [[0, 0], [SLIP, 0], [SLIP + 0.1, -25, 'outQuad'], [REST, -10], [GRAB, -20], [HUG, 112, 'inOutQuad'], [TUCK, 112], [TUCK + 0.24, 38, 'inOutQuad'], [IN, 38], [D - 0.08, 0]]);
+  set(tr, 'upper', 'r', [[0, 0], [0.14, 1, 'outQuad'], [UP, -2.5, 'inOutCubic'], [SLIP, -2], [SLIP + 0.12, 1.5, 'outQuad'], [GROUND, -3], [REST, -4], [GRAB, -11, 'inOutCubic'], [GRAB + 0.1, -11], [HUG, 2, 'inOutCubic'], [HUG + 0.2, 0]]);
+  set(tr, 'upper', 'ty', [[0, 0], [REST, 0], [GRAB, 10, 'inOutCubic'], [GRAB + 0.1, 10], [HUG - 0.1, 0, 'inOutCubic']]);
+  set(tr, 'shekru', 'sy', [[0, 1], [SLIP, 1], [SLIP + 0.1, 1.05, 'outQuad'], [SLIP + 0.3, 1], [REST, 1], [GRAB, 0.87, 'inOutCubic'], [GRAB + 0.1, 0.87], [HUG - 0.1, 1.03, 'inOutCubic'], [HUG + 0.12, 0.985], [HUG + 0.3, 1], [IN, 1], [IN + 0.1, 0.98], [IN + 0.25, 1]]);
+  set(tr, 'shekru', 'sx', [[0, 1], [SLIP, 1], [SLIP + 0.1, 0.975, 'outQuad'], [SLIP + 0.3, 1], [REST, 1], [GRAB, 1.05, 'inOutCubic'], [GRAB + 0.1, 1.05], [HUG - 0.1, 0.985, 'inOutCubic'], [HUG + 0.12, 1.008], [HUG + 0.3, 1]]);
+  set(tr, 'head', 'r', [[0, 0], [0.16, 2], [UP, -7, 'inOutCubic'], [SLIP, -6], [SLIP + 0.12, -2, 'outQuad'], [GROUND, -9, 'inOutQuad'], [REST, -10], [GRAB, -6], [HUG, 5, 'inOutCubic'], [TUCK, 4], [IN, 6], [D - 0.1, 0]]);
+  set(tr, 'head', 'ty', [[0, 0], [SLIP, 0], [SLIP + 0.1, -4, 'outQuad'], [GROUND, 5, 'inOutQuad'], [GRAB, 7], [HUG, 0, 'inOutCubic'], [TUCK, 0], [IN, 3], [IN + 0.25, 0]]);
+  gaze(tr,
+    [[0, 0], [0.3, 0], [0.46, -4.5, 'outCubic'], [SLIP, -4.5], [GROUND, -4, 'linear'], [GRAB, -3.5], [HUG - 0.1, -1], [TUCK, 0], [TUCK + 0.14, 2.5, 'outCubic'], [IN + 0.1, 2.5], [IN + 0.3, 0]],
+    [[0, 0], [0.3, 0], [0.46, -1.5, 'outCubic'], [SLIP, -1.5], [SLIP + 0.1, -3, 'outQuad'], [GROUND, 4.5, 'inQuad'], [GRAB, 4.5], [HUG - 0.1, 3], [TUCK, 0], [TUCK + 0.14, 4, 'outCubic'], [IN + 0.1, 4], [IN + 0.3, 0]]);
+  happy(tr, HUG - 0.06, TUCK);
+  setAll(tr, ['brow-l', 'brow-r'], 'ty', [[0, 0], [0.3, 0], [UP, -4.5, 'outBack'], [SLIP, -3.5], [SLIP + 0.1, -7.5, 'outQuad'], [REST, -6], [GRAB, -2], [HUG, -4, 'outBack'], [IN, -3], [IN + 0.3, 0]]);
+  for (const [s, k] of [['l', 1], ['r', -1]]) {
+    for (const ch of ['sx', 'sy']) set(tr, `eye-${s}`, ch, [[0, 1], [SLIP, 1], [SLIP + 0.1, 1.12, 'outBack'], [REST, 1.08], [GRAB, 1]]);
+    set(tr, `ear-${s}`, 'r', [[0, 0], [SLIP, 0], [SLIP + 0.1, 11 * k, 'outQuad'], [REST, 7 * k], [GRAB, -8 * k], [HUG, 4 * k], [HUG + 0.25, 0]]);
+  }
+  set(tr, 'bag', 'r', [[0, 0], [REST, 0], [GRAB, 7, 'inOutCubic'], [HUG, -3], [HUG + 0.25, 0], [IN, 0], [IN + 0.07, 5, 'outQuad'], [IN + 0.2, -3], [IN + 0.34, 0]]);
+  tail(tr, [[0, 0], [SLIP, 0], [SLIP + 0.12, -6, 'outQuad'], [GROUND, 3], [REST, 0], [GRAB, 9, 'inOutCubic'], [HUG, -4, 'inOutCubic'], [HUG + 0.3, 2], [TUCK + 0.2, 0]]);
+
+  // fx: the nut. Held = sampled from the paw; free = hand keys (pop up, fall, two bounces, lie on its side)
+  const fx = tracksOf(), N = NUT.id, off = (x, y) => [n2(x - NUT.c[0]), n2(y - NUT.c[1])];
+  const BAG = off(174, 384), LIE = off(52, 430), nx = [[0, BAG[0]]], ny = [[0, BAG[1]]];
+  const hold = (t0, t1) => {
+    const n = Math.ceil((t1 - t0) * 30);
+    for (let i = 0; i <= n; i++) {
+      const t = +(t0 + ((t1 - t0) * i) / n).toFixed(3), [x, y] = off(...pawAt(tr, 'l', t, NUT.c));
+      nx.push([t, x, 'linear']); ny.push([t, y, 'linear']);
+    }
+  };
+  hold(0.26, SLIP);
+  const [x0, y0] = [nx[nx.length - 1][1], ny[ny.length - 1][1]];
+  nx.push([SLIP + 0.1, x0 - 2, 'outQuad'], [GROUND, LIE[0] + 10, 'linear'], [1.78, LIE[0] + 3, 'linear'], [1.92, LIE[0], 'linear'], [GRAB - 0.06, LIE[0]]);
+  ny.push([SLIP + 0.1, y0 - 12, 'outQuad'], [GROUND, LIE[1], 'inQuad'], [1.64, LIE[1] - 30, 'outQuad'], [1.78, LIE[1], 'inQuad'], [1.85, LIE[1] - 9, 'outQuad'], [1.92, LIE[1], 'inQuad'], [GRAB - 0.06, LIE[1]]);
+  hold(GRAB, TUCK + 0.2);
+  nx.push([IN, BAG[0]]); ny.push([IN, BAG[1]]);
+  set(fx, N, 'tx', nx); set(fx, N, 'ty', ny);
+  set(fx, N, 'r', home([[0, -8], [SLIP, -8], [SLIP + 0.1, -30, 'outQuad'], [GROUND, 70, 'linear'], [1.78, 96, 'linear'], [1.92, 90], [GRAB, 90], [HUG, -6, 'inOutQuad'], [TUCK, -6], [IN, 20]], D));
+  set(fx, N, 'o', [[0, 0], [0.26, 0], [0.32, 1, 'linear'], [TUCK + 0.22, 1], [IN, 0]]);
+  for (const ch of ['sx', 'sy']) set(fx, N, ch, home([[0, 0.2], [0.26, 0.2], [0.5, 1, 'outBack'], [TUCK + 0.2, 1], [IN, 0.4, 'inQuad']], D));
+  states.dropnut = { duration: D, loop: false, next: 'idle', still: 0.9, tracks: tr, fx: { still: 0.9, tracks: fx }, mix: { tail: 0.4, speech: 0.5, breath: 0.3 },
+    mouth: [[0, 'rest'], [0.4, 'EE'], [SLIP, 'O'], [GRAB + 0.1, 'MBP'], [HUG - 0.06, 'AA'], [TUCK, 'EE'], [IN + 0.25, 'rest']],
+    filmstrip: [0.3, 0.6, 0.95, 1.14, 1.3, 1.5, 1.64, 1.95, 2.38, 2.6, 2.95, 3.4] };
+}
+
+// 13. dance: four swaying disco points, the far arm up and the far foot kicking out, three quick hops with pumping fists, a ta-da pose; notes float up
+{
+  const tr = tracksOf(), D = 3.6, B = [0.3, 0.7, 1.1, 1.5], H = [1.92, 2.22, 2.52], TA = 2.84, END = 3.2;
+  const side = (i) => (i % 2 ? 1 : -1); // even beats lean to screen-left
+  const sway = (amp) => [[0, 0], ...B.flatMap((t, i) => [[t, amp * side(i), 'inOutQuad'], [t + 0.2, amp * side(i) * 0.85]])];
+  set(tr, 'upper', 'r', [...sway(6), [1.76, 0], ...H.map((t, i) => [t, -3 * side(i)]), [TA, 5, 'outBack'], [END, 4], [D - 0.08, 0, 'inOutCubic']]);
+  set(tr, 'upper', 'tx', [...sway(7), [1.76, 0], [TA, 3], [END, 3], [D - 0.08, 0]]);
+  set(tr, 'head', 'r', [...lag(sway(7), 0.05), [1.82, 0], ...H.map((t, i) => [t + 0.03, 4 * side(i)]), [TA + 0.04, 8, 'outBack'], [END, 7], [D - 0.05, 0]]);
+  // bounce on every beat, hop on every H
+  const sy = [[0, 1]], sx = [[0, 1]], hy = [[0, 0]];
+  for (const t of B) { sy.push([t - 0.14, 1.035], [t, 0.94, 'outQuad']); sx.push([t - 0.14, 0.975], [t, 1.045, 'outQuad']); hy.push([t - 0.14, -2.5], [t, 4, 'outQuad']); }
+  sy.push([1.66, 1.03], [1.79, 0.93, 'outQuad']); sx.push([1.66, 0.98], [1.79, 1.05, 'outQuad']); hy.push([1.66, -2], [1.79, 4, 'outQuad']);
+  const ty = [[0, 0], [1.8, 0]];
+  H.forEach((t, i) => {
+    const last = i === H.length - 1;
+    ty.push([t, last ? -24 : -18, 'outQuad'], [t + 0.15, 0, 'inQuad']);
+    sy.push([t, 1.05, 'outQuad'], [t + 0.15, last ? 0.9 : 0.93, 'inQuad']); sx.push([t, 0.97, 'outQuad'], [t + 0.15, last ? 1.07 : 1.05, 'inQuad']);
+    hy.push([t, -3], [t + 0.15, 5]);
+  });
+  sy.push([TA, 1.05, 'outQuad'], [TA + 0.18, 0.99], [END, 1]); sx.push([TA, 0.97, 'outQuad'], [TA + 0.18, 1.005], [END, 1]); hy.push([TA, -3, 'outQuad'], [END, -2], [D - 0.1, 0]);
+  set(tr, 'shekru', 'sy', sy); set(tr, 'shekru', 'sx', sx); set(tr, 'shekru', 'ty', ty); set(tr, 'head', 'ty', hy);
+  for (const [s, k] of [['l', 1], ['r', -1]]) {
+    const u = [[0, 0]], l = [[0, 0]], leg = [[0, 0]], ear = [[0, 0]];
+    B.forEach((t, i) => {
+      const point = side(i) === k; // the arm away from the lean points up and that foot kicks out; the other paw goes to the hip
+      u.push([t, (point ? 112 : 27) * k, 'inOutQuad'], [t + 0.2, (point ? 105 : 24) * k]);
+      l.push([t + 0.03, (point ? 18 : -52) * k, 'inOutQuad'], [t + 0.2, (point ? 4 : -48) * k]);
+      if (point) leg.push([t - 0.1, 0], [t, 15 * k, 'outQuad'], [t + 0.2, 13 * k], [t + 0.3, 0]);
+      ear.push([t - 0.14, 3 * k], [t, -7 * k, 'outQuad']);
+    });
+    u.push([1.78, 15 * k]); l.push([1.78, -70 * k]); ear.push([1.66, 3 * k], [1.79, -7 * k, 'outQuad']);
+    H.forEach((t, i) => {
+      const fwd = side(i) === -k;
+      u.push([t, (fwd ? 48 : 8) * k, 'outQuad']); l.push([t, (fwd ? -125 : -80) * k, 'outQuad']);
+      leg.push([t - 0.08, 0], [t, (fwd ? 16 : 5) * k, 'outQuad'], [t + 0.15, 0, 'inQuad']);
+      ear.push([t, 4 * k], [t + 0.15, -9 * k, 'outQuad']);
+    });
+    u.push([TA, (k > 0 ? 122 : -96), 'outBack'], [END, (k > 0 ? 116 : -92)], [D - 0.06, 0, 'inOutQuad']);
+    l.push([TA + 0.04, 22 * k, 'outBack'], [END, 14 * k], [D - 0.02, 0, 'inOutQuad']);
+    if (k > 0) leg.push([TA, 18, 'outBack'], [END, 16], [D - 0.1, 0]);
+    ear.push([TA, 5 * k], [TA + 0.2, -3 * k], [TA + 0.4, 0]);
+    set(tr, `arm-${s}-upper`, 'r', u); set(tr, `arm-${s}-lower`, 'r', l); set(tr, `leg-${s}`, 'r', leg); set(tr, `ear-${s}`, 'r', ear);
+  }
+  happy(tr, 0.3, END + 0.05);
+  setAll(tr, ['brow-l', 'brow-r'], 'ty', [[0, 0], [0.14, 1], [0.3, -4.5, 'outBack'], [END, -3.5], [END + 0.3, 0]]);
+  set(tr, 'bag', 'r', [[0, 0], ...B.map((t, i) => [t + 0.06, -5 * side(i)]), ...H.flatMap((t) => [[t, 3], [t + 0.15, -5]]), [TA + 0.05, -5], [END, -1], [D - 0.2, 0]]);
+  set(tr, 'bag', 'ty', [[0, 0], [1.8, 0], ...H.flatMap((t) => [[t, -4], [t + 0.15, 3]]), [TA, 0]]);
+  tail(tr, [[0, 0], ...B.map((t, i) => [t, -8 * side(i)]), ...H.flatMap((t) => [[t, 6], [t + 0.15, -6]]), [TA + 0.1, 9], [END, 3], [D - 0.3, 0]], { delay: 0.07, maxT: D });
+  // fx: each note pops in, floats up with a sway and fades, twice
+  const fx = tracksOf();
+  NOTES.forEach(({ id }, i) => {
+    const d = i ? 1 : -1, o = [[0, 0]], s = [[0, 0.4]], x = [[0, 0]], y = [[0, 0]], r = [[0, 0]];
+    for (const t0 of i ? [0.7, 2.2] : [0.3, 1.9]) {
+      const t1 = t0 + 1.25;
+      o.push([t0, 0], [t0 + 0.08, 1, 'linear'], [t1 - 0.35, 1], [t1, 0, 'linear']);
+      s.push([t0, 0.4, 'step'], [t0 + 0.25, 1, 'outBack'], [t1, 1]);
+      y.push([t0, 0, 'step'], [t1, -44, 'outSine']);
+      x.push([t0, 0, 'step'], [t0 + 0.4, 7 * d], [t0 + 0.8, -5 * d], [t1, 6 * d]);
+      r.push([t0, -10 * d, 'step'], [t0 + 0.4, 10 * d], [t0 + 0.8, -8 * d], [t1, 8 * d]);
+    }
+    set(fx, id, 'o', o); set(fx, id, 'sx', home(s, D)); set(fx, id, 'sy', home(s, D)); set(fx, id, 'tx', home(x, D)); set(fx, id, 'ty', home(y, D)); set(fx, id, 'r', home(r, D));
+  });
+  states.dance = { duration: D, loop: false, next: 'idle', still: 2.95, tracks: tr, fx: { still: 2.95, tracks: fx }, mix: { tail: 0.3, speech: 0.5, breath: 0.5 },
+    mouth: [[0, 'rest'], [0.26, 'EE'], [1.8, 'AA'], [2.7, 'EE'], [TA, 'AA'], [END + 0.1, 'EE'], [D - 0.15, 'rest']],
+    filmstrip: [0.16, 0.3, 0.7, 1.1, 1.5, 1.79, 1.92, 2.22, 2.52, 2.67, 2.9, 3.4] };
+}
+
+// 14. celebrate: two hops, a fist punched up on each (screen-right, then screen-left), then both arms wave through a tiptoe shimmy
+//     under a confetti burst. No crouch-and-one-jump, so it never reads as `correct`.
+{
+  const tr = tracksOf(), D = 3.3, H1 = 0.38, H2 = 0.92, V = 1.5, BURST = 1.44, S = [1.62, 1.86, 2.1, 2.34, 2.58], OUT = 2.76;
+  const shimmy = (a, b = -a, dt = 0) => S.map((t, i) => [+(t + dt).toFixed(2), i % 2 ? b : a]);
+  set(tr, 'shekru', 'ty', [[0, 0], [0.22, 0], [H1, -22, 'outQuad'], [0.54, 0, 'inQuad'], [0.76, 0], [H2, -22, 'outQuad'], [1.08, 0, 'inQuad']]);
+  set(tr, 'shekru', 'sy', [[0, 1], [0.18, 0.9, 'outCubic'], [0.3, 1.07, 'inOutQuad'], [H1, 1], [0.52, 1.04, 'inQuad'], [0.62, 0.89, 'outQuad'], [0.72, 0.92], [0.84, 1.07, 'inOutQuad'], [H2, 1], [1.06, 1.04, 'inQuad'], [1.16, 0.87, 'outQuad'], [1.26, 0.9], [V, 1.08, 'outBack'], ...S.flatMap((t) => [[t, 1.035], [t + 0.12, 1.07]]), [OUT, 1.02], [2.96, 0.97], [3.14, 1]]);
+  set(tr, 'shekru', 'sx', [[0, 1], [0.18, 1.06, 'outCubic'], [0.3, 0.96, 'inOutQuad'], [H1, 1], [0.52, 0.98, 'inQuad'], [0.62, 1.07, 'outQuad'], [0.72, 1.05], [0.84, 0.96, 'inOutQuad'], [H2, 1], [1.06, 0.98, 'inQuad'], [1.16, 1.08, 'outQuad'], [1.26, 1.06], [V, 0.96, 'outBack'], [OUT, 0.99], [2.96, 1.02], [3.14, 1]]);
+  // screen-right fist first, then it pulls down to a flex as the screen-left fist goes up; in the shimmy the arms wave in turn.
+  // Raised arms stay near 120 degrees and straight: any higher and the head hides them.
+  set(tr, 'arm-r-upper', 'r', [[0, 0], [0.18, 14, 'outCubic'], [H1, -118, 'inOutQuad'], [0.56, -108], [0.72, -96], [H2, -32, 'inOutQuad'], [1.1, -38], [1.24, -20], [V, -112, 'outBack'], ...shimmy(-96, -126), [OUT, -112], [3.1, 3, 'inOutQuad'], [3.22, 0]]);
+  set(tr, 'arm-r-lower', 'r', [[0, 0], [0.18, -110, 'outCubic'], [H1 + 0.02, -4, 'outCubic'], [0.56, -16], [0.74, -40], [H2, -118, 'inOutQuad'], [1.1, -108], [1.24, -125], [V + 0.03, -8, 'outBack'], ...shimmy(-26, 4), [OUT, -10], [3.12, 8, 'inOutQuad'], [3.24, 0]]);
+  set(tr, 'arm-l-upper', 'r', [[0, 0], [0.18, -8, 'outCubic'], [H1, 24, 'inOutQuad'], [0.6, 20], [0.74, -10], [H2, 118, 'inOutQuad'], [1.1, 108], [1.24, 84], [V, 112, 'outBack'], ...shimmy(126, 96), [OUT, 112], [3.1, -3, 'inOutQuad'], [3.22, 0]]);
+  set(tr, 'arm-l-lower', 'r', [[0, 0], [0.18, 20], [H1, 105, 'inOutQuad'], [0.6, 95], [0.74, 118], [H2 + 0.02, 4, 'outCubic'], [1.1, 16], [1.24, 40], [V + 0.03, 8, 'outBack'], ...shimmy(-4, 26), [OUT, 10], [3.12, -8, 'inOutQuad'], [3.24, 0]]);
+  set(tr, 'upper', 'r', [[0, 0], [0.18, -2], [H1, 5, 'inOutQuad'], [0.6, 2], [0.74, 2], [H2, -5, 'inOutQuad'], [1.12, -2], [1.26, 0], [V, 0], ...shimmy(4), [2.82, 0, 'inOutCubic']]);
+  set(tr, 'upper', 'tx', [[0, 0], [V, 0], ...shimmy(4), [2.82, 0]]);
+  set(tr, 'head', 'r', [[0, 0], [0.18, -2], [H1, 6], [0.6, 3], [H2, -6], [1.14, -3], [1.3, 0], [V, 0], ...shimmy(-5, 5, 0.04), [2.88, 0]]);
+  set(tr, 'head', 'ty', [[0, 0], [0.18, 5, 'outCubic'], [0.34, -3], [0.54, -1], [0.64, 7, 'outQuad'], [0.8, -3], [1.08, -1], [1.18, 8, 'outQuad'], [1.3, 4], [V, -5, 'outBack'], [OUT, -4], [2.96, 3], [3.14, 0]]);
+  for (const [s, k] of [['l', 1], ['r', -1]]) {
+    set(tr, `leg-${s}`, 'r', [[0, 0], [0.22, 0], [H1, 10 * k, 'outQuad'], [0.54, 0, 'inQuad'], [0.76, 0], [H2, 10 * k, 'outQuad'], [1.08, 0, 'inQuad']]);
+    set(tr, `ear-${s}`, 'r', [[0, 0], [0.18, 6 * k, 'outCubic'], [H1, -12 * k], [0.56, 4 * k], [0.66, -14 * k, 'outQuad'], [0.8, 3 * k], [H2 + 0.02, -12 * k], [1.1, 4 * k], [1.2, -15 * k, 'outQuad'], [1.36, 5 * k], [V + 0.05, -6 * k], ...shimmy(5, -5, 0.08), [2.9, 0]]);
+  }
+  set(tr, 'bag', 'r', [[0, 0], [0.2, 2], [H1, -6], [0.58, 5], [0.7, -4], [H2, 6], [1.12, -6], [1.3, 2], ...shimmy(-4, 4, 0.06), [2.86, 0]]);
+  set(tr, 'bag', 'ty', [[0, 0], [0.24, 0], [H1, -4], [0.58, 3], [0.76, 0], [H2, -4], [1.12, 3], [1.3, 0]]);
+  setAll(tr, ['brow-l', 'brow-r'], 'ty', [[0, 0], [0.18, 2, 'outCubic'], [0.34, -6, 'outBack'], [2.66, -4.5], [3.05, 0]]);
+  happy(tr, 0.26, 2.84);
+  tail(tr, [[0, 0], [0.18, 4, 'outCubic'], [H1, 8], [0.6, -7], [H2, 8], [1.14, -8], [1.3, 3], ...shimmy(-9), [2.84, -4], [3.02, 0]], { delay: 0.07, maxT: D });
+  // fx: two volleys of confetti shoot up from above the head, spread, tumble and drift down
+  const fx = tracksOf();
+  CONFETTI.pieces.forEach(([dx, rise, fall, delay, spin], i) => {
+    const id = CONFETTI.ids[i], t0 = BURST + delay, ta = t0 + 0.3, te = Math.min(D - 0.05, t0 + 1.55);
+    set(fx, id, 'o', [[0, 0], [t0, 0], [t0 + 0.04, 1, 'linear'], [te - 0.3, 1], [te, 0, 'linear']]);
+    set(fx, id, 'tx', home([[0, 0], [t0, 0], [ta, dx * 0.72, 'outQuad'], [te, dx, 'outSine']], D));
+    set(fx, id, 'ty', home([[0, 0], [t0, 0], [ta, -rise, 'outQuad'], [te, fall, 'inSine']], D));
+    set(fx, id, 'r', home([[0, 0], [t0, 0], [te, spin, 'linear']], D));
+    set(fx, id, 'sy', [[0, 1], [t0, 1], [ta, 0.5], [ta + 0.24, 1], [ta + 0.48, 0.5], [ta + 0.72, 1]]);
+  });
+  states.celebrate = { duration: D, loop: false, next: 'idle', still: 2.1, tracks: tr, fx: { still: 2.1, tracks: fx }, mix: { tail: 0.3, speech: 0.5, breath: 0.5 },
+    mouth: [[0, 'rest'], [0.24, 'AA'], [2.8, 'EE'], [3.12, 'rest']],
+    filmstrip: [0.18, 0.38, 0.62, 0.92, 1.16, 1.5, 1.62, 1.86, 2.1, 2.34, 2.7, 3.05] };
+}
+
 // ---------------------------------------------------------------- validate + write
 function validate() {
   const errs = [];
@@ -501,7 +780,7 @@ const out = {
   character: 'shekru',
   initial: 'idle',
   transition: { duration: 0.28, easing: 'inOutCubic', poseToPose: 0.42, poseEasing: 'inOutSine', posedAngle: 25 },
-  groups: { upper: { pivot: [148.8, 420], members: ['tail', 'body', 'bag', 'arm-l', 'arm-r', 'head'] } },
+  groups: { upper: { pivot: UPPER_PIVOT, members: ['tail', 'body', 'bag', 'arm-l', 'arm-r', 'head'] } },
   rest: { 'eye-l-eyelid': { v: 0 }, 'eye-r-eyelid': { v: 0 }, 'eyes-happy': { v: 0 }, ...fxRest },
   fx: { asset: 'shekru-fx.svg', parts: fxParts },
   base,
