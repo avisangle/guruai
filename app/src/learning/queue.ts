@@ -2,9 +2,10 @@
 // Lessons fill the daily goal in order: a lesson in progress, assigned lessons (unfinished
 // ones from earlier days first, decision 14), then the next lesson of each active path.
 // Due revision rides along in lessons and never counts toward the goal.
+import type { ItemMastery } from './mastery';
 
 /** A due revision item, as returned by dueRevision(). */
-export type DueItem = { item_key: string; lang: string };
+export type DueItem = Pick<ItemMastery, 'item_key' | 'lang'>;
 
 export type QueueInput = {
   today: string; // 'YYYY-MM-DD'
@@ -39,7 +40,7 @@ const REVISION_STOP_MAX = 8; // about 2 to 3 minutes
 function candidates(input: QueueInput): string[] {
   const assigned = input.assignments
     .filter((a) => a.done_at === null && a.for_date <= input.today)
-    .sort((a, b) => (a.for_date < b.for_date ? -1 : a.for_date > b.for_date ? 1 : 0)) // stable
+    .sort((a, b) => a.for_date.localeCompare(b.for_date))
     .map((a) => a.template_id);
 
   const picked = new Set([...input.inProgress, ...assigned]);
@@ -58,21 +59,18 @@ export function buildTodayQueue(input: QueueInput): TodayQueue {
   const room = Math.max(0, input.goal - input.doneToday);
   const lessons: LessonStop[] = [];
   const waitingForDownload: string[] = [];
+  let due = input.due;
   for (const id of candidates(input)) {
     if (!input.isInstalled(id)) waitingForDownload.push(id);
-    else if (lessons.length < room) lessons.push({ kind: 'lesson', template_id: id, revision: [] });
-  }
-
-  let due = input.due;
-  for (const lesson of lessons) {
-    const lang = input.lessonLang[lesson.template_id];
-    const mine = due.filter((d) => d.lang === lang).slice(0, REVISION_PER_LESSON);
-    lesson.revision = mine;
-    due = due.filter((d) => !mine.includes(d));
+    else if (lessons.length < room) {
+      const revision = due.filter((d) => d.lang === input.lessonLang[id]).slice(0, REVISION_PER_LESSON);
+      due = due.filter((d) => !revision.includes(d));
+      lessons.push({ kind: 'lesson', template_id: id, revision });
+    }
   }
 
   const stops: Stop[] = [...lessons];
-  if (due.length > 0) stops.splice(Math.min(1, stops.length), 0, { kind: 'revision', items: due.slice(0, REVISION_STOP_MAX) });
+  if (due.length > 0) stops.splice(1, 0, { kind: 'revision', items: due.slice(0, REVISION_STOP_MAX) });
 
   return { stops, goal: input.goal, done: input.doneToday, goalMet: input.doneToday >= input.goal, waitingForDownload };
 }
