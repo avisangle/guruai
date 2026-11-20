@@ -8,6 +8,7 @@ import { SURPRISE_STATES } from '../shekru/contract';
 import { pickLine } from './lines';
 import { endFamily, praiseFamily } from './praise';
 import { interleaveRevision, shuffleQuiz } from './quizOrder';
+import { revisionRef } from './revision';
 import type {
   AnswerEvent, FlowEntry, Heard, Item, Lang, Lesson, Listen, Position, Prompts, RevisionItem, Say, Step, StyleLevel,
   Surprise,
@@ -65,7 +66,7 @@ export function createLesson(
   const templateOf = new Map(revision.map((r) => [r.item, r.template_id]));
   const tpl = (item: Item) => templateOf.get(item) ?? lesson.template_id;
   // revision items by their Position.quiz ref, `<template_id>.<id>`
-  const revisionByRef = new Map(revision.map((r) => [`${r.template_id}.${r.item.id}`, r.item]));
+  const revisionByRef = new Map(revision.map((r) => [revisionRef(r), r.item]));
 
   const byId = (id: string) => {
     const item = lesson.items.find((i) => i.id === id);

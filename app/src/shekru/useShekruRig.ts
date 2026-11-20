@@ -30,10 +30,12 @@ export const SHADOW_CX = 202.4;
 export const SHADOW_CY = 442.6;
 
 type UiState = { rig: any; clock: number; state: string | null };
-const ui = () => {
+// One slot per hook instance: a screen under the lesson keeps its own rig.
+const ui = (key: number) => {
   'worklet';
-  return (globalThis as any).__shekru as UiState | undefined;
+  return (globalThis as any).__shekru?.[key] as UiState | undefined;
 };
+let lastKey = 0;
 
 function setPart(sv: SharedValue<PartValue>, m: number[], o: number, d: 'inline' | 'none') {
   'worklet';
@@ -59,24 +61,29 @@ export function useShekruRig(onState?: (state: string) => void) {
     return v;
   }, []);
   const speechClock = useMemo(() => makeMutable<SpeechClock>({ on: false, t: 0, wall: 0 }), []);
+  const key = useMemo(() => ++lastKey, []);
 
   useEffect(() => {
     const seed = (Math.random() * 1e9) | 0;
     scheduleOnUI(() => {
       const rig = makeEngine().createRig(rigJson, animJson, { seed });
-      (globalThis as any).__shekru = { rig, clock: 0, state: null };
+      const g = globalThis as any;
+      g.__shekru = { ...g.__shekru, [key]: { rig, clock: 0, state: null } };
     });
-    const setReduced = (on: boolean) => scheduleOnUI(() => ui()?.rig.setReducedMotion(on));
+    const setReduced = (on: boolean) => scheduleOnUI(() => ui(key)?.rig.setReducedMotion(on));
     AccessibilityInfo.isReduceMotionEnabled().then(setReduced);
     const sub = AccessibilityInfo.addEventListener('reduceMotionChanged', setReduced);
     return () => {
       sub.remove();
-      scheduleOnUI(() => { (globalThis as any).__shekru = undefined; });
+      scheduleOnUI(() => {
+        const g = globalThis as any;
+        if (g.__shekru) delete g.__shekru[key];
+      });
     };
-  }, []);
+  }, [key]);
 
   useFrameCallback((info) => {
-    const g = ui();
+    const g = ui(key);
     if (!g) return;
     g.clock += Math.min(0.1, (info.timeSincePreviousFrame ?? 0) / 1000);
     const s = speechClock.value;
@@ -109,17 +116,17 @@ export function useShekruRig(onState?: (state: string) => void) {
   return useMemo(() => ({
     values,
     // Takes effect on the next frame and blends from the pose on screen.
-    setState: (name: string) => scheduleOnUI(() => ui()?.rig.setState(name)),
+    setState: (name: string) => scheduleOnUI(() => ui(key)?.rig.setState(name)),
     // events of the clip about to play, or null to clear
     setSpeech: (events: VisemeEvent[] | null) => {
       if (!events) speechClock.value = { on: false, t: 0, wall: 0 };
-      scheduleOnUI(() => ui()?.rig.setSpeech(events));
+      scheduleOnUI(() => ui(key)?.rig.setSpeech(events));
     },
     // Call with the audio position whenever the player reports it.
     syncSpeech: (playing: boolean, seconds: number) => {
       speechClock.value = { on: playing, t: seconds, wall: Date.now() };
     },
-  }), [values, speechClock]);
+  }), [values, speechClock, key]);
 }
 
 export type ShekruRig = ReturnType<typeof useShekruRig>;

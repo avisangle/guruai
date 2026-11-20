@@ -4,22 +4,25 @@
 // interruption of a line (a call) pause the lesson; Stop ends the session.
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef } from 'react';
-import { AppState, Pressable, StyleSheet, Text as RNText, useWindowDimensions, View } from 'react-native';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { Pressable, StyleSheet, Text as RNText, useWindowDimensions, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withRepeat, withTiming } from 'react-native-reanimated';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { PICTURES } from '../content/pictures';
+import { now } from '../data/db';
 import { liveDb } from '../data/liveDb';
 import { recordAnswer } from '../learning/events';
 import { savePosition } from '../learning/positions';
-import { endSession, lessonLeft, lessonStarted } from '../learning/session';
-import { dropSessionClock, sessionClock } from '../learning/sessionClock';
+import { lessonLeft, lessonStarted } from '../learning/session';
+import { endSessionNow, sessionClock } from '../learning/sessionClock';
 import { useLinePlayer } from '../screens/useLinePlayer';
 import { useRecording, type JudgedClip } from '../screens/useRecording';
 import { useTesterAnswers } from '../screens/useTesterAnswers';
 import { Shekru } from '../shekru/Shekru';
 import { useShekruRig } from '../shekru/useShekruRig';
+import { Button } from '../ui/components/Button';
+import { Screen } from '../ui/components/Screen';
 import { Text } from '../ui/components/Text';
 import { theme } from '../ui/theme';
 import type { AnswerSource } from './answerSource';
@@ -64,15 +67,13 @@ export function LessonPlayer({ lesson, childId, sessionId, styleLevel, revision,
   const deps = useContext(LessonPlayerDeps);
   const db = liveDb();
   const rig = useShekruRig();
-  const interrupted = useRef(() => undefined as void);
-  const onInterrupt = useCallback(() => interrupted.current(), []);
-  const defaultLines = useLinePlayer(rig, onInterrupt);
+  const defaultLines = useLinePlayer(rig);
   const lines = deps.linePlayer ?? defaultLines;
   const tester = useTesterAnswers();
   const items = useMemo(() => [...lesson.items, ...revision.map((r) => r.item)], [lesson, revision]);
   const rec = useRecording(lesson.template_id, items, deps.answerSource ?? tester.source);
-  const clock = sessionClock(sessionId);
-  const ctx = useCallback(() => ({ childId, sessionId, at: new Date().toISOString() }), [childId, sessionId]);
+  const [clock] = useState(() => sessionClock(sessionId));
+  const ctx = useCallback((at = now()) => ({ childId, sessionId, at }), [childId, sessionId]);
 
   const back = useCallback(() => {
     if (router.canGoBack()) router.back();
@@ -80,7 +81,7 @@ export function LessonPlayer({ lesson, childId, sessionId, styleLevel, revision,
   }, [router, childId]);
 
   const answered = useRef(new Set<string>()); // items answered in this run, for lesson_left
-  const { view, pause, resume, halt } = usePlayerLoop({
+  const { view, pause, resume } = usePlayerLoop({
     lesson,
     styleLevel,
     revision,
@@ -106,30 +107,13 @@ export function LessonPlayer({ lesson, childId, sessionId, styleLevel, revision,
   });
 
   useEffect(() => {
-    interrupted.current = pause;
-  }, [pause]);
-
-  useEffect(() => {
     lessonStarted(db, ctx(), lesson.template_id);
   }, [db, ctx, lesson.template_id]);
 
-  // Leaving the app pauses exactly like the pause button.
-  useEffect(() => {
-    const sub = AppState.addEventListener('change', (state) => {
-      if (state !== 'active') pause();
-    });
-    return () => sub.remove();
-  }, [pause]);
-
+  // Only reachable while paused, so the loop is already halted.
   const stop = () => {
-    halt();
-    const at = new Date();
-    lessonLeft(db, { childId, sessionId, at: at.toISOString() }, lesson.template_id, {
-      done: answered.current.size,
-      total: items.length,
-    });
-    endSession(db, sessionId, 'stop', { at: at.toISOString(), activeMs: clock.activeMs(at.getTime()), parentHelps: false });
-    dropSessionClock(sessionId);
+    lessonLeft(db, ctx(), lesson.template_id, { done: answered.current.size, total: items.length });
+    endSessionNow(db, sessionId, 'stop', false); // "parent helps" (GURU-34) is not wired yet
     back();
   };
 
@@ -138,7 +122,7 @@ export function LessonPlayer({ lesson, childId, sessionId, styleLevel, revision,
   const word = view.card?.item.kind === 'word';
 
   return (
-    <SafeAreaView style={styles.screen}>
+    <Screen variant="child" style={styles.screen}>
       <StatusBar style="dark" />
       <View style={[styles.stage, { width: bigSize, height: bigSize }]}>
         <Shekru values={rig.values} size={bigSize} hintLetter={picture} />
@@ -154,14 +138,9 @@ export function LessonPlayer({ lesson, childId, sessionId, styleLevel, revision,
       </Text>
       {view.paused ? (
         <View style={styles.pausedRow} testID="paused">
-          <Pressable
-            testID="continue"
-            accessibilityRole="button"
-            accessibilityLabel="पुढे"
-            onPress={resume}
-            style={[styles.big, styles.continue]}>
-            <Text mode="child" variant="mainButton">▶ पुढे</Text>
-          </Pressable>
+          <View style={styles.big}>
+            <Button variant="childPrimary" label="▶ पुढे" onPress={resume} testID="continue" />
+          </View>
           <Pressable
             testID="stop"
             accessibilityRole="button"
@@ -203,7 +182,7 @@ export function LessonPlayer({ lesson, childId, sessionId, styleLevel, revision,
           <View style={styles.pauseBar} />
         </Pressable>
       )}
-    </SafeAreaView>
+    </Screen>
   );
 }
 
@@ -217,10 +196,7 @@ function JudgeNote({ judged: { judge, answer, tapped } }: { judged: JudgedClip }
 }
 
 const styles = StyleSheet.create({
-  screen: {
-    flex: 1, backgroundColor: color.child.background, alignItems: 'center',
-    paddingHorizontal: space.screenGutterChild, paddingBottom: space[3],
-  },
+  screen: { alignItems: 'center', paddingBottom: space[3] },
   stage: { alignItems: 'center', paddingTop: space[1] },
   hidden: { opacity: 0 },
   card: {
@@ -255,10 +231,9 @@ const styles = StyleSheet.create({
   pausedRow: {
     height: 132, alignSelf: 'stretch', flexDirection: 'row', gap: touch.child.gap, alignItems: 'flex-end', justifyContent: 'center',
   },
-  big: {
-    flex: 1, maxWidth: 240, minHeight: touch.child.mainButton, borderRadius: radius.child.mainButton,
-    alignItems: 'center', justifyContent: 'center',
+  big: { flex: 1, maxWidth: 240 },
+  stopButton: {
+    minHeight: touch.child.mainButton, borderRadius: radius.child.mainButton, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: color.child.surface, borderWidth: 2, borderColor: color.child.borderStrong,
   },
-  continue: { backgroundColor: color.child.primary },
-  stopButton: { backgroundColor: color.child.surface, borderWidth: 2, borderColor: color.child.borderStrong },
 });

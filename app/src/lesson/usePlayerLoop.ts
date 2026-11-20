@@ -1,7 +1,9 @@
 // The lesson loop: runs the engine's steps with the tutor, the line player and the answer
-// source. Pausing stops audio and the mic; continuing rebuilds the engine from its current
-// position, so Shekru asks the open question again before the mic opens.
+// source. Pausing (the pause button, the app leaving the foreground, a line the system
+// interrupts) stops audio and the mic; continuing rebuilds the engine from its current
+// position, so Shekru asks the open question again before the mic opens (D-GURU-28-lesson-pause).
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { AppState } from 'react-native';
 
 import promptsJson from '../content/generated/prompts.json';
 import type { Db } from '../data/db';
@@ -9,6 +11,7 @@ import { getChild } from '../data/profiles';
 import { WORD_ITEMS_GATED } from '../learning/config';
 import { localDay } from '../learning/mastery';
 import { lessonEnded, lessonsDoneToday, shouldEndAfterLesson } from '../learning/session';
+import type { useLinePlayer } from '../screens/useLinePlayer';
 import anim from '../shekru/generated/shekru.anim.json';
 import type { AnswerSource } from './answerSource';
 import { createLesson, type LessonEngine } from './engine';
@@ -19,13 +22,7 @@ const STATE_DEFS = anim.states as Record<string, { loop?: boolean; duration: num
 const THINKING_MS = 600;
 const GESTURE_TAIL_MS = 250; // a one-shot gesture finishes even when its line is shorter
 
-/** useLinePlayer's shape. */
-export type LinePlayer = {
-  /** Resolves when the line ends or is stopped. */
-  play(id: string, text: string): Promise<void>;
-  stop(): void;
-  chime(): void;
-};
+export type LinePlayer = ReturnType<typeof useLinePlayer>;
 
 export type PlayerView = {
   caption: string;
@@ -71,6 +68,22 @@ export function usePlayerLoop(opts: Options) {
   // that must not pause the lesson.
   const preparing = useRef(false);
 
+  /** Stops audio and the mic, and cancels the running loop. */
+  const halt = useCallback(() => {
+    token.current++;
+    live.current = false;
+    o.current.source.cancel();
+    o.current.lines.stop();
+  }, []);
+
+  const pause = useCallback(() => {
+    if (!live.current) return;
+    halt();
+    o.current.tutor.setState('idle');
+    o.current.onPause();
+    show({ caption: '', listening: false, paused: true });
+  }, [halt, show]);
+
   const run = useCallback(async (position: Position | null) => {
     const mine = ++token.current;
     const alive = () => mine === token.current;
@@ -78,8 +91,14 @@ export function usePlayerLoop(opts: Options) {
     const eng = createLesson(lesson, prompts, { position, styleLevel, revision, wordItemsGated: WORD_ITEMS_GATED });
     engine.current = eng;
     live.current = true;
+    // Speaks a line; false when the run stops here (stopped, or interrupted by the system).
+    const say = async (line: string, text: string) => {
+      if ((await o.current.lines.play(line, text)) !== 'interrupted') return alive();
+      pause();
+      return false;
+    };
     for (;;) {
-      const { lines, tutor, source, onActivity, onAnswer } = o.current;
+      const { tutor, source, onActivity, onAnswer } = o.current;
       const step = eng.next();
       if (step.type === 'done') break;
       if (step.type === 'surprise') {
@@ -92,53 +111,37 @@ export function usePlayerLoop(opts: Options) {
         if (step.line) {
           tutor.setState('talking');
           show({ caption: step.caption ?? step.text ?? '' });
-          await lines.play(step.line, step.text ?? '');
+          if (!(await say(step.line, step.text ?? ''))) return;
         }
       } else if (step.type === 'say') {
         const started = Date.now();
         show({ card: step.item && { item: step.item, showAnchor: step.showAnchor }, caption: step.caption ?? step.text });
         tutor.setState(step.state);
         onActivity();
-        await lines.play(step.line, step.text);
-        if (!alive()) return;
+        if (!(await say(step.line, step.text))) return;
         await wait(Math.max(0, oneShotMs(step.state) + GESTURE_TAIL_MS - (Date.now() - started)));
       } else {
         await prepared.current;
         if (!alive()) return;
         show({ card: { item: step.item, showAnchor: step.showAnchor }, caption: '', listening: true });
-        lines.chime();
+        o.current.lines.chime();
         tutor.setState('listening');
         onActivity();
         const heard = await source.listen(step);
         if (!alive()) return;
         show({ listening: false });
+        tutor.setState('thinking');
         onActivity();
+        const thinking = wait(THINKING_MS); // the writes run inside the thinking pause
         const { position: next, event } = eng.answer(heard);
         onAnswer(event, next);
-        tutor.setState('thinking');
-        await wait(THINKING_MS);
+        await thinking;
       }
       if (!alive()) return;
     }
     live.current = false;
     o.current.onDone();
-  }, [show]);
-
-  /** Stops audio and the mic; the run can continue or not. */
-  const halt = useCallback(() => {
-    token.current++;
-    live.current = false;
-    o.current.source.cancel();
-    o.current.lines.stop();
-  }, []);
-
-  const pause = useCallback(() => {
-    if (!live.current || preparing.current) return;
-    halt();
-    o.current.tutor.setState('idle');
-    o.current.onPause();
-    show({ caption: '', listening: false, paused: true });
-  }, [halt, show]);
+  }, [show, pause]);
 
   const resume = useCallback(() => {
     if (live.current || !engine.current) return;
@@ -149,18 +152,22 @@ export function usePlayerLoop(opts: Options) {
 
   useEffect(() => {
     preparing.current = true;
-    prepared.current = (async () => {
-      try {
-        await o.current.prepare?.();
-      } finally {
-        preparing.current = false;
-      }
-    })();
+    prepared.current = Promise.resolve(o.current.prepare?.()).finally(() => {
+      preparing.current = false;
+    });
     run(o.current.start);
     return halt;
   }, [run, halt]);
 
-  return { view, pause, resume, halt };
+  // Leaving the app pauses exactly like the pause button.
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state !== 'active' && !preparing.current) pause();
+    });
+    return () => sub.remove();
+  }, [pause]);
+
+  return { view, pause, resume };
 }
 
 export type LessonEndContext = {
