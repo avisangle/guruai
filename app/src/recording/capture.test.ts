@@ -1,8 +1,10 @@
-// GURU-10: the mic source resolves to Heard (TDD 2.2): the judge verdict maps to {kind, by: 'shekru'}; a tap passes through.
+// GURU-10: the mic source resolves to Heard (TDD 2.2); a tap passes through.
+// GURU-18: listen() takes the Listen step, which reaches the judge (its prompt words are excluded); the
+// judge's Heard is the answer, and the clip records the matched text and language.
 import type { ClipJudge, Verdict } from '../asr/lessonJudge';
 import lessonsJson from '../content/generated/lessons.json';
 import type { AnswerSource } from '../lesson/answerSource';
-import type { Heard, Lesson } from '../lesson/types';
+import type { Heard, Item, Lesson, Listen, ListenKind } from '../lesson/types';
 import { createMicSource, type CaptureContext, type ClipSink, type Mic } from './capture';
 import type { ClipMeta } from './clips';
 
@@ -11,6 +13,7 @@ const lessonJson = lessonsJson[0]; // स्वर १ (अ to ऊ): the cases b
 const lesson = lessonJson as unknown as Lesson;
 const [itemA, itemAa] = lesson.items;
 const CTX: CaptureContext = { child: 'C1', age: 5, templateId: lesson.template_id };
+const step = (item: Item, kind: ListenKind): Listen => ({ type: 'listen', item, kind, showAnchor: false, prompt: item.lines.hint });
 
 const flush = async () => {
   for (let i = 0; i < 30; i++) await Promise.resolve();
@@ -61,10 +64,20 @@ function fakeSink() {
   return { sink, saved, discarded };
 }
 
+const HEARD: Record<Verdict, Heard> = {
+  correct: { kind: 'correct', by: 'shekru' },
+  wrong: { kind: 'wrong', by: 'shekru' },
+  unclear: { kind: 'silent', by: 'shekru' },
+};
 const judgement = (verdict: Verdict, extra: Partial<ClipJudge> = {}): ClipJudge =>
-  ({ choice: 'अ', verdict, free: 'अ', note: '', ms: 120, ...extra });
+  ({ choice: 'अ', verdict, heard: HEARD[verdict], free: 'अ', note: '', ms: 120, ...extra });
 
-function setup(opts: { context?: CaptureContext | null; verdict?: Verdict; judge?: () => Promise<ClipJudge>; tapped?: AnswerSource } = {}) {
+function setup(opts: {
+  context?: CaptureContext | null;
+  verdict?: Verdict;
+  judge?: (uri: string, listen: Listen) => Promise<ClipJudge>;
+  tapped?: AnswerSource;
+} = {}) {
   const { mic, log, talk, feed } = fakeMic();
   const { sink, saved, discarded } = fakeSink();
   const errors: unknown[] = [];
@@ -97,7 +110,7 @@ const settle = async (p: Promise<Heard>) => {
 
 test('records after the chime, stops when the child goes quiet, and the judge decides', async () => {
   const { source, log, talk, saved, discarded, judged } = setup({ verdict: 'wrong' });
-  const answer = source.listen(itemA, 'teach');
+  const answer = source.listen(step(itemA, 'teach'));
   await flush();
   expect(log).toEqual(['prepare', 'record']);
   talk();
@@ -120,9 +133,36 @@ test('records after the chime, stops when the child goes quiet, and the judge de
   });
 });
 
+test('GURU-18: the judge gets the Listen with its prompt, its Heard is the answer, the clip records what matched', async () => {
+  const seen: Listen[] = [];
+  const meaning: Heard = { kind: 'meaning', by: 'shekru', text: 'चम्मच', lang: 'hi' };
+  const { source, talk, saved } = setup({
+    judge: async (_uri, listen) => {
+      seen.push(listen);
+      return judgement('correct', { choice: 'चमचा', heard: meaning });
+    },
+  });
+  const turn = step(itemA, 'quiz');
+  const answer = source.listen(turn);
+  await flush();
+  talk();
+  expect(await answer).toEqual(meaning);
+  expect(seen).toEqual([turn]);
+  expect(saved[0].meta).toMatchObject({ label: 'correct', matched_text: 'चम्मच', matched_lang: 'hi' });
+
+  // nothing matched: no matched fields
+  const blank = setup({ verdict: 'unclear' });
+  const none = blank.source.listen(step(itemA, 'quiz'));
+  await flush();
+  blank.talk();
+  await none;
+  expect(blank.saved[0].meta.matched_text).toBeUndefined();
+  expect(blank.saved[0].meta.matched_lang).toBeUndefined();
+});
+
 test('recording mode off: the take is judged, then deleted', async () => {
   const { source, talk, saved, discarded } = setup({ context: null });
-  const answer = source.listen(itemA, 'quiz');
+  const answer = source.listen(step(itemA, 'quiz'));
   await flush();
   talk();
   expect(await answer).toMatchObject({ kind: 'correct', by: 'shekru' });
@@ -132,7 +172,7 @@ test('recording mode off: the take is judged, then deleted', async () => {
 
 test('an unclear verdict is a silent answer', async () => {
   const { source, talk } = setup({ verdict: 'unclear' });
-  const answer = source.listen(itemA, 'quiz');
+  const answer = source.listen(step(itemA, 'quiz'));
   await flush();
   talk();
   expect(await answer).toMatchObject({ kind: 'silent', by: 'shekru' });
@@ -140,7 +180,7 @@ test('an unclear verdict is a silent answer', async () => {
 
 test('a judge error counts as silent and is reported', async () => {
   const { source, talk, errors } = setup({ judge: async () => judgement('unclear', { error: 'model missing' }) });
-  const answer = source.listen(itemA, 'quiz');
+  const answer = source.listen(step(itemA, 'quiz'));
   await flush();
   talk();
   expect(await answer).toMatchObject({ kind: 'silent', by: 'shekru' });
@@ -149,7 +189,7 @@ test('a judge error counts as silent and is reported', async () => {
 
 test('nothing said: the mic stops after 4 s of quiet', async () => {
   const { source, log, feed, judged } = setup({ verdict: 'unclear' });
-  const answer = source.listen(itemA, 'quiz');
+  const answer = source.listen(step(itemA, 'quiz'));
   await flush();
   feed(quiet);
   expect(await settle(answer)).toBe('pending'); // 2 s: still waiting for speech
@@ -162,7 +202,7 @@ test('nothing said: the mic stops after 4 s of quiet', async () => {
 
 test('a cancelled turn (pause, background) stops, discards, and never answers', async () => {
   const { source, log, saved, discarded, judged } = setup();
-  const answer = source.listen(itemA, 'teach');
+  const answer = source.listen(step(itemA, 'teach'));
   await flush();
   source.cancel();
   expect(await settle(answer)).toBe('pending');
@@ -174,7 +214,7 @@ test('a cancelled turn (pause, background) stops, discards, and never answers', 
 
 test('cancel before the mic has started touches nothing', async () => {
   const { source, log, discarded } = setup();
-  const answer = source.listen(itemA, 'quiz');
+  const answer = source.listen(step(itemA, 'quiz'));
   source.cancel(); // same tick: prepare has not run yet
   expect(await settle(answer)).toBe('pending');
   expect(log).toEqual([]);
@@ -184,7 +224,7 @@ test('cancel before the mic has started touches nothing', async () => {
 test('cancel while the judge is thinking discards the take', async () => {
   let release = (_j: ClipJudge) => {};
   const { source, talk, saved, discarded } = setup({ judge: () => new Promise((r) => (release = r)) });
-  const answer = source.listen(itemA, 'quiz');
+  const answer = source.listen(step(itemA, 'quiz'));
   await flush();
   talk();
   await flush();
@@ -197,11 +237,11 @@ test('cancel while the judge is thinking discards the take', async () => {
 
 test('turns run one after another and ids count up within the same second', async () => {
   const { source, talk, saved } = setup();
-  const first = source.listen(itemA, 'teach');
+  const first = source.listen(step(itemA, 'teach'));
   await flush();
   talk();
   await first;
-  const second = source.listen(itemAa, 'quiz');
+  const second = source.listen(step(itemAa, 'quiz'));
   await flush();
   talk();
   await second;
@@ -219,7 +259,7 @@ test('a mic failure is reported and the lesson gets a silent answer', async () =
     { save: (_uri, meta) => { saved.push(meta); }, discard: () => {} },
     { startDelayMs: 0, judge: async () => judgement('correct'), context: () => CTX, onError: (e) => errors.push(e) },
   );
-  expect(await source.listen(itemA, 'teach')).toMatchObject({ kind: 'silent', by: 'shekru' });
+  expect(await source.listen(step(itemA, 'teach'))).toMatchObject({ kind: 'silent', by: 'shekru' });
   expect(String(errors[0])).toContain('no permission');
   expect(saved).toEqual([]);
 });
@@ -237,7 +277,7 @@ function fakeTester() {
 test('tap mode: the tester button ends the take and is the answer; the judge scores alongside', async () => {
   const tester = fakeTester();
   const { source, log, feed, saved, judged } = setup({ tapped: tester.source, verdict: 'wrong' });
-  const answer = source.listen(itemA, 'quiz');
+  const answer = source.listen(step(itemA, 'quiz'));
   await flush();
   feed(quiet);
   feed(quiet);
