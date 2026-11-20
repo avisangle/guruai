@@ -7,7 +7,7 @@ import GuruAsr from '../../modules/guru-asr';
 import type { Heard, Item, Lang, Listen } from '../lesson/types';
 import type { LogProbs } from './ctc';
 import tokensJson from './generated/mr-tokens.json';
-import { decide, isSilent, type Candidate, type Judgement } from './judge';
+import { childSwaps, decide, isSilent, type Candidate, type Judgement } from './judge';
 import { ensureModel } from './model';
 import { normalise } from './normalise';
 import { parseWav } from './wav';
@@ -25,23 +25,25 @@ const VERDICT: Record<Heard['kind'], Verdict> = { correct: 'correct', meaning: '
 /** An answer's languages: langs[text], else the item's target language (D-GURU-2-answer-language-tags). */
 const langsOf = (item: Item, text: string): Lang[] => item.assessment.langs?.[text] ?? [item.target_lang];
 
-/** Every answer of every item, in lesson order, each text once with every item and language tag. */
+/**
+ * Every answer of every item, in lesson order, each text once with every item and language tag; then
+ * their child sound swaps (childSwaps), each with its own token ids.
+ */
 export function lessonCandidates(items: Item[]): Candidate[] {
-  const out = new Map<string, Candidate>();
+  const out = new Map<string, Omit<Candidate, 'ids'>>();
   for (const it of items) {
     for (const text of new Set([...it.assessment.expected, ...it.assessment.accepted_variants])) {
       const tags = langsOf(it, text).map((lang) => ({ item_id: it.id, display: it.display, lang }));
       const seen = out.get(text);
-      if (seen) {
-        seen.tags.push(...tags);
-        continue;
-      }
-      const ids = TOKENS[text];
-      if (!ids) throw new Error(`no tokens for "${text}": run tools/stt_bench/asr_tokens.py`);
-      out.set(text, { item_id: it.id, display: it.display, text, ids, tags });
+      if (seen) seen.tags.push(...tags);
+      else out.set(text, { item_id: it.id, display: it.display, text, tags });
     }
   }
-  return [...out.values()];
+  return childSwaps([...out.values()]).map((c) => {
+    const ids = TOKENS[c.text];
+    if (!ids) throw new Error(`no tokens for "${c.text}": run tools/stt_bench/asr_tokens.py`);
+    return { ...c, ids };
+  });
 }
 
 /**
@@ -62,7 +64,11 @@ function match(item: Item, choice: string, text: string | undefined): Heard {
   const { expected, accepted_variants, also_correct = [] } = item.assessment;
   const correct: Heard = { kind: 'correct', by: 'shekru', text, lang: item.target_lang };
   const said = normalise(text);
-  const own = [...expected, ...accepted_variants].find((a) => normalise(a) === said);
+  const answers = [...expected, ...accepted_variants];
+  // An answer said as itself, else with a child sound swap (D-GURU-3-child-sound-swaps).
+  const own =
+    answers.find((a) => normalise(a) === said) ??
+    answers.find((a) => childSwaps([{ text: a }]).some((s) => normalise(s.text) === said));
   if (own) {
     const langs = langsOf(item, own);
     return langs.includes(item.target_lang) ? correct : { kind: 'meaning', by: 'shekru', text, lang: langs[0] };

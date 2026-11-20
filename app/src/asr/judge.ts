@@ -29,6 +29,22 @@ export type Judgement = {
   unsure: boolean; // the model is unsure what it heard: never tell the child "wrong"
 };
 
+/**
+ * The answers plus a 4-year-old's sound swaps of each (word-final चा to सा, र to ल, and both), as more
+ * answers of the same item: every other field is the original's. Each text once, originals first, as
+ * child_swaps() in Python (D-GURU-3-child-sound-swaps).
+ */
+export function childSwaps<T extends { text: string }>(candidates: T[]): T[] {
+  const out = new Map<string, T>(candidates.map((c) => [c.text, c]));
+  for (const c of candidates) {
+    const cha = c.text.replace(/चा(?=\s|$)/g, 'सा');
+    for (const text of [cha, c.text.replaceAll('र', 'ल'), cha.replaceAll('र', 'ल')]) {
+      if (!out.has(text)) out.set(text, { ...c, text });
+    }
+  }
+  return [...out.values()];
+}
+
 /** Per-frame energy in dB (25 ms window, 10 ms hop), as frame_db() in Python. */
 export function frameDb(wav: Float32Array, win = 400, hop = 160): Float64Array {
   const len = Math.max(wav.length, win);

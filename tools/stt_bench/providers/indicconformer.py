@@ -41,9 +41,9 @@ MIN_SPEECH_S = 0.08   # less sound than this in the clip -> "nothing" without ru
 # that candidate (CTC log-likelihood ratio; per token so longer answers get proportionally more slack).
 # 3.0 from the first sessions with a real child (docs/decisions/D-STT-other-margin.md)
 OTHER_MARGIN_PER_TOKEN = float(os.environ.get("STT_BENCH_IC_MARGIN", "3.0"))
-# Experiment (opt-in, STT_BENCH_IC_CHILD_SWAPS=1): also score each answer with a 4-year-old's sound swaps,
-# word-final चा -> सा and र -> ल ("उंदराचा" said "उनलासा"), as more answers of the same item.
-CHILD_SWAPS = os.environ.get("STT_BENCH_IC_CHILD_SWAPS", "0") == "1"
+# Also score each answer with a 4-year-old's sound swaps, word-final चा -> सा and र -> ल ("उंदराचा" said
+# "उनलासा"), as more answers of the same item (D-GURU-3-child-sound-swaps). STT_BENCH_IC_CHILD_SWAPS=0 turns it off.
+CHILD_SWAPS = os.environ.get("STT_BENCH_IC_CHILD_SWAPS", "1") == "1"
 # An answer said up to this many times in a row ("डी फॉर डॉग डी फॉर डॉग") counts as said once.
 REPEATS = int(os.environ.get("STT_BENCH_IC_REPEATS", "3"))
 # The free decode scores below this per token: the model is unsure what it heard (faint audio), so a wrong
@@ -296,7 +296,7 @@ def child_swaps(candidates):
     out = {c.text: c for c in candidates}
     for c in candidates:
         cha = re.sub(r"चा(?=\s|$)", "सा", c.text)
-        for t in {cha, c.text.replace("र", "ल"), cha.replace("र", "ल")}:
+        for t in (cha, c.text.replace("र", "ल"), cha.replace("र", "ल")):  # fixed order, as the app's childSwaps
             out.setdefault(t, Candidate(c.item_id, c.display, t))
     return list(out.values())
 
