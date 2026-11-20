@@ -2,7 +2,7 @@
 import { randomUUID } from 'expo-crypto';
 
 import { now, type Db } from './db';
-import type { Device, Ids } from './types';
+import type { Device, Ids, JudgeCheck } from './types';
 
 type DeviceRow = Omit<Device, 'allow_mobile_data' | 'consent_clips' | 'consent_summaries'> & {
   allow_mobile_data: number;
@@ -46,4 +46,10 @@ export function updateDevice(db: Db, patch: DeviceUpdate): void {
   const columns = DEVICE_UPDATABLE.filter((c) => patch[c] !== undefined);
   const sets = [...columns.map((c) => `${c} = ?`), 'updated_at = ?'].join(', ');
   db.run(`UPDATE device SET ${sets}`, [...columns.map((c) => patch[c] ?? null), now()]);
+}
+
+/** Stores the judge speed check (GURU-15); null clears it. */
+export function setJudgeCheck(db: Db, check: JudgeCheck | null, p90Ms: number | null) {
+  getDevice(db); // creates the row on first use
+  db.run('UPDATE device SET judge_check = ?, judge_p90_ms = ?, updated_at = ?', [check, p90Ms, now()]);
 }
