@@ -26,7 +26,7 @@ export function Trail({ stops }: { stops: Stop[] }) {
         const id = stop.kind === 'lesson' ? stop.template_id : 'revision';
         return (
           <View key={id} testID={`stop-${id}`} style={styles.stop}>
-            <View style={[styles.circle, next ? styles.next : styles.ahead]}>
+            <View testID={next ? 'next-ring' : undefined} style={[styles.circle, next ? styles.next : styles.ahead]}>
               {stop.kind === 'revision' ? (
                 <View testID="revision-icon">
                   <Icon d={LOOP} size={space[5]} color={color.child.text} />
@@ -36,7 +36,6 @@ export function Trail({ stops }: { stops: Stop[] }) {
                   {FIRST_ITEM.get(stop.template_id) ?? ''}
                 </Text>
               )}
-              {next && <View testID="next-ring" style={styles.ring} />}
             </View>
             <Text variant="small">{t(stop.kind === 'lesson' ? 'stopLesson' : 'stopRevision')}</Text>
           </View>
@@ -55,6 +54,5 @@ const styles = StyleSheet.create({
   stop: { alignItems: 'center', gap: space[1] },
   circle: { alignItems: 'center', justifyContent: 'center', borderRadius: radius.child.round, backgroundColor: color.child.surface },
   ahead: { width: STOP, height: STOP, borderWidth: 2, borderStyle: 'dashed', borderColor: color.child.trailStop },
-  next: { width: NEXT, height: NEXT, backgroundColor: color.child.surfaceSelected },
-  ring: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, borderRadius: radius.child.round, borderWidth: 4, borderColor: color.child.primary },
+  next: { width: NEXT, height: NEXT, borderWidth: 4, borderColor: color.child.primary, backgroundColor: color.child.surfaceSelected },
 });

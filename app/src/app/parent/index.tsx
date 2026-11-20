@@ -11,10 +11,12 @@ import { liveDb } from '../../data/liveDb';
 import { listChildren } from '../../data/profiles';
 import type { ChildProfile, Device } from '../../data/types';
 import { downloadStatus, isLessonInstalled, startInitialDownloads, subscribeDownloads } from '../../downloads/downloader';
+import { installKey } from '../../downloads/useDownloads';
 import { localDay } from '../../learning/mastery';
 import { lessonTitle } from '../../learning/queueInput';
 import { attentionBanner, type Banner, type MicState } from '../../parent/attention';
 import { loadChildHome, type HomeSection } from '../../parent/home';
+import { audio, readMic } from '../../parent/mic';
 import { useParentMode } from '../../parent/ParentModeProvider';
 import { setupRows, type SetupRow, type SetupSection } from '../../parent/setup';
 import { Button } from '../../ui/components/Button';
@@ -34,8 +36,7 @@ function attempt<T>(fn: () => T, fallback: T): T {
   }
 }
 
-/** Changes when a model or pack is installed or fails, not on byte progress. */
-const downloadsKey = () => attempt(() => downloadStatus().items.map((i) => `${i.id}:${i.status}`).join(), '');
+const downloadsKey = () => attempt(() => installKey(downloadStatus()), '');
 
 type Home = { children: ChildProfile[]; device: Device | null; readiness: JudgeReadiness; downloads: string };
 
@@ -48,19 +49,6 @@ function readHome(): Home {
     { children: [], device: null },
   );
   return { children, device, readiness: attempt<JudgeReadiness>(() => judgeReadiness(), 'ready'), downloads: downloadsKey() };
-}
-
-// Lazy: loading expo-audio touches its native module, which tests without an audio mock lack.
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const audio = () => require('expo-audio') as typeof import('expo-audio');
-
-async function readMic(): Promise<MicState> {
-  try {
-    const { granted, canAskAgain } = await audio().getRecordingPermissionsAsync();
-    return { granted, canAskAgain };
-  } catch {
-    return { granted: true, canAskAgain: true }; // unknown: no mic banner
-  }
 }
 
 const SECTION_TITLE: Record<HomeSection['id'], StringKey> = {

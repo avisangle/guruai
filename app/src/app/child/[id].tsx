@@ -11,7 +11,7 @@ import promptsJson from '../../content/generated/prompts.json';
 import { liveDb } from '../../data/liveDb';
 import { getChild } from '../../data/profiles';
 import { downloadStatus, isLessonInstalled, subscribeDownloads, type DownloadItem } from '../../downloads/downloader';
-import { useDownloads } from '../../downloads/useDownloads';
+import { installKey, useDownloads } from '../../downloads/useDownloads';
 import { localDay } from '../../learning/mastery';
 import { buildTodayQueue, type TodayQueue } from '../../learning/queue';
 import { readQueueInput } from '../../learning/queueInput';
@@ -20,6 +20,7 @@ import { familyLines, pickLine, type Family } from '../../lesson/lines';
 import type { Prompts } from '../../lesson/types';
 import type { MicState } from '../../parent/attention';
 import { ADULT, Icon, MIC, STAR } from '../../parent/icons';
+import { readMic } from '../../parent/mic';
 import { ParentLock } from '../../parent/ParentLock';
 import { useLinePlayer } from '../../screens/useLinePlayer';
 import { Shekru } from '../../shekru/Shekru';
@@ -33,13 +34,17 @@ import { theme } from '../../ui/theme';
 
 const prompts = promptsJson as Prompts;
 
-const ASK: Record<Exclude<Readiness, 'ready'>, { family: Family; pose: string; icon: string }> = {
+// What Shekru says and how he stands on each screen; the waiting screens also show the adult outline.
+const SAY: Record<Readiness, { family: Family; pose: string; icon?: string }> = {
+  ready: { family: 'ready', pose: 'correct' },
   getting_ready: { family: 'ask_grownup_model', pose: 'thinking', icon: ADULT },
   ask_mic: { family: 'ask_grownup_mic', pose: 'nohear', icon: MIC },
   ask_weak: { family: 'ask_grownup_weak', pose: 'idle', icon: ADULT },
 };
 
-type Today = { queue: TodayQueue; stars: number; midDay: boolean; judge: JudgeReadiness };
+const modelRow = () => downloadStatus().items.find((i) => i.kind === 'model') ?? null;
+
+type Today = { queue: TodayQueue; stars: number; midDay: boolean; judge: JudgeReadiness; model: DownloadItem | null };
 
 function readToday(childId: string): Today | null {
   const db = liveDb();
@@ -53,23 +58,8 @@ function readToday(childId: string): Today | null {
     // c-queue-mid: a lesson was left part-way or one is finished today.
     midDay: input.inProgress.length > 0 || queue.done > 0,
     judge: judgeReadiness(),
+    model: modelRow(),
   };
-}
-
-/** Changes when the model or a pack is installed or fails, not on byte progress. */
-const downloadsKey = () => downloadStatus().items.map((i) => `${i.id}:${i.status}`).join();
-
-// Lazy: loading expo-audio touches its native module.
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const audio = () => require('expo-audio') as typeof import('expo-audio');
-
-async function readMic(): Promise<MicState> {
-  try {
-    const { granted, canAskAgain } = await audio().getRecordingPermissionsAsync();
-    return { granted, canAskAgain };
-  } catch {
-    return { granted: true, canAskAgain: true }; // unknown: let the lesson ask
-  }
 }
 
 export default function TodayQueueScreen() {
@@ -77,7 +67,6 @@ export default function TodayQueueScreen() {
   const { width, height } = useWindowDimensions();
   const rig = useShekruRig();
   const lines = useLinePlayer(rig);
-  const model = useDownloads().items.find((i) => i.kind === 'model') ?? null;
   const [today, setToday] = useState(() => readToday(id));
   const [mic, setMic] = useState<MicState | null>(null); // null until read: no waiting screen flashes
   const [caption, setCaption] = useState<string | null>(null);
@@ -96,16 +85,16 @@ export default function TodayQueueScreen() {
 
   // The model arriving turns the waiting screen into the queue by itself; a new pack can add a lesson.
   useEffect(() => {
-    let key = downloadsKey();
+    let key = installKey(downloadStatus());
     return subscribeDownloads(() => {
-      const next = downloadsKey();
+      const next = installKey(downloadStatus());
       if (next === key) return;
       key = next;
       setToday(readToday(id));
     });
   }, [id]);
 
-  const state = today && mic ? readiness({ model, mic, judge: today.judge, parentHelps: false }) : null;
+  const state = today && mic ? readiness({ model: today.model, mic, judge: today.judge, parentHelps: false }) : null;
 
   // Shekru asks for a grown-up on each waiting screen, and says he is ready when one turns into the queue.
   useEffect(() => {
@@ -113,8 +102,8 @@ export default function TodayQueueScreen() {
     const was = shown.current;
     shown.current = state;
     if (state === 'ready' && was === null) return;
-    const family = state === 'ready' ? 'ready' : ASK[state].family;
-    rig.setState(state === 'ready' ? 'correct' : ASK[state].pose);
+    const { family, pose } = SAY[state];
+    rig.setState(pose);
     const { id: line } = pickLine(family, familyLines(family, prompts.lines), [], Math.random);
     const text = prompts.lines[line];
     setCaption(prompts.captions?.[line] ?? text);
@@ -134,7 +123,7 @@ export default function TodayQueueScreen() {
       params: { template: lesson.template_id, child: id, stop: JSON.stringify(lesson) },
     });
   };
-  const ask = state && state !== 'ready' ? ASK[state] : null;
+  const icon = state && SAY[state].icon;
 
   return (
     <Screen variant="child">
@@ -144,19 +133,19 @@ export default function TodayQueueScreen() {
       </View>
       <View style={styles.middle}>
         <Shekru values={rig.values} size={Math.min(width * 0.6, height * 0.3)} />
-        {state === 'getting_ready' && model && <Progress item={model} />}
+        {state === 'getting_ready' && today.model && <Progress />}
         {caption && (
           <Text mode="child" style={styles.caption}>
             {caption}
           </Text>
         )}
-        {ask && <Icon d={ask.icon} size={theme.touch.child.mainButton} color={theme.color.child.borderStrong} />}
+        {icon && <Icon d={icon} size={theme.touch.child.mainButton} color={theme.color.child.borderStrong} />}
         <Trail stops={queue.stops} />
       </View>
       {state === 'ready' && lesson && (
         <Button testID="queue-start" variant="childPrimary" label={midDay ? mr.next : mr.letsStart} onPress={start} />
       )}
-      {ask && <GrownupStrip />}
+      {icon && <GrownupStrip />}
     </Screen>
   );
 }
@@ -173,7 +162,10 @@ function Stars({ n }: { n: number }) {
   );
 }
 
-function Progress({ item }: { item: DownloadItem }) {
+// Only the bar follows byte progress, so the screen itself re-renders on installs, not on every chunk.
+function Progress() {
+  const item = useDownloads().items.find((i) => i.kind === 'model');
+  if (!item) return null;
   const share = item.status === 'installed' ? 1 : item.bytesTotal > 0 ? item.bytesDone / item.bytesTotal : 0;
   return (
     <View style={styles.track}>

@@ -1,7 +1,7 @@
 // What the child sees before today's queue (wireframes c-getting-ready, c-ask-mic, c-ask-weak; PRD Edge Cases).
 import type { JudgeReadiness } from '../asr/speedCheck';
 import type { DownloadItem } from '../downloads/downloader';
-import type { MicState } from '../parent/attention';
+import { attentionBanner, type Banner, type MicState } from '../parent/attention';
 
 export type Readiness = 'ready' | 'getting_ready' | 'ask_mic' | 'ask_weak';
 
@@ -14,15 +14,15 @@ export type ReadinessInput = {
   parentHelps: boolean;
 };
 
+const BY_BANNER: Record<Banner['kind'], Readiness> = { model: 'getting_ready', mic: 'ask_mic', weak: 'ask_weak' };
+
 /**
- * Priority: model, then mic, then a phone too weak. The model counts as present when the model file is
- * on the phone (judge not `missing`), whatever the download row says: a download only writes the file
- * once verified, a newer version downloads beside the working one, and a model copied over USB has no row.
+ * The child's side of parent home's banner, so both follow one priority: model, then mic, then a phone
+ * too weak. The model counts as present when its file is on the phone (judge not `missing`), whatever
+ * the download row says (D-GURU-29-model-present-from-file).
  */
 export function readiness({ mic, judge, parentHelps }: ReadinessInput): Readiness {
   if (parentHelps) return 'ready';
-  if (judge === 'missing') return 'getting_ready';
-  if (!mic.granted) return 'ask_mic';
-  if (judge === 'slow' || judge === 'oom') return 'ask_weak';
-  return 'ready';
+  const banner = attentionBanner({ readiness: judge, mic, micLastGrantedAt: null });
+  return banner ? BY_BANNER[banner.kind] : 'ready';
 }
