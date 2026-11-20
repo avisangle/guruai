@@ -1,4 +1,6 @@
 // Shapes of content/lessons/<template>.json and content/prompts/<lang>.json.
+import type { StyleLevel } from '../data/types';
+
 export type Anchor = { word: string; picture: string };
 
 export type Lang = 'mr' | 'en' | 'hi';
@@ -107,14 +109,14 @@ export type Position = {
 };
 
 // Word-item teaching style, picked once per lesson from the child's level.
-export type StyleLevel = 'mr_led' | 'en_led';
+export type { StyleLevel };
 
 // One per answer (TDD 2.3). The session layer adds child, session, time and judge detail.
 export type AnswerEvent = {
   template_id: string;
   item_key: string;
   item_kind: ItemKind;
-  target_lang: 'mr' | 'en';
+  target_lang: ItemBase['target_lang'];
   phase: 'teach' | 'quiz' | 'retry' | 'revision' | 'followup';
   heard_kind: Heard['kind'];
   matched_text?: string;

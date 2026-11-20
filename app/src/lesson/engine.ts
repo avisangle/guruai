@@ -62,12 +62,12 @@ export function createLesson(
   const itemLine = (item: Item, name: string, state: string, showAnchor: boolean): Say =>
     ({ type: 'say', line: `${lesson.template_id}.${item.id}.${name}`, text: (item.lines as Record<string, string>)[name], state, item, showAnchor });
   // A line that opens the mic, and the listen it opens.
-  const ask = (say: Say, item: Item, kind: Listen['kind'], showAnchor: boolean): [Say, Listen] =>
-    [say, { type: 'listen', item, kind, showAnchor, prompt: say.text }];
+  const ask = (say: Say, kind: Listen['kind']): [Say, Listen] =>
+    [say, { type: 'listen', item: say.item!, kind, showAnchor: say.showAnchor, prompt: say.text }];
   // Teach turn and reveal: word items use the lesson's style line.
   const teach = (item: Item) =>
-    ask(itemLine(item, item.kind === 'word' ? `teach_${styleLevel}` : 'teach', 'talking', true), item, 'teach', true);
-  const hint = (item: Item) => ask(itemLine(item, 'hint', 'hint', true), item, 'quiz', true);
+    ask(itemLine(item, item.kind === 'word' ? `teach_${styleLevel}` : 'teach', 'talking', true), 'teach');
+  const hint = (item: Item) => ask(itemLine(item, 'hint', 'hint', true), 'quiz');
   const gated = (item: Item) => wordItemsGated && item.kind === 'word';
 
   // Random variant, never the one used last time.
@@ -122,27 +122,27 @@ export function createLesson(
         return;
       }
       if (pos.followup === 'ask') {
-        queue.push(...ask(shared(pickRandom('ask_mr'), 'talking', item, true), item, 'quiz', true));
+        queue.push(...ask(shared(pickRandom('ask_mr'), 'talking', item, true), 'quiz'));
         return;
       }
       if (pos.followup === 'model') {
-        queue.push(...ask(itemLine(item, 'model_mr', 'talking', true), item, 'teach', true));
+        queue.push(...ask(itemLine(item, 'model_mr', 'talking', true), 'teach'));
         return;
       }
       const fresh = pos.index === 0 && pos.attempts === 0 && pos.silences === 0 && !pos.reveal && !pos.bridged;
       if (entry.phase === 'retry' && fresh) queue.push(shared('retry_intro', 'talking'));
       if (pos.reveal) queue.push(...teach(item));
       else if (pos.attempts === 1) queue.push(...hint(item));
-      else if (item.kind === 'word') queue.push(...ask(itemLine(item, 'ask', 'talking', false), item, 'quiz', false));
-      else queue.push(...ask(shared(pickNext('ask'), 'talking', item), item, 'quiz', false));
+      else if (item.kind === 'word') queue.push(...ask(itemLine(item, 'ask', 'talking', false), 'quiz'));
+      else queue.push(...ask(shared(pickNext('ask'), 'talking', item), 'quiz'));
       return;
     }
   };
 
   // rules.teach_response; also closes the repeat after a reveal.
   const teachResponse = (item: Item, heard: Heard) => {
-    // a meaning names the letter; on a word item it is not the word being taught
-    const kind = heard.kind === 'meaning' ? (item.kind === 'letter' ? 'correct' : 'wrong') : heard.kind;
+    // on a word item a meaning is not the word being taught
+    const kind = heard.kind === 'meaning' ? 'wrong' : heard.kind;
     if (kind === 'silent') {
       if (pos.silences === 0) {
         pos.silences = 1; // nohear asks for a repeat, so listen once more
@@ -164,42 +164,42 @@ export function createLesson(
 
   // rules.quiz_attempts: a missed try. wrong_* says "a different letter", so it is
   // only for a wrong letter, never after silence or on a word item.
+  // Returns whether the miss counts.
   const miss = (item: Item, phase: 'quiz' | 'retry', wrongLine: boolean) => {
     pos.silences = 0;
     pos.attempts++;
     if (pos.attempts === 1) {
       if (wrongLine) queue.push(shared(pickRandom('wrong'), 'tryagain', item));
       queue.push(...hint(item));
-      return;
+    } else {
+      pos.reveal = true;
+      // rules.retry_round: a miss in the retry round is not queued again
+      if (phase === 'quiz' && !gated(item) && !pos.retry.includes(item.id)) pos.retry.push(item.id);
+      queue.push(...teach(item));
     }
-    pos.reveal = true;
-    // rules.retry_round: a miss in the retry round is not queued again
-    if (phase === 'quiz' && !gated(item) && !pos.retry.includes(item.id)) pos.retry.push(item.id);
-    queue.push(...teach(item));
+    return !gated(item);
   };
 
   // Returns whether the answer counts.
   const quizAnswer = (item: Item, heard: Heard, phase: 'quiz' | 'retry'): boolean => {
-    const word = item.kind === 'word';
     // A right meaning on a word item, other than Hindi on a Marathi-target item, is the
     // bridge step (PRD Language design 8): acknowledge and ask again, not an attempt.
-    if (heard.kind === 'meaning' && word && !(item.target_lang === 'mr' && heard.lang === 'hi')) {
+    if (heard.kind === 'meaning' && !(item.target_lang === 'mr' && heard.lang === 'hi')) {
       if (pos.bridged) {
-        miss(item, phase, false); // a second meaning goes on as a missed try, so the lesson always ends
-        return !gated(item);
+        return miss(item, phase, false); // a second meaning goes on as a missed try, so the lesson always ends
       }
       pos.bridged = true;
       const shown = listening!.showAnchor;
       const ack = heard.lang === 'hi'
         ? shared(pickRandom('meaning_hi_ack'), 'talking', item, shown) // never repeats the Hindi word
         : itemLine(item, 'ack_meaning', 'talking', shown);
-      queue.push(...ask(ack, item, 'quiz', shown));
+      queue.push(...ask(ack, 'quiz'));
       return false;
     }
     if (heard.kind === 'correct' || heard.kind === 'meaning') {
       queue.push(itemLine(item, 'correct', 'correct', true));
       // Hindi right meaning on a Marathi-target item (PRD Language design 7)
-      if (heard.kind === 'meaning' && word) {
+      if (heard.kind === 'meaning') {
         if (!item.ambiguous_lang) {
           pos.followup = 'ask'; // fill() asks for the Marathi word
           return true;
@@ -215,8 +215,7 @@ export function createLesson(
       queue.push(shared('nohear', 'nohear', item, listening!.showAnchor), listening!);
       return false;
     }
-    miss(item, phase, heard.kind === 'wrong' && !word);
-    return !gated(item);
+    return miss(item, phase, heard.kind === 'wrong' && item.kind === 'letter');
   };
 
   // The unscored Marathi follow-up: right gets short praise; anything else
@@ -245,10 +244,12 @@ export function createLesson(
       const { item } = listening;
       const phase = pos.followup ? 'followup' : entry.phase;
       const attempt = pos.attempts + 1;
+      // a meaning on a letter item names the letter
+      const rule: Heard = heard.kind === 'meaning' && item.kind === 'letter' ? { ...heard, kind: 'correct' } : heard;
       let counts = false;
-      if (pos.followup) followupAnswer(item, heard);
-      else if (entry.phase === 'teach' || pos.reveal) teachResponse(item, heard);
-      else counts = quizAnswer(item, heard, entry.phase);
+      if (phase === 'followup') followupAnswer(item, rule);
+      else if (phase === 'teach' || pos.reveal) teachResponse(item, rule);
+      else counts = quizAnswer(item, rule, phase);
       listening = null;
       // After the last answer, queue the closing lines now so the saved position is finished.
       if (!queue.some((s) => s.type === 'listen') && !itemsLeft()) while (queue.at(-1)?.type !== 'done') fill();

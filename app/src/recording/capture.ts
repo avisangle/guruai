@@ -103,6 +103,7 @@ export function createMicSource(mic: Mic, sink: ClipSink, opts: {
             if (!tapped && !live()) return discard(take.uri);
             if (judge.error) opts.onError?.(judge.error);
             const answer = tapped ?? fromJudge(judge.error ? 'silent' : ANSWER[judge.verdict]);
+            const clipLabel = label(answer);
             const ctx = opts.context();
             let meta: ClipMeta | null = null;
             if (ctx) {
@@ -117,7 +118,7 @@ export function createMicSource(mic: Mic, sink: ClipSink, opts: {
                   templateId: ctx.templateId,
                   item,
                   kind,
-                  label: label(answer),
+                  label: clipLabel,
                   labelBy: tapped ? undefined : 'judge',
                   recordedAt: started,
                   durationMs: take.durationMs || now().getTime() - started.getTime(),
@@ -128,7 +129,7 @@ export function createMicSource(mic: Mic, sink: ClipSink, opts: {
             } else {
               discard(take.uri);
             }
-            opts.onJudged?.(judge, label(answer), meta, tapped != null);
+            opts.onJudged?.(judge, clipLabel, meta, tapped != null);
             resolve(answer);
           } catch (e) {
             opts.onError?.(e);
