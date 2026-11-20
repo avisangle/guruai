@@ -1,6 +1,6 @@
 // Shapes of content/lessons/<template>.json and content/prompts/<lang>.json.
 import type { StyleLevel } from '../data/types';
-import type { TutorState } from '../shekru/contract';
+import type { SURPRISE_STATES } from '../shekru/contract';
 
 export type Anchor = { word: string; picture: string };
 
@@ -94,7 +94,7 @@ export type Say = {
 export type Listen = { type: 'listen'; item: Item; kind: ListenKind; showAnchor: boolean; prompt: string };
 // Between two items (D-GURU-19-tutor-variety): a silent one-shot state, then for all but
 // celebrate a surprise_line joke or fact the player speaks over talking (D-GURU-7-tutor-state-contract).
-export type SurpriseState = Extract<TutorState, 'sneeze' | 'dropnut' | 'dance' | 'celebrate'>;
+export type SurpriseState = (typeof SURPRISE_STATES)[number];
 export type Surprise = { type: 'surprise'; state: SurpriseState; line?: string; text?: string };
 export type Step = Say | Listen | Surprise | { type: 'done' };
 

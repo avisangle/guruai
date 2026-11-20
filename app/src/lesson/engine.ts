@@ -4,15 +4,15 @@
 // (PRD Language design, D-GURU-10-language-design) and tutor variety
 // (PRD Tutor variety, D-GURU-19-tutor-variety). It reports one event per
 // answer; mastery is derived from the events elsewhere.
+import { SURPRISE_STATES } from '../shekru/contract';
 import { pickLine } from './lines';
 import { endFamily, praiseFamily } from './praise';
 import { interleaveRevision, shuffleQuiz } from './quizOrder';
 import type {
   AnswerEvent, FlowEntry, Heard, Item, Lang, Lesson, Listen, Position, Prompts, RevisionItem, Say, Step, StyleLevel,
-  Surprise, SurpriseState,
+  Surprise,
 } from './types';
 
-const SURPRISES: readonly SurpriseState[] = ['sneeze', 'dropnut', 'dance', 'celebrate'];
 const CHANCE = 0.5; // of a picture reaction after a right teach answer, and of a surprise in a lesson
 
 /** What the judge matched, as AnswerEvent and the clip manifest record it. */
@@ -60,7 +60,8 @@ export function createLesson(
 
   const templateOf = new Map(revision.map((r) => [r.item, r.template_id]));
   const tpl = (item: Item) => templateOf.get(item) ?? lesson.template_id;
-  const revisionRef = (r: RevisionItem) => `${r.template_id}.${r.item.id}`;
+  // revision items by their Position.quiz ref, `<template_id>.<id>`
+  const revisionByRef = new Map(revision.map((r) => [`${r.template_id}.${r.item.id}`, r.item]));
 
   const byId = (id: string) => {
     const item = lesson.items.find((i) => i.id === id);
@@ -70,9 +71,9 @@ export function createLesson(
   // An entry of Position.quiz: a lesson item id, or a revision item's ref.
   const byRef = (ref: string) => {
     if (!ref.includes('.')) return byId(ref);
-    const r = revision.find((x) => revisionRef(x) === ref);
-    if (!r) throw new Error(`Revision item "${ref}" was not passed in`);
-    return r.item;
+    const item = revisionByRef.get(ref);
+    if (!item) throw new Error(`Revision item "${ref}" was not passed in`);
+    return item;
   };
   const byDisplay = (display: string) => {
     const item = lesson.items.find((i) => i.display === display);
@@ -130,6 +131,8 @@ export function createLesson(
     pos.index = 0;
   };
   // Some item is still to be asked, from the current position on.
+  // The closing line plays at this flow entry, right after the last phase (0: no phase).
+  const closeAt = lesson.flow.findLastIndex((e) => 'phase' in e) + 1;
   const itemsLeft = () => lesson.flow.slice(pos.flow).some((e, i) => itemsOf(e).length > (i === 0 ? pos.index : 0));
 
   // A fresh run may get one surprise, before any teach or quiz item but the first.
@@ -141,7 +144,7 @@ export function createLesson(
   }
   const surprise = (): Surprise => {
     delete pos.surprise;
-    const state = SURPRISES[Math.floor(rng() * SURPRISES.length)];
+    const state = SURPRISE_STATES[Math.floor(rng() * SURPRISE_STATES.length)];
     if (state === 'celebrate') return { type: 'surprise', state };
     const line = pick('surprise_line');
     return { type: 'surprise', state, line, text: prompts.lines[line] };
@@ -154,8 +157,7 @@ export function createLesson(
       const entry = lesson.flow[pos.flow];
       if (!entry) { queue.push({ type: 'done' }); return; }
       if ('play' in entry) {
-        // the closing line comes right after the last phase
-        if ('phase' in (lesson.flow[pos.flow - 1] ?? {}) && !lesson.flow.slice(pos.flow).some((e) => 'phase' in e)) {
+        if (closeAt > 0 && pos.flow === closeAt) {
           queue.push(shared(endFamily(!!pos.missed), pos.missed ? 'talking' : 'correct'));
         }
         queue.push(lessonLine(entry.play, entry.state));
@@ -163,7 +165,7 @@ export function createLesson(
         return;
       }
       if (entry.phase === 'quiz' && !pos.quiz && pos.index === 0) {
-        pos.quiz = interleaveRevision(shuffleQuiz(entry.order, rng).map((d) => byDisplay(d).id), revision.map(revisionRef), rng);
+        pos.quiz = interleaveRevision(shuffleQuiz(entry.order, rng).map((d) => byDisplay(d).id), [...revisionByRef.keys()], rng);
       }
       const items = itemsOf(entry);
       if (pos.index >= items.length) { nextEntry(); continue; } // empty retry round
@@ -199,7 +201,7 @@ export function createLesson(
   };
 
   // rules.teach_response; also closes the repeat after a reveal.
-  const teachResponse = (item: Item, heard: Heard, inTeach: boolean) => {
+  const teachResponse = (item: Item, heard: Heard) => {
     // on a word item a meaning is not the word being taught
     const kind = heard.kind === 'meaning' ? 'wrong' : heard.kind;
     if (kind === 'silent') {
@@ -217,7 +219,7 @@ export function createLesson(
       queue.push(shared('moveon', 'talking', item, true)); // no praise for a wrong repeat
     } else {
       queue.push(shared('praise_first', 'correct', item, true));
-      if (inTeach) react(item);
+      if (!pos.reveal) react(item); // a teach turn, not the repeat after a reveal
     }
     nextItem();
   };
@@ -319,7 +321,7 @@ export function createLesson(
       const rule: Heard = heard.kind === 'meaning' && item.kind === 'letter' ? { ...heard, kind: 'correct' } : heard;
       let counts = false;
       if (phase === 'followup') followupAnswer(item, rule);
-      else if (phase === 'teach' || pos.reveal) teachResponse(item, rule, phase === 'teach');
+      else if (phase === 'teach' || pos.reveal) teachResponse(item, rule);
       else counts = quizAnswer(item, rule, phase);
       listening = null;
       // After the last answer, queue the closing lines now so the saved position is finished.
