@@ -39,15 +39,17 @@ const variants = {
 
 export type ButtonVariant = keyof typeof variants;
 
-type Props = { variant: ButtonVariant; label: string; onPress: () => void };
+type Props = { variant: ButtonVariant; label: string; onPress: () => void; disabled?: boolean; testID?: string };
 
-export function Button({ variant, label, onPress }: Props) {
+export function Button({ variant, label, onPress, disabled, testID }: Props) {
   const look: Look = variants[variant];
   return (
     <Pressable
+      testID={testID}
       accessibilityRole="button"
+      disabled={disabled}
       onPress={onPress}
-      style={({ pressed }) => [styles.base, look.box, pressed && styles.pressed]}
+      style={({ pressed }) => [styles.base, look.box, pressed && styles.pressed, disabled && styles.disabled]}
     >
       <Text {...look.text} style={look.label}>
         {label}
@@ -59,4 +61,5 @@ export function Button({ variant, label, onPress }: Props) {
 const styles = StyleSheet.create({
   base: { alignItems: 'center', justifyContent: 'center', paddingHorizontal: space[4] },
   pressed: { opacity: 0.8 },
+  disabled: { opacity: 0.4 },
 });

@@ -26,6 +26,11 @@ const PIN_KEY = 'guru.parent_pin';
 
 type GateRow = { mode: GateMode; failed: number; lockout_until: string | null };
 
+/** Whether recoverWithBiometrics can work on this phone. */
+export async function strongBiometricsAvailable(auth: Pick<GateDeps['auth'], 'getEnrolledLevelAsync'>) {
+  return (await auth.getEnrolledLevelAsync()) >= SecurityLevel.BIOMETRIC_STRONG;
+}
+
 export function createGate({ db, auth, secureStore, crypto, now }: GateDeps) {
   const stamp = () => new Date(now()).toISOString();
 
@@ -113,7 +118,7 @@ export function createGate({ db, auth, secureStore, crypto, now }: GateDeps) {
      * can set a new PIN. False with no prompt when the phone has no strong biometrics.
      */
     async recoverWithBiometrics(promptMessage?: string): Promise<boolean> {
-      if ((await auth.getEnrolledLevelAsync()) < SecurityLevel.BIOMETRIC_STRONG) return false;
+      if (!(await strongBiometricsAvailable(auth))) return false;
       const result = await auth.authenticateAsync({
         promptMessage,
         disableDeviceFallback: true,
