@@ -99,6 +99,11 @@ export const mr = {
   bannerMicSettingsAction: 'सेटिंग्ज उघडा',
   bannerWeakTitle: 'हा फोन बोलणं तपासायला हळू आहे.',
   bannerWeakBody: 'या फोनवर धड्यांसाठी "मी उत्तरं तपासेन" स्विच चालू करावा लागेल.',
+  // Child picker and today's queue (wireframes c-*). The start label is for the child; the rest is for the adult.
+  letsStart: 'सुरू करूया',
+  stopLesson: 'धडा',
+  stopRevision: 'उजळणी',
+  askGrownupStrip: 'पालकांसाठी: कोपऱ्यातलं कुलूप 2 सेकंद दाबून धरा',
 };
 
 export type StringKey = keyof typeof mr;

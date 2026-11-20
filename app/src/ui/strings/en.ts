@@ -98,4 +98,8 @@ export const en: Record<StringKey, string> = {
   bannerMicSettingsAction: 'Open settings',
   bannerWeakTitle: 'This phone is slow at checking speech.',
   bannerWeakBody: 'On this phone lessons need the "I\'ll check the answers" switch.',
+  letsStart: "Let's start",
+  stopLesson: 'Lesson',
+  stopRevision: 'Revision',
+  askGrownupStrip: 'For parents: hold the lock in the corner for 2 seconds',
 };
