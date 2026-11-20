@@ -32,6 +32,12 @@ export function localDay(iso: string): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
+/** The ISO bounds [from, to) of a local calendar day 'YYYY-MM-DD', for comparing with `at`. */
+export function localDayBounds(day: string): { from: string; to: string } {
+  const [y, m, d] = day.split('-').map(Number);
+  return { from: new Date(y, m - 1, d).toISOString(), to: new Date(y, m - 1, d + 1).toISOString() };
+}
+
 // Calendar arithmetic in UTC so daylight-saving shifts cannot skip or repeat a day.
 function addDays(day: string, days: number): string {
   const d = new Date(`${day}T00:00:00Z`);
