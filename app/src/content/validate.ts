@@ -1,6 +1,7 @@
 // Build check for content/lessons (TDD 2.1). Pure: build-content.mjs runs it under
 // Node's type stripping, so only erasable syntax and .ts import paths.
 import { normalise } from '../asr/normalise.ts';
+import { FAMILIES } from '../lesson/lines.ts';
 import type { Item, Lang, Lesson, Prompts } from '../lesson/types.ts';
 
 const REQUIRED_LINES: Record<Item['kind'], string[]> = {
@@ -55,16 +56,30 @@ function checkItem(where: string, item: Item, tokens: Record<string, number[]>):
   return errors;
 }
 
+// TDD 2.4: a family's lines are `<family>_<n>` or the bare family id.
+function checkPools(prompts: Prompts): string[] {
+  const ids = Object.keys(prompts.lines);
+  return Object.entries(FAMILIES).flatMap(([family, min]) => {
+    const n = ids.filter((id) => new RegExp(`^${family}(_\\d+)?$`).test(id)).length;
+    return n < min ? [`prompts: family "${family}" has ${n} line(s), needs at least ${min}`] : [];
+  });
+}
+
 // tokens: the `tokens` map of app/src/asr/generated/mr-tokens.json (answer text -> token ids).
-// prompts: shared lines; their checks (pool sizes) arrive with the shared pools.
+// prompts: shared lines, checked against the FAMILIES pool sizes.
 export function validateContent(lessons: Lesson[], prompts: Prompts, tokens: Record<string, number[]>): string[] {
-  const errors: string[] = [];
+  const errors = checkPools(prompts);
   for (const lesson of lessons) {
     const displays = new Set(lesson.items.map((i) => i.display));
     for (const display of lesson.flow.flatMap((entry) => ('order' in entry ? entry.order : []))) {
       if (!displays.has(display)) errors.push(`${lesson.template_id}: flow order names "${display}", which is no item's display`);
     }
-    for (const item of lesson.items) errors.push(...checkItem(`${lesson.template_id}.${item.id}`, item, tokens));
+    for (const item of lesson.items) {
+      const where = `${lesson.template_id}.${item.id}`;
+      errors.push(...checkItem(where, item, tokens));
+      if (lesson.status === 'pilot' && !Object.entries(item.lines).some(([name, text]) => /^react_\d+$/.test(name) && text))
+        errors.push(`${where}: items in a pilot lesson need a react_* line (picture reaction)`);
+    }
   }
   return errors;
 }
