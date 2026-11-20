@@ -23,6 +23,10 @@ export function matchedOf(heard: Heard): { matched_text?: string; matched_lang?:
   };
 }
 
+// A line's on-screen text, when it differs from the voice text.
+const captionOf = (captions: Record<string, string> | undefined, name: string) =>
+  captions?.[name] ? { caption: captions[name] } : {};
+
 export function newPosition(lesson: Lesson): Position {
   return { version: lesson.version, flow: 0, index: 0, attempts: 0, silences: 0, reveal: false, retry: [], last: {} };
 }
@@ -94,12 +98,16 @@ export function createLesson(
 
   const shared = (family: string, state: string, item: Item | null = null, showAnchor = false): Say => {
     const id = pick(family);
-    return { type: 'say', line: id, text: prompts.lines[id], state, item, showAnchor };
+    return { type: 'say', line: id, text: prompts.lines[id], ...captionOf(prompts.captions, id), state, item, showAnchor };
   };
-  const lessonLine = (name: string, state: string): Say =>
-    ({ type: 'say', line: `${lesson.template_id}.${name}`, text: lesson.lines[name], state, item: null, showAnchor: false });
-  const itemLine = (item: Item, name: string, state: string, showAnchor: boolean): Say =>
-    ({ type: 'say', line: `${tpl(item)}.${item.id}.${name}`, text: (item.lines as Record<string, string>)[name], state, item, showAnchor });
+  const lessonLine = (name: string, state: string): Say => ({
+    type: 'say', line: `${lesson.template_id}.${name}`, text: lesson.lines[name], ...captionOf(lesson.captions, name),
+    state, item: null, showAnchor: false,
+  });
+  const itemLine = (item: Item, name: string, state: string, showAnchor: boolean): Say => ({
+    type: 'say', line: `${tpl(item)}.${item.id}.${name}`, text: (item.lines as Record<string, string>)[name],
+    ...captionOf(item.captions, name), state, item, showAnchor,
+  });
   // A line that opens the mic, and the listen it opens.
   const ask = (say: Say, kind: Listen['kind']): [Say, Listen] =>
     [say, { type: 'listen', item: say.item!, kind, showAnchor: say.showAnchor, prompt: say.text }];
@@ -147,7 +155,7 @@ export function createLesson(
     const state = SURPRISE_STATES[Math.floor(rng() * SURPRISE_STATES.length)];
     if (state === 'celebrate') return { type: 'surprise', state };
     const line = pick('surprise_line');
-    return { type: 'surprise', state, line, text: prompts.lines[line] };
+    return { type: 'surprise', state, line, text: prompts.lines[line], ...captionOf(prompts.captions, line) };
   };
 
   // Queues the steps that open the current position. Also used on resume,
