@@ -54,5 +54,88 @@
       <path d="M 340 212 H 384 A 14 14 0 0 1 398 226 V 270 A 14 14 0 0 1 384 284 H 340 A 14 14 0 0 1 326 270 V 226 A 14 14 0 0 1 340 212 Z" fill="#FFFFFF" stroke="#DF8F1F" stroke-width="4"/>
       <g id="fx-hint-letter"></g>
     </g>
+    <g id="fx-sneeze-puff">
+      <circle cx="136" cy="289" r="18" fill="#801936"/>
+      <circle cx="155" cy="277" r="20" fill="#801936"/>
+      <circle cx="174" cy="289" r="18" fill="#801936"/>
+      <circle cx="155" cy="297" r="18" fill="#801936"/>
+      <circle cx="136" cy="289" r="15" fill="#FFFFFF"/>
+      <circle cx="155" cy="277" r="17" fill="#FFFFFF"/>
+      <circle cx="174" cy="289" r="15" fill="#FFFFFF"/>
+      <circle cx="155" cy="297" r="15" fill="#FFFFFF"/>
+    </g>
+    <g id="fx-sneeze-drop-1">
+      <circle cx="155" cy="286" r="7.9" fill="#801936"/>
+      <circle cx="155" cy="286" r="5.5" fill="#FFFFFF"/>
+    </g>
+    <g id="fx-sneeze-drop-2">
+      <circle cx="155" cy="286" r="7.9" fill="#801936"/>
+      <circle cx="155" cy="286" r="5.5" fill="#FFFFFF"/>
+    </g>
+    <g id="fx-sneeze-drop-3">
+      <circle cx="155" cy="286" r="7.9" fill="#801936"/>
+      <circle cx="155" cy="286" r="5.5" fill="#FFFFFF"/>
+    </g>
+    <g id="fx-sneeze-drop-4">
+      <circle cx="155" cy="286" r="7.9" fill="#801936"/>
+      <circle cx="155" cy="286" r="5.5" fill="#FFFFFF"/>
+    </g>
+    <g id="fx-nut">
+      <path d="M 89 379 Q 90 374 94 372" fill="none" stroke="#801936" stroke-width="4.5" stroke-linecap="round"/>
+      <path d="M 69 394.55 C 69 415.55 79.45 425 88 427 C 96.55 425 107 415.55 107 394.55 Z" fill="#B08B66" stroke="#801936" stroke-width="3" stroke-linejoin="round"/>
+      <ellipse cx="80.02" cy="408.62" rx="3.5" ry="6.5" fill="#FFE7A3"/>
+      <path d="M 66 396.55 C 66 380 77 378 88 378 C 99 378 110 380 110 396.55 Q 88 401.55 66 396.55 Z" fill="#6B4700" stroke="#801936" stroke-width="3" stroke-linejoin="round"/>
+    </g>
+    <g id="fx-note-1">
+      <ellipse cx="46" cy="117" rx="8.5" ry="6.5" fill="#801936"/>
+      <path d="M 53 116 V 89 Q 64 93 63 103" fill="none" stroke="#801936" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g id="fx-note-2">
+      <ellipse cx="184" cy="99" rx="8.5" ry="6.5" fill="#5C853C"/>
+      <ellipse cx="206" cy="94" rx="8.5" ry="6.5" fill="#5C853C"/>
+      <path d="M 191 98 V 73 L 213 68 V 93" fill="none" stroke="#5C853C" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g id="fx-confetti-1">
+      <path d="M 136.8 105.5 H 160.8 V 118.5 H 136.8 Z" fill="#ED9950"/>
+    </g>
+    <g id="fx-confetti-2">
+      <path d="M 136.8 105.5 H 160.8 V 118.5 H 136.8 Z" fill="#2E7D4F"/>
+    </g>
+    <g id="fx-confetti-3">
+      <circle cx="148.8" cy="112" r="8.5" fill="#801936"/>
+    </g>
+    <g id="fx-confetti-4">
+      <path d="M 136.8 105.5 H 160.8 V 118.5 H 136.8 Z" fill="#FFE7A3"/>
+    </g>
+    <g id="fx-confetti-5">
+      <path d="M 136.8 105.5 H 160.8 V 118.5 H 136.8 Z" fill="#ED9950"/>
+    </g>
+    <g id="fx-confetti-6">
+      <circle cx="148.8" cy="112" r="8.5" fill="#2E7D4F"/>
+    </g>
+    <g id="fx-confetti-7">
+      <path d="M 136.8 105.5 H 160.8 V 118.5 H 136.8 Z" fill="#801936"/>
+    </g>
+    <g id="fx-confetti-8">
+      <path d="M 136.8 105.5 H 160.8 V 118.5 H 136.8 Z" fill="#FFE7A3"/>
+    </g>
+    <g id="fx-confetti-9">
+      <circle cx="148.8" cy="112" r="8.5" fill="#ED9950"/>
+    </g>
+    <g id="fx-confetti-10">
+      <path d="M 136.8 105.5 H 160.8 V 118.5 H 136.8 Z" fill="#2E7D4F"/>
+    </g>
+    <g id="fx-confetti-11">
+      <path d="M 136.8 105.5 H 160.8 V 118.5 H 136.8 Z" fill="#801936"/>
+    </g>
+    <g id="fx-confetti-12">
+      <circle cx="148.8" cy="112" r="8.5" fill="#FFE7A3"/>
+    </g>
+    <g id="fx-confetti-13">
+      <path d="M 136.8 105.5 H 160.8 V 118.5 H 136.8 Z" fill="#ED9950"/>
+    </g>
+    <g id="fx-confetti-14">
+      <path d="M 136.8 105.5 H 160.8 V 118.5 H 136.8 Z" fill="#2E7D4F"/>
+    </g>
   </g>
 </svg>

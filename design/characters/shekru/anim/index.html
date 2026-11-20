@@ -100,7 +100,7 @@
 <main>
   <header>
     <h1>शेकरू · Shekru animation review</h1>
-    <p>10 tutor states over an always-on alive layer. Motion is data (<code>shekru.anim.json</code>) played by <code>shekru-anim.js</code>.</p>
+    <p>14 tutor states over an always-on alive layer. Motion is data (<code>shekru.anim.json</code>) played by <code>shekru-anim.js</code>.</p>
   </header>
 
   <div class="stage-col">
@@ -153,6 +153,7 @@ const STATES = [
   ['hello', 'नमस्कार', 'hello'], ['idle', 'शांत', null], ['talking', 'बोलणे', 'teach'], ['listening', 'ऐकणे', null],
   ['thinking', 'विचार', null], ['correct', 'बरोबर', 'correct'], ['tryagain', 'पुन्हा', 'tryagain'], ['hint', 'मदत', 'hint'],
   ['nohear', 'ऐकू आलं नाही', 'nohear'], ['bye', 'बाय', 'bye'],
+  ['sneeze', 'शिंक', null], ['dropnut', 'दाणा पडला', null], ['dance', 'नाच', null], ['celebrate', 'जल्लोष', null],
 ];
 const LINE_OF = Object.fromEntries(STATES.map(([s, , l]) => [s, l]));
 const SILENT_CAPTION = { listening: 'तुझी पाळी! बोल…', thinking: 'हम्म…', idle: '' };

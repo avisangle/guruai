@@ -1,5 +1,5 @@
 # D-CHAR: Launch with Shekru only, behind a swap-ready tutor setup
-**Status:** Accepted
+**Status:** Superseded by D-GURU-7-tutor-state-contract
 **Date:** 2026-11-14
 **Issue:** none (character review round 1)
 **Confluence:** none

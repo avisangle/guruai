@@ -6,19 +6,21 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import anim from '../shekru/generated/shekru.anim.json';
 import visemes from '../shekru/generated/visemes.json';
+import type { TutorState } from '../shekru/contract';
 import { Shekru } from '../shekru/Shekru';
 import { useShekruRig, type VisemeEvent } from '../shekru/useShekruRig';
 
 // States, labels and lines match design/characters/shekru/anim/index.html.
-const STATES: [string, string, string | null][] = [
+const STATES: [TutorState, string, string | null][] = [
   ['hello', 'नमस्कार', 'hello'], ['idle', 'शांत', null], ['talking', 'बोलणे', 'teach'], ['listening', 'ऐकणे', null],
   ['thinking', 'विचार', null], ['correct', 'बरोबर', 'correct'], ['tryagain', 'पुन्हा', 'tryagain'], ['hint', 'मदत', 'hint'],
   ['nohear', 'ऐकू आलं नाही', 'nohear'], ['bye', 'बाय', 'bye'],
+  ['sneeze', 'शिंक', null], ['dropnut', 'दाणा पडला', null], ['dance', 'नाच', null], ['celebrate', 'जल्लोष', null],
 ];
 const LINE_OF = Object.fromEntries(STATES.map(([s, , l]) => [s, l]));
 const SILENT_CAPTION: Record<string, string> = { listening: 'तुझी पाळी! बोल…', thinking: 'हम्म…' };
 // state, voice line (or null), seconds to hold when there is no line
-const LESSON: [string, string | null, number?][] = [
+const LESSON: [TutorState, string | null, number?][] = [
   ['hello', 'hello'], ['talking', 'teach'], ['listening', null, 3], ['nohear', 'nohear'], ['listening', null, 3],
   ['thinking', null, 2.4], ['tryagain', 'tryagain'], ['hint', 'hint'], ['listening', null, 3], ['thinking', null, 2.4],
   ['correct', 'correct'], ['bye', 'bye'], ['idle', null, 0],
