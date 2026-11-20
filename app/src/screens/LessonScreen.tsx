@@ -180,6 +180,7 @@ export function LessonScreen() {
     for (;;) {
       const step = engine.next();
       if (step.type === 'done') break;
+      if (step.type === 'surprise') continue; // this player has no surprise moment; lesson player v2 (GURU-28) plays them
       setCard(step.item && { item: step.item, showAnchor: step.showAnchor });
       if (step.type === 'say') {
         const started = Date.now();

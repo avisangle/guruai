@@ -9,7 +9,9 @@ type PinRecord = { salt: string; rounds: number; hash: string };
 const ROUNDS = 1000;
 const SALT_BYTES = 16;
 
-export const isValidPin = (pin: string) => /^\d{4}$/.test(pin);
+export const PIN_LENGTH = 4;
+
+export const isValidPin = (pin: string) => pin.length === PIN_LENGTH && /^\d+$/.test(pin);
 
 const toHex = (bytes: Uint8Array) =>
   Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');

@@ -98,7 +98,7 @@ const position = (over: Partial<Position> = {}): Position => ({
   silences: 0,
   reveal: false,
   retry: ['b'],
-  last: { ok: 'ok_2' },
+  last: { praise_first: ['praise_first_2'] },
   ...over,
 });
 
