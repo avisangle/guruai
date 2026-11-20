@@ -154,23 +154,22 @@ const THINK = {
 const CARD = { id: 'fx-hint-card', slot: 'fx-hint-letter', x: 326, y: 212, size: 72, r: 14, pivot: [326, 284], stroke: '#DF8F1F', line: 4 };
 // surprises: colours are design/foundations/tokens.json color.child values, named after their token.
 // Copied, not read: this script must run from a copy of anim/ and svg/ alone.
-const TOK = { primary: '#ED9950', success: '#2E7D4F', brand: '#801936', tryAgain: '#FFE7A3', onTryAgain: '#6B4700', trailStop: '#B08B66' };
-const hex = (k) => TOK[k];
+// brand maroon is FX_INK.
+const TOK = { primary: '#ED9950', success: '#2E7D4F', tryAgain: '#FFE7A3', onTryAgain: '#6B4700', trailStop: '#B08B66' };
 // sneeze: a puff and four droplets burst from the nose
 const SNEEZE = { puff: 'fx-sneeze-puff', c: [155, 286], lobes: [[-19, 3, 15], [0, -9, 17], [19, 3, 15], [0, 11, 15]], line: 3,
   drops: ['fx-sneeze-drop-1', 'fx-sneeze-drop-2', 'fx-sneeze-drop-3', 'fx-sneeze-drop-4'], dropR: 5.5, fly: [[-84, -4], [-62, 44], [62, 44], [84, -4]] };
 // dropnut: an acorn, drawn at the grip point of the resting screen-left paw (arm-l-lower space)
-const NUT = { id: 'fx-nut', c: [88, 404], rx: 19, ry: 21, shell: hex('trailStop'), cap: hex('onTryAgain'), shine: hex('tryAgain'), line: 3 };
+const NUT = { id: 'fx-nut', c: [88, 404], rx: 19, ry: 21, shell: TOK.trailStop, cap: TOK.onTryAgain, shine: TOK.tryAgain, line: 3 };
 // dance: two music notes float up above the head
 const NOTES = [{ id: 'fx-note-1', c: [50, 104], fill: FX_INK }, { id: 'fx-note-2', c: [196, 84], fill: FX_GREEN }];
 // celebrate: confetti bursts above the head and drifts down either side of the face.
 // piece = [dx, rise, fall, delay, spin]; |dx| stays wide so nothing crosses the face on the way down
 const CONFETTI = {
-  at: [148.8, 112], colors: [hex('primary'), hex('success'), hex('brand'), hex('tryAgain')],
+  at: [148.8, 112], colors: [TOK.primary, TOK.success, FX_INK, TOK.tryAgain],
   pieces: [[-112, 62, 150, 0, 300], [104, 78, 170, 0.02, -260], [-132, 44, 190, 0.04, -340], [150, 56, 200, 0.03, 380], [-120, 88, 120, 0.06, 220], [126, 92, 130, 0.07, -300], [-146, 70, 210, 0.09, 420], [172, 34, 180, 0.08, -220],
     [-110, 80, 180, 0.32, -280], [112, 60, 190, 0.34, 320], [-138, 58, 140, 0.36, 260], [158, 76, 160, 0.38, -360], [-124, 96, 200, 0.4, 340], [138, 98, 150, 0.42, 240]],
 };
-CONFETTI.ids = CONFETTI.pieces.map((_, i) => `fx-confetti-${i + 1}`);
 const fxParts = { 'fx-listen': { pivot: WAVE.ear }, [THINK.root]: { pivot: THINK.centre }, [THINK.cloud]: { pivot: THINK.pop } };
 const fxRest = { [THINK.cloud]: { o: 0 } };
 function fxSvg() {
@@ -231,8 +230,8 @@ function fxSvg() {
     L.push('    </g>');
   });
   // confetti: strips and dots
-  CONFETTI.ids.forEach((id, i) => {
-    const [x, y] = CONFETTI.at, fill = CONFETTI.colors[i % CONFETTI.colors.length];
+  CONFETTI.pieces.forEach((_, i) => {
+    const id = `fx-confetti-${i + 1}`, [x, y] = CONFETTI.at, fill = CONFETTI.colors[i % CONFETTI.colors.length];
     fxParts[id] = { pivot: CONFETTI.at }; fxRest[id] = { o: 0 };
     L.push(`    <g id="${id}">`, i % 3 === 2 ? `      <circle cx="${x}" cy="${y}" r="8.5" fill="${fill}"/>` : `      <path d="M ${x - 12} ${y - 6.5} H ${x + 12} V ${y + 6.5} H ${x - 12} Z" fill="${fill}"/>`, '    </g>');
   });
@@ -541,8 +540,7 @@ const states = {};
     // lids droop on each "ah", shut for the choo
     set(tr, `eye-${s}-eyelid`, 'v', [[0, 0], [0.4, 1, 'step'], [1.76, 0, 'step']]);
     set(tr, `eye-${s}-eyelid`, 'sy', [[0, 1], [0.4, 0.06, 'step'], [A1, 0.5, 'outQuad'], [0.64, 0.25], [0.9, 0.7], [A2, 1], [1.66, 1], [1.76, 0.06, 'outQuad'], [1.8, 1, 'step']]);
-    set(tr, `eye-${s}`, 'sx', [[0, 1], [1.66, 1], [1.8, 1.1, 'outBack'], [2.2, 1.06], [2.42, 1]]);
-    set(tr, `eye-${s}`, 'sy', [[0, 1], [1.66, 1], [1.8, 1.1, 'outBack'], [2.2, 1.06], [2.42, 1]]);
+    for (const ch of ['sx', 'sy']) set(tr, `eye-${s}`, ch, [[0, 1], [1.66, 1], [1.8, 1.1, 'outBack'], [2.2, 1.06], [2.42, 1]]);
     // paws creep up toward the nose, then fling out
     set(tr, `arm-${s}-upper`, 'r', [[0, 0], [0.3, 0], [A1, 14 * k, 'outQuad'], [0.64, 9 * k], [A2, 30 * k, 'outCubic'], [C, 33 * k], [HIT, 52 * k, 'inCubic'], [1.5, 30 * k], [1.68, 10 * k], [1.9, -2 * k], [2.1, 0]]);
     set(tr, `arm-${s}-lower`, 'r', [[0, 0], [0.3, 0], [A1, -40 * k, 'outQuad'], [0.64, -28 * k], [A2, -95 * k, 'outCubic'], [C, -102 * k], [HIT + 0.02, 34 * k, 'inCubic'], [1.52, 12 * k], [1.72, -10 * k], [1.96, 3 * k], [2.16, 0]]);
@@ -681,7 +679,7 @@ const states = {};
       x.push([t0, 0, 'step'], [t0 + 0.4, 7 * d], [t0 + 0.8, -5 * d], [t1, 6 * d]);
       r.push([t0, -10 * d, 'step'], [t0 + 0.4, 10 * d], [t0 + 0.8, -8 * d], [t1, 8 * d]);
     }
-    set(fx, id, 'o', o); set(fx, id, 'sx', home(s, D)); set(fx, id, 'sy', home(s, D)); set(fx, id, 'tx', home(x, D)); set(fx, id, 'ty', home(y, D)); set(fx, id, 'r', home(r, D));
+    set(fx, id, 'o', o); for (const ch of ['sx', 'sy']) set(fx, id, ch, home(s, D)); set(fx, id, 'tx', home(x, D)); set(fx, id, 'ty', home(y, D)); set(fx, id, 'r', home(r, D));
   });
   states.dance = { duration: D, loop: false, next: 'idle', still: 2.95, tracks: tr, fx: { still: 2.95, tracks: fx }, mix: { tail: 0.3, speech: 0.5, breath: 0.5 },
     mouth: [[0, 'rest'], [0.26, 'EE'], [1.8, 'AA'], [2.7, 'EE'], [TA, 'AA'], [END + 0.1, 'EE'], [D - 0.15, 'rest']],
@@ -718,7 +716,7 @@ const states = {};
   // fx: two volleys of confetti shoot up from above the head, spread, tumble and drift down
   const fx = tracksOf();
   CONFETTI.pieces.forEach(([dx, rise, fall, delay, spin], i) => {
-    const id = CONFETTI.ids[i], t0 = BURST + delay, ta = t0 + 0.3, te = Math.min(D - 0.05, t0 + 1.55);
+    const id = `fx-confetti-${i + 1}`, t0 = BURST + delay, ta = t0 + 0.3, te = Math.min(D - 0.05, t0 + 1.55);
     set(fx, id, 'o', [[0, 0], [t0, 0], [t0 + 0.04, 1, 'linear'], [te - 0.3, 1], [te, 0, 'linear']]);
     set(fx, id, 'tx', home([[0, 0], [t0, 0], [ta, dx * 0.72, 'outQuad'], [te, dx, 'outSine']], D));
     set(fx, id, 'ty', home([[0, 0], [t0, 0], [ta, -rise, 'outQuad'], [te, fall, 'inSine']], D));
