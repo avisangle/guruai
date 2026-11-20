@@ -4,9 +4,10 @@
 import { randomUUID } from 'expo-crypto';
 
 import type { Db } from '../data/db';
+import { getDevice } from '../data/device';
 import type { ChildProfile } from '../data/types';
 import { installPack, LESSONS_FILE, packLessons, sha256File, type FsPort, type HasherFactory } from './install';
-import { fileUrl, MANIFEST_PATH, parseManifest, type Manifest, type ManifestFile } from './manifest';
+import { fileUrl, manifestUrl, parseManifest, type Manifest, type ManifestFile } from './manifest';
 import { storagePlan, type StoragePlan } from './plan';
 
 type NetState = { type?: string; isConnected?: boolean | null };
@@ -97,8 +98,10 @@ export function createDownloader(deps: DownloaderDeps) {
     listeners.forEach((l) => l());
   };
   const isModelRow = (r: Row) => r.path === paths.model;
-  const partPath = (kind: Job['kind'], id: string, version: number) =>
-    kind === 'model' ? `${paths.model}.v${version}.part` : `${paths.packs}/${id}/v${version}.zip.part`;
+  const partPath = (job: Job, version = job.version) =>
+    job.kind === 'model' ? `${paths.model}.v${version}.part` : `${paths.packs}/${job.id}/v${version}.zip.part`;
+  /** Deletes another version's files; the model's shared path is never another version's. */
+  const deleteOther = (job: Job, r: Row) => r.path && r.path !== job.dest && fs.delete(r.path);
 
   const row = (id: string, version: number) =>
     db.get<Row>('SELECT * FROM pack_install WHERE pack_id = ? AND version = ?', [id, version]);
@@ -116,8 +119,7 @@ export function createDownloader(deps: DownloaderDeps) {
 
   // ---- network rule ----
 
-  const allowMobileData = () =>
-    db.get<{ allow_mobile_data: number }>('SELECT allow_mobile_data FROM device LIMIT 1')?.allow_mobile_data === 1;
+  const allowMobileData = () => getDevice(db).allow_mobile_data;
 
   const usable = (s: NetState) => !!s.isConnected && (UNMETERED.has(s.type ?? '') || allowMobileData());
 
@@ -151,7 +153,7 @@ export function createDownloader(deps: DownloaderDeps) {
 
   async function fetchManifest(): Promise<Manifest> {
     if (!deps.cdnBase) throw new Error('No CDN base URL (EXPO_PUBLIC_CDN_BASE)');
-    const url = `${deps.cdnBase.replace(/\/$/, '')}${MANIFEST_PATH}`;
+    const url = manifestUrl(deps.cdnBase);
     for (let attempt = 0; ; attempt++) {
       await allowedNetwork();
       let json: unknown;
@@ -196,8 +198,8 @@ export function createDownloader(deps: DownloaderDeps) {
       [job.id, job.version],
     );
     for (const r of stale) {
-      fs.delete(partPath(job.kind, job.id, r.version));
-      if (!isModelRow(r) && r.path) fs.delete(r.path);
+      fs.delete(partPath(job, r.version));
+      deleteOther(job, r);
     }
     const at = stamp();
     db.transaction(() => {
@@ -225,7 +227,7 @@ export function createDownloader(deps: DownloaderDeps) {
     if (todo.length) {
       const files = todo.map((j) => ({
         id: j.id,
-        bytes: Math.max(0, j.bytes - (fs.size(partPath(j.kind, j.id, j.version)) ?? 0)),
+        bytes: Math.max(0, j.bytes - (fs.size(partPath(j)) ?? 0)),
       }));
       plan = storagePlan(files, fs.freeBytes());
       if (plan.kind === 'start') {
@@ -295,7 +297,7 @@ export function createDownloader(deps: DownloaderDeps) {
   }
 
   async function runJob(job: Job) {
-    const part = partPath(job.kind, job.id, job.version);
+    const part = partPath(job);
     let failures = 0;
     let redownloads = 0;
     for (;;) {
@@ -327,7 +329,7 @@ export function createDownloader(deps: DownloaderDeps) {
       );
       db.run('DELETE FROM pack_install WHERE pack_id = ? AND version != ?', [job.id, job.version]);
     });
-    for (const r of older) if (!isModelRow(r) && r.path) fs.delete(r.path);
+    for (const r of older) deleteOther(job, r);
     lessonIndex = null;
     notify();
   }
@@ -339,7 +341,7 @@ export function createDownloader(deps: DownloaderDeps) {
     kick();
     const m = await manifest();
     const known = db.all<{ pack_id: string }>('SELECT DISTINCT pack_id FROM pack_install').map((r) => r.pack_id);
-    return enqueue([modelJob(m), ...packJobs(m, known.filter((id) => id !== m.model.id))]);
+    return enqueue([modelJob(m), ...packJobs(m, known)]);
   }
 
   async function queuePacks(packIds: string[]): Promise<void> {
@@ -354,7 +356,7 @@ export function createDownloader(deps: DownloaderDeps) {
     if (bundled.has(templateId)) return true;
     if (!lessonIndex) {
       const rows = db.all<Row>("SELECT * FROM pack_install WHERE status = 'installed'");
-      lessonIndex = new Set(rows.flatMap((r) => (r.path && !isModelRow(r) ? packLessons(fs, r.path) : [])));
+      lessonIndex = new Set(rows.flatMap((r) => (r.path ? packLessons(fs, r.path) : [])));
     }
     return lessonIndex.has(templateId);
   }
@@ -397,21 +399,9 @@ function instance(): Downloader {
   return live;
 }
 
-export function startInitialDownloads() {
-  return instance().startInitialDownloads();
-}
-export function queuePacks(packIds: string[]) {
-  return instance().queuePacks(packIds);
-}
-export function queueChildPacks(child: ChildProfile) {
-  return instance().queueChildPacks(child);
-}
-export function isLessonInstalled(templateId: string) {
-  return instance().isLessonInstalled(templateId);
-}
-export function downloadStatus() {
-  return instance().downloadStatus();
-}
-export function subscribeDownloads(listener: () => void) {
-  return instance().subscribe(listener);
-}
+export const startInitialDownloads = () => instance().startInitialDownloads();
+export const queuePacks = (packIds: string[]) => instance().queuePacks(packIds);
+export const queueChildPacks = (child: ChildProfile) => instance().queueChildPacks(child);
+export const isLessonInstalled = (templateId: string) => instance().isLessonInstalled(templateId);
+export const downloadStatus = () => instance().downloadStatus();
+export const subscribeDownloads = (listener: () => void) => instance().subscribe(listener);

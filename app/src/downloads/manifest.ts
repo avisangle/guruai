@@ -60,9 +60,13 @@ export function parseManifest(json: unknown): Manifest {
   };
 }
 
+const base = (cdnBase: string) => cdnBase.replace(/\/$/, '');
+
+export const manifestUrl = (cdnBase: string) => `${base(cdnBase)}${MANIFEST_PATH}`;
+
 /** A manifest URL is absolute https or relative to the manifest's folder. */
 export function fileUrl(cdnBase: string, url: string): string {
   if (url.startsWith('https://')) return url;
   const dir = MANIFEST_PATH.slice(0, MANIFEST_PATH.lastIndexOf('/') + 1);
-  return `${cdnBase.replace(/\/$/, '')}${dir}${url.replace(/^\//, '')}`;
+  return `${base(cdnBase)}${dir}${url.replace(/^\//, '')}`;
 }
