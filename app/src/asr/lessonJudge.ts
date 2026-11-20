@@ -64,11 +64,11 @@ function match(item: Item, choice: string, text: string | undefined): Heard {
   const { expected, accepted_variants, also_correct = [] } = item.assessment;
   const correct: Heard = { kind: 'correct', by: 'shekru', text, lang: item.target_lang };
   const said = normalise(text);
-  const answers = [...expected, ...accepted_variants];
-  // An answer said as itself, else with a child sound swap (D-GURU-3-child-sound-swaps).
-  const own =
-    answers.find((a) => normalise(a) === said) ??
-    answers.find((a) => childSwaps([{ text: a }]).some((s) => normalise(s.text) === said));
+  // An answer said as itself, else with a child sound swap the judge credited to this item
+  // (D-GURU-3-child-sound-swaps): "ल" chosen as the ल item is not र said with a swap.
+  const own = childSwaps([...expected, ...accepted_variants].map((a) => ({ text: a, own: a }))).find(
+    (s) => normalise(s.text) === said && (s.text === s.own || choice === item.display),
+  )?.own;
   if (own) {
     const langs = langsOf(item, own);
     return langs.includes(item.target_lang) ? correct : { kind: 'meaning', by: 'shekru', text, lang: langs[0] };
