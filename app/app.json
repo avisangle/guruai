@@ -52,7 +52,8 @@
             "com.google.android.tts"
           ]
         }
-      ]
+      ],
+      "expo-secure-store"
     ],
     "scheme": "guruai",
     "extra": {
