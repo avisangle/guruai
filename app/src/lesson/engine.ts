@@ -3,7 +3,15 @@
 // `rules` and `flow`; this implements them, plus the word-item language rules
 // (PRD Language design, D-GURU-10-language-design). It reports one event per
 // answer; mastery is derived from the events elsewhere.
-import type { AnswerEvent, FlowEntry, Heard, Item, Lesson, Listen, Position, Prompts, Say, Step, StyleLevel } from './types';
+import type { AnswerEvent, FlowEntry, Heard, Item, Lang, Lesson, Listen, Position, Prompts, Say, Step, StyleLevel } from './types';
+
+/** What the judge matched, as AnswerEvent and the clip manifest record it. */
+export function matchedOf(heard: Heard): { matched_text?: string; matched_lang?: Lang } {
+  return {
+    ...('text' in heard && heard.text !== undefined ? { matched_text: heard.text } : {}),
+    ...('lang' in heard && heard.lang ? { matched_lang: heard.lang } : {}),
+  };
+}
 
 export function newPosition(lesson: Lesson): Position {
   return { version: lesson.version, flow: 0, index: 0, attempts: 0, silences: 0, reveal: false, retry: [], last: {} };
@@ -265,9 +273,8 @@ export function createLesson(
         unsure: heard.kind === 'silent' && !!heard.unsure,
         style_level: styleLevel,
         counts,
+        ...matchedOf(heard),
       };
-      if ('text' in heard && heard.text !== undefined) event.matched_text = heard.text;
-      if ('lang' in heard && heard.lang) event.matched_lang = heard.lang;
       return { position: structuredClone(pos), event };
     },
     position: () => structuredClone(pos),

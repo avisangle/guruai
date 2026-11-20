@@ -26,7 +26,7 @@ export type ClipSink = {
 // Who is being recorded; null when recording mode is off.
 export type CaptureContext = { child: string; age: number | null; templateId: string };
 
-const fromJudge = (kind: Answer): Heard => ({ kind, by: 'shekru' });
+const SILENT: Heard = { kind: 'silent', by: 'shekru' };
 // Clip label: a right meaning is one of the item's accepted answers, so the bench scores it correct.
 const label = (heard: Heard): Answer => (heard.kind === 'meaning' ? 'correct' : heard.kind);
 
@@ -96,13 +96,13 @@ export function createMicSource(mic: Mic, sink: ClipSink, opts: {
             const take = await mic.stop();
             open = false;
             if (!live()) return discard(take.uri);
-            if (!take.uri) return resolve(tapped ?? fromJudge('silent')); // nothing captured
+            if (!take.uri) return resolve(tapped ?? SILENT); // nothing captured
             if (tapped) resolve(tapped); // the lesson goes on while the judge scores the clip
 
             const judge = await opts.judge(take.uri, step);
             if (!tapped && !live()) return discard(take.uri);
             if (judge.error) opts.onError?.(judge.error);
-            const answer = tapped ?? (judge.error ? fromJudge('silent') : judge.heard);
+            const answer = tapped ?? (judge.error ? SILENT : judge.heard);
             const clipLabel = label(answer);
             const ctx = opts.context();
             let meta: ClipMeta | null = null;
@@ -138,7 +138,7 @@ export function createMicSource(mic: Mic, sink: ClipSink, opts: {
               open = false;
               discard((await mic.stop().catch(() => ({ uri: null }))).uri);
             }
-            if (live()) resolve(fromJudge('silent')); // the lesson goes on: a broken mic counts as no answer
+            if (live()) resolve(SILENT); // the lesson goes on: a broken mic counts as no answer
           } finally {
             if (open && !live()) discard((await mic.stop().catch(() => ({ uri: null }))).uri);
           }

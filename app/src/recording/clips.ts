@@ -3,6 +3,7 @@
 import { strToU8, zipSync, type Zippable } from 'fflate';
 
 import type { ClipJudge } from '../asr/lessonJudge';
+import { matchedOf } from '../lesson/engine';
 import type { Answer, Heard, Item, Lang, ListenKind } from '../lesson/types';
 
 // One manifest entry. Key order follows docs/clip-export.md.
@@ -83,15 +84,10 @@ export function clipMeta(args: {
     kind: args.kind,
     label: args.label,
     ...(args.labelBy ? { label_by: args.labelBy } : {}),
-    ...matchedFields(args.matched),
+    ...(args.matched ? matchedOf(args.matched) : {}),
     recorded_at: isoSeconds(args.recordedAt),
     duration_ms: Math.max(0, Math.round(args.durationMs)),
   };
-}
-
-function matchedFields(heard: Heard | undefined): Pick<ClipMeta, 'matched_text' | 'matched_lang'> {
-  if (!heard || heard.kind === 'silent' || !heard.text) return {};
-  return { matched_text: heard.text, ...('lang' in heard && heard.lang ? { matched_lang: heard.lang } : {}) };
 }
 
 export const buildManifest = (clips: ClipMeta[], exportedAt: Date, appVersion: string): Manifest =>

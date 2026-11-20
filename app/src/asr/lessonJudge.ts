@@ -57,19 +57,18 @@ export function classify(item: Item, judgement: Judgement, unsure: boolean): Hea
 }
 
 function match(item: Item, choice: string, text: string | undefined): Heard {
+  // English: the card shows "B", the answers are "बी", "बी फॉर बॉल"
+  if (!text) return { kind: choice === item.display ? 'correct' : 'wrong', by: 'shekru' };
   const { expected, accepted_variants, also_correct = [] } = item.assessment;
-  const correct = (): Heard => ({ kind: 'correct', by: 'shekru', ...(text ? { text, lang: item.target_lang } : {}) });
-  if (text) {
-    const said = normalise(text);
-    const own = [...expected, ...accepted_variants].find((a) => normalise(a) === said);
-    if (own) {
-      const langs = langsOf(item, own);
-      return langs.includes(item.target_lang) ? correct() : { kind: 'meaning', by: 'shekru', text, lang: langs[0] };
-    }
-    if (also_correct.some((a) => normalise(a) === said)) return correct(); // D-STT-lenient-vowel-length
+  const correct: Heard = { kind: 'correct', by: 'shekru', text, lang: item.target_lang };
+  const said = normalise(text);
+  const own = [...expected, ...accepted_variants].find((a) => normalise(a) === said);
+  if (own) {
+    const langs = langsOf(item, own);
+    return langs.includes(item.target_lang) ? correct : { kind: 'meaning', by: 'shekru', text, lang: langs[0] };
   }
-  if (choice === item.display) return correct(); // English: the card shows "B", the answers are "बी", "बी फॉर बॉल"
-  return { kind: 'wrong', by: 'shekru', ...(text ? { text } : {}) };
+  if (also_correct.some((a) => normalise(a) === said) || choice === item.display) return correct; // D-STT-lenient-vowel-length
+  return { kind: 'wrong', by: 'shekru', text };
 }
 
 /**
