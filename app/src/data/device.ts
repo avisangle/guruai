@@ -34,3 +34,17 @@ export function getDevice(db: Db, ids: Ids = {}): Device {
   }
   return toDevice(db.get<DeviceRow>('SELECT * FROM device LIMIT 1')!);
 }
+
+export type DeviceUpdate = Partial<Pick<Device, 'parent_lang' | 'mic_last_granted_at'>>;
+
+// Whitelist: column names are interpolated into SQL.
+const DEVICE_UPDATABLE = ['parent_lang', 'mic_last_granted_at'] as const satisfies readonly (keyof DeviceUpdate)[];
+
+/** Updates the given fields of the device row (created first if missing). */
+export function updateDevice(db: Db, patch: DeviceUpdate): Device {
+  getDevice(db);
+  const columns = DEVICE_UPDATABLE.filter((c) => patch[c] !== undefined);
+  const sets = [...columns.map((c) => `${c} = ?`), 'updated_at = ?'].join(', ');
+  db.run(`UPDATE device SET ${sets}`, [...columns.map((c) => patch[c] ?? null), now()]);
+  return getDevice(db);
+}
