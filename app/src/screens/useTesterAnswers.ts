@@ -2,10 +2,10 @@
 import { useMemo, useRef, useState } from 'react';
 
 import type { AnswerSource } from '../lesson/answerSource';
-import type { Answer } from '../lesson/types';
+import type { Answer, Heard } from '../lesson/types';
 
 export function useTesterAnswers() {
-  const pending = useRef<((answer: Answer) => void) | null>(null);
+  const pending = useRef<((heard: Heard) => void) | null>(null);
   const [waiting, setWaiting] = useState(false);
 
   const api = useMemo(() => {
@@ -22,7 +22,7 @@ export function useTesterAnswers() {
     const give = (answer: Answer) => {
       const resolve = pending.current;
       source.cancel();
-      resolve?.(answer);
+      resolve?.({ kind: answer, by: 'tap' });
     };
     return { source, give };
   }, []);

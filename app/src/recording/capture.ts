@@ -7,7 +7,7 @@
 import { createEndpointer, MAX_MS, type EndReason, type Endpointer } from '../asr/endpoint';
 import type { ClipJudge, Verdict } from '../asr/lessonJudge';
 import type { AnswerSource } from '../lesson/answerSource';
-import type { Answer, Item } from '../lesson/types';
+import type { Answer, Heard, Item } from '../lesson/types';
 import { clipId, clipMeta, compactStamp, type ClipMeta } from './clips';
 
 export type Mic = {
@@ -27,6 +27,9 @@ export type ClipSink = {
 export type CaptureContext = { child: string; age: number | null; templateId: string };
 
 const ANSWER: Record<Verdict, Answer> = { correct: 'correct', wrong: 'wrong', unclear: 'silent' };
+const fromJudge = (kind: Answer): Heard => ({ kind, by: 'shekru' });
+// Clip label: a right meaning is one of the item's accepted answers, so the bench scores it correct.
+const label = (heard: Heard): Answer => (heard.kind === 'meaning' ? 'correct' : heard.kind);
 
 export function createMicSource(mic: Mic, sink: ClipSink, opts: {
   startDelayMs: number; // let the chime finish before the mic opens
@@ -55,7 +58,7 @@ export function createMicSource(mic: Mic, sink: ClipSink, opts: {
       const mine = ++turn;
       const live = () => mine === turn;
       const asked = Date.now();
-      return new Promise<Answer>((resolve) => {
+      return new Promise<Heard>((resolve) => {
         chain = chain.then(async () => {
           if (!live()) return;
           let open = false;
@@ -66,7 +69,7 @@ export function createMicSource(mic: Mic, sink: ClipSink, opts: {
             if (!live()) return;
             let ep: Endpointer | null = null;
             const tester = opts.tapped?.() ?? null;
-            let tapped: Answer | null = null;
+            let tapped: Heard | null = null;
             const ended = new Promise<EndReason | 'cancel'>((r) => {
               endNow = () => r('cancel');
               void mic.record((pcm, rate) => {
@@ -93,13 +96,14 @@ export function createMicSource(mic: Mic, sink: ClipSink, opts: {
             const take = await mic.stop();
             open = false;
             if (!live()) return discard(take.uri);
-            if (!take.uri) return resolve(tapped ?? 'silent'); // nothing captured
+            if (!take.uri) return resolve(tapped ?? fromJudge('silent')); // nothing captured
             if (tapped) resolve(tapped); // the lesson goes on while the judge scores the clip
 
             const judge = await opts.judge(take.uri, item);
             if (!tapped && !live()) return discard(take.uri);
             if (judge.error) opts.onError?.(judge.error);
-            const answer = tapped ?? (judge.error ? 'silent' : ANSWER[judge.verdict]);
+            const answer = tapped ?? fromJudge(judge.error ? 'silent' : ANSWER[judge.verdict]);
+            const clipLabel = label(answer);
             const ctx = opts.context();
             let meta: ClipMeta | null = null;
             if (ctx) {
@@ -114,7 +118,7 @@ export function createMicSource(mic: Mic, sink: ClipSink, opts: {
                   templateId: ctx.templateId,
                   item,
                   kind,
-                  label: answer,
+                  label: clipLabel,
                   labelBy: tapped ? undefined : 'judge',
                   recordedAt: started,
                   durationMs: take.durationMs || now().getTime() - started.getTime(),
@@ -125,7 +129,7 @@ export function createMicSource(mic: Mic, sink: ClipSink, opts: {
             } else {
               discard(take.uri);
             }
-            opts.onJudged?.(judge, answer, meta, tapped != null);
+            opts.onJudged?.(judge, clipLabel, meta, tapped != null);
             resolve(answer);
           } catch (e) {
             opts.onError?.(e);
@@ -133,7 +137,7 @@ export function createMicSource(mic: Mic, sink: ClipSink, opts: {
               open = false;
               discard((await mic.stop().catch(() => ({ uri: null }))).uri);
             }
-            if (live()) resolve('silent'); // the lesson goes on: a broken mic counts as no answer
+            if (live()) resolve(fromJudge('silent')); // the lesson goes on: a broken mic counts as no answer
           } finally {
             if (open && !live()) discard((await mic.stop().catch(() => ({ uri: null }))).uri);
           }
