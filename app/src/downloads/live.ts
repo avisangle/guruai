@@ -6,8 +6,7 @@ import * as Network from 'expo-network';
 
 import { modelFile } from '../asr/model';
 import lessons from '../content/generated/lessons.json';
-import { openDb } from '../data/db';
-import { migrate } from '../data/migrations';
+import { liveDb } from '../data/liveDb';
 import type { DownloaderDeps } from './downloader';
 import type { FsPort } from './install';
 
@@ -65,10 +64,8 @@ const fsPort: FsPort = {
 };
 
 export function liveDeps(): DownloaderDeps {
-  const db = openDb();
-  migrate(db);
   return {
-    db,
+    db: liveDb(),
     fetch: (url, init) => fetch(url, init),
     fs: fsPort,
     network: Network,
