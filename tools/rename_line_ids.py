@@ -22,10 +22,9 @@ RENAMES = {
 }
 
 
-def renamed_key(d, old, new, where, clashes):
-    if old in d and new in d:
-        clashes.append(f"{where}: both {old} and {new}")
-    return {(new if k == old else k): v for k, v in d.items()}
+def renamed(d, where, clashes):
+    clashes += [f"{where}: both {o} and {n}" for o, n in RENAMES.items() if o in d and n in d]
+    return {RENAMES.get(k, k): v for k, v in d.items()}
 
 
 def main():
@@ -36,21 +35,19 @@ def main():
     moves, clashes = [], []
     for tutor in sorted(p for p in audio.iterdir() if p.is_dir()):
         for f in sorted(tutor.iterdir()):
-            for old, new in RENAMES.items():
-                if f.name.startswith(old + "."):
-                    dest = tutor / (new + f.name[len(old):])
-                    if dest.exists():
-                        clashes.append(f"{dest} exists")
-                    else:
-                        moves.append((f, dest))
+            stem, dot, rest = f.name.partition(".")  # also <id>.prev.wav, <id>.rejectN.wav
+            if stem in RENAMES:
+                dest = tutor / f"{RENAMES[stem]}{dot}{rest}"
+                if dest.exists():
+                    clashes.append(f"{dest} exists")
+                else:
+                    moves.append((f, dest))
 
     vis_path = audio / "visemes.json"
     vis = json.loads(vis_path.read_text(encoding="utf8")) if vis_path.exists() else None
     if vis is not None:
-        for old, new in RENAMES.items():
-            vis["lines"] = renamed_key(vis.get("lines", {}), old, new, "visemes.json lines", clashes)
-            vis["clips"] = {t: renamed_key(c, old, new, f"visemes.json clips.{t}", clashes)
-                            for t, c in vis.get("clips", {}).items()}
+        vis["lines"] = renamed(vis.get("lines", {}), "visemes.json lines", clashes)
+        vis["clips"] = {t: renamed(c, f"visemes.json clips.{t}", clashes) for t, c in vis.get("clips", {}).items()}
 
     if clashes:
         sys.exit("nothing renamed, new ids already taken:\n  " + "\n  ".join(clashes))
