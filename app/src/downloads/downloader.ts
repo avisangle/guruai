@@ -399,9 +399,10 @@ function instance(): Downloader {
   return live;
 }
 
-export const startInitialDownloads = () => instance().startInitialDownloads();
-export const queuePacks = (packIds: string[]) => instance().queuePacks(packIds);
-export const queueChildPacks = (child: ChildProfile) => instance().queueChildPacks(child);
+// async, so a failed setup (native module, DB open) rejects instead of throwing into the caller.
+export const startInitialDownloads = async () => instance().startInitialDownloads();
+export const queuePacks = async (packIds: string[]) => instance().queuePacks(packIds);
+export const queueChildPacks = async (child: ChildProfile) => instance().queueChildPacks(child);
 export const isLessonInstalled = (templateId: string) => instance().isLessonInstalled(templateId);
 export const downloadStatus = () => instance().downloadStatus();
 export const subscribeDownloads = (listener: () => void) => instance().subscribe(listener);
