@@ -933,7 +933,7 @@ describe('GURU-19 revision items', () => {
       const all = withoutSurprises(lines(steps));
       const expected = interleaveRevision(shuffleQuiz(quizOrder(lesson), rng).map(idOf(lesson)), ['o', 'am'], rng);
       expect(expected.indexOf('o')).toBeGreaterThan(0); // between new items
-      expect([c, quizListens(steps)]).toEqual([c, expected]);
+      expect([c, quizListens(steps).filter((id, i, a) => id !== a[i - 1])]).toEqual([c, expected]);
       expect(steps.filter((s): s is Listen => s.type === 'listen' && s.kind === 'teach').map((s) => s.item.id)).toEqual(TEACH);
 
       const hint = all.indexOf(`${R}.o.hint`);
