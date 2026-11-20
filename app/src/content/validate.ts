@@ -70,8 +70,8 @@ export function validateContent(lessons: Lesson[], prompts: Prompts, tokens: Rec
 }
 
 // Learning paths (content/paths). A child's goals are skill ids.
-export type Title = { mr: string; en: string };
-export type PathUnit = { unit_id: string; title: Title; lessons: string[] };
+type Title = { mr: string; en: string };
+type PathUnit = { unit_id: string; title: Title; lessons: string[] };
 export type LearningPath = {
   path_id: string;
   kind: 'class' | 'skill';
@@ -84,12 +84,24 @@ export type LearningPath = {
 };
 export type Packs = Record<string, { title: Title; lessons: string[] }>;
 
-export const BOARDS = ['msb', 'cbse'];
-export const CLASSES = ['Nursery', 'LKG', 'UKG', 'Class1', 'Class2'];
+const BOARDS = ['msb', 'cbse'];
+const CLASSES = ['Nursery', 'LKG', 'UKG', 'Class1', 'Class2'];
 
 /** Lessons reachable from the paths, in path order, each once. */
 export function reachableLessons(paths: LearningPath[]): string[] {
   return [...new Set(paths.flatMap((p) => p.units.flatMap((u) => u.lessons)))];
+}
+
+/** Lesson to the ids of the packs that list it. */
+export function packsByLesson(packs: Packs): Map<string, string[]> {
+  const index = new Map<string, string[]>();
+  for (const [id, pack] of Object.entries(packs)) {
+    for (const l of pack.lessons) {
+      if (!index.has(l)) index.set(l, []);
+      index.get(l)!.push(id);
+    }
+  }
+  return index;
 }
 
 export function validatePaths(paths: LearningPath[], packs: Packs, lessonIds: string[]): string[] {
@@ -104,10 +116,7 @@ export function validatePaths(paths: LearningPath[], packs: Packs, lessonIds: st
     }
   }
 
-  const packsOf = new Map<string, string[]>();
-  for (const [id, pack] of Object.entries(packs)) {
-    for (const l of pack.lessons) packsOf.set(l, [...(packsOf.get(l) ?? []), id]);
-  }
+  const packsOf = packsByLesson(packs);
   for (const [l, ids] of packsOf) if (ids.length > 1) errors.push(`${l}: in more than one pack (${ids.join(', ')})`);
   for (const l of reachableLessons(paths)) {
     if (known.has(l) && !packsOf.has(l)) errors.push(`${l}: reachable from a path but in no pack`);

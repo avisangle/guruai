@@ -14,7 +14,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { reachableLessons, validateContent, validatePaths } from '../src/content/validate.ts';
+import { packsByLesson, reachableLessons, validateContent, validatePaths } from '../src/content/validate.ts';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const content = path.join(here, '../../content');
@@ -40,9 +40,8 @@ const allLessons = new Map(
 );
 // The menu: every lesson reachable from a path, in path order (paths sorted by file name).
 const lessons = reachableLessons(paths).filter((id) => allLessons.has(id)).map((id) => allLessons.get(id));
-const inMenu = new Set(lessons.map((l) => l.template_id));
-const lessonPack = {};
-for (const [id, pack] of Object.entries(packs)) for (const l of pack.lessons) if (inMenu.has(l)) lessonPack[l] = id;
+const packOf = packsByLesson(packs);
+const lessonPack = Object.fromEntries(lessons.map((l) => [l.template_id, packOf.get(l.template_id)?.[0]]));
 
 const prompts = readJson(path.join(content, 'prompts/mr.json'));
 const { tokens } = readJson(path.join(here, '../src/asr/generated/mr-tokens.json'));
@@ -69,7 +68,7 @@ for (const lesson of lessons) {
 }
 
 const visemesPath = path.join(content, 'audio/visemes.json');
-const visemes = fs.existsSync(visemesPath) ? JSON.parse(fs.readFileSync(visemesPath, 'utf8')) : { lines: {}, clips: {} };
+const visemes = fs.existsSync(visemesPath) ? readJson(visemesPath) : { lines: {}, clips: {} };
 const clips = {};
 const requires = [];
 const missing = [];
