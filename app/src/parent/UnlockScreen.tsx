@@ -1,7 +1,7 @@
 // Parent gate unlock (wireframes g-unlock, g-pin, g-pin-wrong, g-pin-wait30/5/15, p-lock-pin).
 // Device mode shows only the system prompt; pin mode the keypad with waits; a phone without a
 // screen lock, or a parent recovering a forgotten PIN, sets a new PIN first.
-import { useEffect, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { Button } from '../ui/components/Button';
@@ -10,21 +10,24 @@ import { Text } from '../ui/components/Text';
 import { useT } from '../ui/i18n';
 import type { StringKey } from '../ui/strings/mr';
 import { theme } from '../ui/theme';
+import type { GateState } from './gate';
 import { BACKSPACE, FINGERPRINT, Icon, LOCK } from './icons';
+import { lockoutFor } from './lockout';
+import { PIN_LENGTH } from './pin';
 import { useParentMode } from './ParentModeProvider';
 
-const PIN_LENGTH = 4;
 const SEC = 1000;
-const MIN = 60 * SEC;
 const DIGITS = ['1', '2', '3', '4', '5', '6', '7', '8', '9'];
 
-type Mode = 'loading' | 'device' | 'pin' | 'setup';
+/** null while loading; 'setup' after a forgotten PIN is recovered. */
+type Mode = GateState | 'setup' | null;
 type Wait = { until: number; title: StringKey; body: StringKey };
 
-/** Copy for a wait of `ms` (the gate gives 30 s, 5 min, then 15 min). */
-function waitCopy(ms: number): Pick<Wait, 'title' | 'body'> {
-  if (ms > 5 * MIN) return { title: 'pinWait15Title', body: 'pinWait15' };
-  return { title: 'pinWaitTitle', body: ms > 30 * SEC ? 'pinWait5' : 'pinWait30' };
+/** A wait ending at `until`, with the copy for the lockout stage it falls in (30 s, 5 min, then 15 min). */
+function waitUntil(until: number): Wait {
+  const ms = until - Date.now();
+  if (ms > lockoutFor(6)) return { until, title: 'pinWait15Title', body: 'pinWait15' };
+  return { until, title: 'pinWaitTitle', body: ms > lockoutFor(3) ? 'pinWait5' : 'pinWait30' };
 }
 
 function clock(ms: number) {
@@ -35,29 +38,24 @@ function clock(ms: number) {
 export function UnlockScreen() {
   const { t } = useT();
   const { gate, enter, exit } = useParentMode();
-  const [mode, setMode] = useState<Mode>('loading');
-  const [noScreenLock, setNoScreenLock] = useState(false);
+  const [mode, setMode] = useState<Mode>(null);
   const [digits, setDigits] = useState('');
   /** Setup: the PIN from the first row, once complete. */
   const [first, setFirst] = useState<string | null>(null);
   const [message, setMessage] = useState<StringKey | null>(null);
-  /** Wrong PINs since the last wait; the gate keeps the real count. */
-  const [fails, setFails] = useState(0);
   const [wait, setWait] = useState<Wait | null>(null);
-  const [now, setNow] = useState(Date.now);
+  const endWait = useCallback(() => setWait(null), []);
+  const setup = mode === 'setup' || mode === 'needs_pin_setup';
+  const locked = wait !== null;
 
   useEffect(() => {
     let live = true;
     (async () => {
-      const state = await gate.state();
+      const state = await gate().state();
       if (!live) return;
-      if (state !== 'device') {
-        setNoScreenLock(state === 'needs_pin_setup');
-        setMode(state === 'pin' ? 'pin' : 'setup');
-        return;
-      }
-      setMode('device');
-      const ok = await gate.unlockWithDevice(t('unlockPrompt'));
+      setMode(state);
+      if (state !== 'device') return;
+      const ok = await gate().unlockWithDevice(t('unlockPrompt'));
       if (live) (ok ? enter : exit)();
     })();
     return () => {
@@ -65,29 +63,16 @@ export function UnlockScreen() {
     };
   }, [gate, t, enter, exit]);
 
-  useEffect(() => {
-    if (!wait) return;
-    const id = setInterval(() => {
-      const at = Date.now();
-      if (at >= wait.until) setWait(null);
-      else setNow(at);
-    }, SEC);
-    return () => clearInterval(id);
-  }, [wait]);
-
   async function submitPin(pin: string) {
-    const result = await gate.verifyPin(pin);
+    const result = await gate().verifyPin(pin);
     if (result.ok) return enter();
     if (result.waitUntil) {
-      const at = Date.now();
-      setFails(0);
       setMessage(null);
-      setNow(at);
-      setWait({ until: result.waitUntil, ...waitCopy(result.waitUntil - at) });
+      setWait(waitUntil(result.waitUntil));
       return;
     }
-    setFails(fails + 1);
-    setMessage(fails === 0 ? 'pinWrongTwoLeft' : 'pinWrongOneLeft');
+    // Every 3rd wrong PIN starts a wait, so a first miss since the last one leaves two tries.
+    setMessage(message ? 'pinWrongOneLeft' : 'pinWrongTwoLeft');
   }
 
   async function submitSetup(pin: string) {
@@ -97,35 +82,67 @@ export function UnlockScreen() {
     } else if (pin !== first) {
       setMessage('pinMismatch');
     } else {
-      await gate.setPin(pin);
+      await gate().setPin(pin);
       enter();
     }
   }
 
   function press(digit: string) {
-    if (wait) return;
+    if (locked) return;
     const next = digits + digit;
     if (next.length < PIN_LENGTH) return setDigits(next);
     setDigits('');
-    (mode === 'setup' ? submitSetup : submitPin)(next);
+    (setup ? submitSetup : submitPin)(next);
   }
 
   async function recover() {
-    if (!(await gate.recoverWithBiometrics(t('unlockPrompt')))) return;
+    if (!(await gate().recoverWithBiometrics(t('unlockPrompt')))) return;
     setWait(null);
-    setFails(0);
     setMessage(null);
     setDigits('');
     setFirst(null);
-    setNoScreenLock(false);
     setMode('setup');
   }
 
-  const fingerprintKey = (
-    <Pressable accessibilityRole="button" accessibilityLabel={t('pinFingerprintKey')} onPress={recover} style={styles.key}>
-      <Icon d={FINGERPRINT} size={ICON} color={color.parent.text} />
-    </Pressable>
-  );
+  let panel: ReactNode = null;
+  if (wait) {
+    panel = (
+      <>
+        <Text variant="title" style={styles.center}>
+          {t(wait.title)}
+        </Text>
+        <Note tone="warning">{t(wait.body)}</Note>
+        <Text style={styles.center}>{t('pinWaitLessonsGoOn')}</Text>
+        <Button variant="parent" label={t('pinUnlockBiometric')} onPress={recover} />
+        <Countdown until={wait.until} onDone={endWait} />
+      </>
+    );
+  } else if (mode === 'pin') {
+    panel = (
+      <>
+        <Text variant="title" style={styles.center}>
+          {t('pinEnter')}
+        </Text>
+        <Dots filled={digits.length} error={message !== null} />
+        {message ? <Note tone="error">{t(message)}</Note> : <Text style={[styles.center, styles.muted]}>{t('pinOrFingerprint')}</Text>}
+      </>
+    );
+  } else if (setup) {
+    panel = (
+      <>
+        <Text variant="title" style={styles.center}>
+          {t('pinSetTitle')}
+        </Text>
+        {mode === 'needs_pin_setup' && <Note tone="warning">{t('pinNoScreenLock')}</Note>}
+        <PinRow label={t('pinFirst')} filled={first === null ? digits.length : PIN_LENGTH} active={first === null} />
+        <PinRow label={t('pinAgain')} filled={first === null ? 0 : digits.length} active={first !== null} />
+        {message && <Note tone="error">{t(message)}</Note>}
+        <Note tone="warning">
+          <Text variant="label">{t('pinRemember')}</Text> {t('pinRememberBody')}
+        </Note>
+      </>
+    );
+  }
 
   return (
     <Screen variant="parent">
@@ -139,59 +156,29 @@ export function UnlockScreen() {
         </View>
       </View>
 
-      {(mode === 'pin' || mode === 'setup') && (
+      {(mode === 'pin' || setup) && (
         <View style={styles.body}>
-          {wait ? (
-            <>
-              <Text variant="title" style={styles.center}>
-                {t(wait.title)}
-              </Text>
-              <Note tone="warning">{t(wait.body)}</Note>
-              <Text style={styles.center}>{t('pinWaitLessonsGoOn')}</Text>
-              <Button variant="parent" label={t('pinUnlockBiometric')} onPress={recover} />
-              <Text variant="title" style={styles.center}>
-                {clock(wait.until - now)}
-              </Text>
-            </>
-          ) : mode === 'pin' ? (
-            <>
-              <Text variant="title" style={styles.center}>
-                {t('pinEnter')}
-              </Text>
-              <Dots filled={digits.length} error={message !== null} />
-              {message ? <Note tone="error">{t(message)}</Note> : <Text style={[styles.center, styles.muted]}>{t('pinOrFingerprint')}</Text>}
-            </>
-          ) : (
-            <>
-              <Text variant="title" style={styles.center}>
-                {t('pinSetTitle')}
-              </Text>
-              {noScreenLock && <Note tone="warning">{t('pinNoScreenLock')}</Note>}
-              <PinRow label={t('pinFirst')} filled={first === null ? digits.length : PIN_LENGTH} active={first === null} />
-              <PinRow label={t('pinAgain')} filled={first === null ? 0 : digits.length} active={first !== null} />
-              {message && <Note tone="error">{t(message)}</Note>}
-              <Note tone="warning">
-                <Text variant="label">{t('pinRemember')}</Text> {t('pinRememberBody')}
-              </Note>
-            </>
-          )}
-
+          {panel}
           <View style={styles.grow} />
           <View style={styles.keys}>
             {DIGITS.map((d) => (
-              <Key key={d} digit={d} disabled={!!wait} onPress={press} />
+              <Key key={d} framed disabled={locked} onPress={() => press(d)}>
+                <Text variant="title">{d}</Text>
+              </Key>
             ))}
-            {mode === 'pin' && !wait ? fingerprintKey : <View style={styles.key} />}
-            <Key digit="0" disabled={!!wait} onPress={press} />
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={t('pinDelete')}
-              disabled={!!wait}
-              onPress={() => setDigits(digits.slice(0, -1))}
-              style={[styles.key, !!wait && styles.disabled]}
-            >
+            {mode === 'pin' && !locked ? (
+              <Key label={t('pinFingerprintKey')} onPress={recover}>
+                <Icon d={FINGERPRINT} size={ICON} color={color.parent.text} />
+              </Key>
+            ) : (
+              <View style={styles.key} />
+            )}
+            <Key framed disabled={locked} onPress={() => press('0')}>
+              <Text variant="title">0</Text>
+            </Key>
+            <Key label={t('pinDelete')} disabled={locked} onPress={() => setDigits(digits.slice(0, -1))}>
               <Icon d={BACKSPACE} size={ICON} color={color.parent.text} />
-            </Pressable>
+            </Key>
           </View>
         </View>
       )}
@@ -203,15 +190,36 @@ export function UnlockScreen() {
   );
 }
 
-function Key({ digit, disabled, onPress }: { digit: string; disabled: boolean; onPress: (digit: string) => void }) {
+/** m:ss until `until`; calls onDone when it is reached. Owns the ticking, so only it re-renders. */
+function Countdown({ until, onDone }: { until: number; onDone: () => void }) {
+  const [now, setNow] = useState(Date.now);
+  useEffect(() => {
+    const id = setInterval(() => {
+      const at = Date.now();
+      if (at >= until) onDone();
+      else setNow(at);
+    }, SEC);
+    return () => clearInterval(id);
+  }, [until, onDone]);
+  return (
+    <Text variant="title" style={styles.center}>
+      {clock(until - now)}
+    </Text>
+  );
+}
+
+type KeyProps = { label?: string; framed?: boolean; disabled?: boolean; onPress: () => void; children: ReactNode };
+
+function Key({ label, framed, disabled, onPress, children }: KeyProps) {
   return (
     <Pressable
       accessibilityRole="button"
+      accessibilityLabel={label}
       disabled={disabled}
-      onPress={() => onPress(digit)}
-      style={[styles.key, styles.digit, disabled && styles.disabled]}
+      onPress={onPress}
+      style={[styles.key, framed && styles.digit, disabled && styles.disabled]}
     >
-      <Text variant="title">{digit}</Text>
+      {children}
     </Pressable>
   );
 }

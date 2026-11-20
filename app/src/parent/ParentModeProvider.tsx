@@ -11,11 +11,12 @@ import { theme } from '../ui/theme';
 import type { Gate } from './gate';
 import { liveGate } from './live';
 
-const IDLE_MS = 2 * 60 * 1000;
-const WARNING_MS = 10 * 1000;
+const IDLE_MS = 120_000;
+const WARNING_MS = 10_000;
 
 type ParentMode = {
-  gate: Gate;
+  /** The gate, created on first call (the live one opens the database). */
+  gate: () => Gate;
   unlocked: boolean;
   /** Starts a session after a successful unlock and opens parent home. */
   enter: () => void;
@@ -29,7 +30,6 @@ type Props = { gate?: Gate; children?: ReactNode };
 
 export function ParentModeProvider({ gate: injected, children }: Props) {
   const { t } = useT();
-  const [gate] = useState(() => injected ?? liveGate());
   const [unlocked, setUnlocked] = useState(false);
   const [warning, setWarning] = useState(false);
   // Read by the touch and AppState handlers, which must not wait for a render.
@@ -39,7 +39,7 @@ export function ParentModeProvider({ gate: injected, children }: Props) {
   const exit = useCallback(() => {
     clearTimeout(timer.current);
     unlockedRef.current = false;
-    // Leave before locking, so the /parent guard never sees a locked session and redirects.
+    // Navigation and lock land in one render: the parent screens close instead of falling back to the unlock.
     router.dismissTo('/');
     setWarning(false);
     setUnlocked(false);
@@ -76,6 +76,7 @@ export function ParentModeProvider({ gate: injected, children }: Props) {
     };
   }, [exit]);
 
+  const gate = useCallback(() => injected ?? liveGate(), [injected]);
   const value = useMemo(() => ({ gate, unlocked, enter, exit }), [gate, unlocked, enter, exit]);
 
   return (

@@ -1,11 +1,16 @@
-// Parent area: every route but the unlock needs an unlocked parent session.
-import { Redirect, Stack, useSegments } from 'expo-router';
+// Parent area: every screen but the unlock needs an unlocked parent session.
+import { Stack } from 'expo-router';
 
 import { useParentMode } from '../../parent/ParentModeProvider';
 
 export default function ParentLayout() {
   const { unlocked } = useParentMode();
-  const segments = useSegments();
-  if (!unlocked && segments.at(-1) !== 'unlock') return <Redirect href="/parent/unlock" />;
-  return <Stack screenOptions={{ headerShown: false }} />;
+  return (
+    <Stack screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="unlock" />
+      <Stack.Protected guard={unlocked}>
+        <Stack.Screen name="index" />
+      </Stack.Protected>
+    </Stack>
+  );
 }
