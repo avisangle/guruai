@@ -195,7 +195,7 @@ export function LessonScreen() {
         rig.setState('listening');
         setCaption('');
         setListening(true);
-        const answer = await source.listen(step.item, step.kind);
+        const answer = await source.listen(step);
         if (!alive()) return;
         setListening(false);
         const { position, event } = engine.answer(answer);

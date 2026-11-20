@@ -32,9 +32,12 @@ clips/<clip id>.<ext>      audio as recorded: 16 kHz mono 16-bit WAV (exports ma
       "accepted_variants": ["अ अननसाचा", "अननस"],
       "kind": "teach",
       "label": "correct",
+      "label_by": "judge",
+      "matched_text": "अ",
+      "matched_lang": "mr",
       "recorded_at": "2026-11-15T10:42:01Z",
       "duration_ms": 2380,
-      "judge": { "choice": "अ", "verdict": "correct", "free": "अ", "note": "free=\"अ\" ...", "ms": 310 }
+      "judge": { "choice": "अ", "verdict": "correct", "heard": { "kind": "correct", "by": "shekru", "text": "अ", "lang": "mr" }, "free": "अ", "note": "free=\"अ\" ...", "ms": 310 }
     }
   ]
 }
@@ -45,8 +48,10 @@ clips/<clip id>.<ext>      audio as recorded: 16 kHz mono 16-bit WAV (exports ma
 - `kind`: `teach` (repeat after Shekru) or `quiz` (name the letter).
 - `label`: the answer the lesson acted on: `correct`, `wrong` or `silent`. For `wrong`, what the child actually said is unknown.
 - `label_by` (optional): `judge` when `label` is the judge's own verdict (`unclear` becomes `silent`), so it is not a check of the judge (D-STT-judge-drives-lesson). Absent: the tester's tap.
+- `matched_text` (optional): the answer text the judge matched, absent when it heard `other` or `nothing`. On a quiz turn the words of the line that opened the mic are never candidates, so a child echoing the hint word is not matched.
+- `matched_lang` (optional): `mr`, `en` or `hi`, the language of `matched_text` when it is an answer of the clip's own item (absent when it is another item's answer).
 - `expected`, `accepted_variants`: copied from the lesson item at recording time.
-- `judge` (optional): the on-device judge's view of the clip, present when the model was on the phone. `choice` is a lesson letter, `other` or `nothing`; `verdict` is `correct`, `wrong` or `unclear` (compare with `label`, where `silent` matches `unclear`); `free` is the model's own decode; `ms` the time to judge; `error` when judging failed. Logic: `app/src/asr/lessonJudge.ts`.
+- `judge` (optional): the on-device judge's view of the clip, present when the model was on the phone. `choice` is a lesson letter, `other` or `nothing`; `verdict` is `correct`, `wrong` or `unclear` (compare with `label`, where `silent` matches `unclear`); `heard` is what the lesson got from the judge: `correct`, `meaning` (the item's answer in another language; its `verdict` is `correct`), `wrong` or `silent`, with `text` and `lang` as in `matched_*`; `free` is the model's own decode; `ms` the time to judge; `error` when judging failed. Logic: `app/src/asr/lessonJudge.ts`.
 
 ## Privacy
 

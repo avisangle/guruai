@@ -158,7 +158,7 @@ describe('judgeClip drops the words Shekru just said, in quiz listens only', () 
   });
 
   test('teach (repeat after me) keeps every candidate', async () => {
-    const r = await judgeClip('file:///cache/rec-1.wav', listen(en('a'), 'teach', en('a').lines.teach), english.items);
+    const r = await judgeClip('file:///cache/rec-1.wav', listen(en('a'), 'teach', (en('a').lines as { teach: string }).teach), english.items);
     expect(candidateTexts()).toEqual(lessonCandidates(english.items).map((c) => c.text));
     expect(r.heard).toEqual({ kind: 'silent', by: 'shekru' }); // the stand-in judge heard nothing
   });
