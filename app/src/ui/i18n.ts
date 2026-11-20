@@ -1,9 +1,10 @@
 import { createContext, createElement, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
 
+import type { AppLang } from '../data/types';
 import { en } from './strings/en';
 import { mr, type StringKey } from './strings/mr';
 
-export type UiLang = 'mr' | 'en';
+export type UiLang = AppLang;
 
 const tables: Record<UiLang, Record<StringKey, string>> = { mr, en };
 

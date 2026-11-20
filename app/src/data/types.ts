@@ -6,7 +6,9 @@ export type Ids = {
   childCode?: () => string;
 };
 
-export type ParentLang = 'mr' | 'en';
+// The app's two languages; the role names below are aliases of it.
+export type AppLang = 'mr' | 'en';
+export type ParentLang = AppLang;
 export type JudgeCheck = 'ok' | 'slow' | 'oom';
 
 export type Device = {
@@ -24,7 +26,7 @@ export type Device = {
   updated_at: string;
 };
 
-export type Medium = 'mr' | 'en';
+export type Medium = AppLang;
 export type StyleLevel = 'mr_led' | 'en_led';
 
 export type ChildProfile = {

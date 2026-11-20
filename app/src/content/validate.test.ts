@@ -116,6 +116,14 @@ test('a valid v2 lesson has no errors; a flow order entry naming no item display
   expect(errors[0]).toContain('ZQX');
 });
 
+test('a flow play entry whose state is not one of the 14 tutor states is reported (D-GURU-7)', () => {
+  const lesson = baseLesson();
+  lesson.flow[0] = { play: 'intro', state: 'waving' };
+  const errors = run(lesson);
+  expect(errors).toHaveLength(1);
+  expect(errors[0]).toContain('"waving"');
+});
+
 test('required lines per kind: a word item needs all seven, a letter item needs teach, hint and correct', () => {
   const lesson = baseLesson();
   delete (item(lesson, 'apple').lines as Record<string, string>).ack_meaning;
