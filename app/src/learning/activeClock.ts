@@ -35,9 +35,7 @@ export function createActiveClock(): ActiveClock {
       mark(at);
       running = false;
     },
-    activity(at) {
-      if (running) mark(at);
-    },
+    activity: mark,
     activeMs: (at) => banked + since(at),
   };
 }

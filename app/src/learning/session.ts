@@ -3,7 +3,9 @@
 import { randomUUID } from 'expo-crypto';
 
 import { now, type Db } from '../data/db';
+import { getChild } from '../data/profiles';
 import { appendEvent, type EventContext } from './events';
+import { localDayBounds } from './mastery';
 
 export type EndReason = 'goodbye' | 'stop' | 'closed';
 
@@ -45,7 +47,8 @@ export function endSession(db: Db, sessionId: string, reason: Exclude<EndReason,
 export function closeOpenSessions(db: Db): void {
   db.run(
     `UPDATE session SET end_reason = 'closed', updated_at = ?,
-       ended_at = COALESCE((SELECT MAX(at) FROM event WHERE event.session_id = session.id), started_at)
+       ended_at = COALESCE((SELECT MAX(at) FROM event WHERE event.child_id = session.child_id
+         AND event.at >= session.started_at AND event.session_id = session.id), started_at)
      WHERE ended_at IS NULL`,
     [now()],
   );
@@ -67,10 +70,7 @@ export function lessonLeft(db: Db, ctx: EventContext, templateId: string, items:
 
 /** Lessons the child finished on a local calendar day ('YYYY-MM-DD'), repeats included. */
 export function lessonsDoneToday(db: Db, childId: string, date: string): number {
-  // `at` is UTC ISO, so compare against the UTC bounds of the local day.
-  const [y, m, d] = date.split('-').map(Number);
-  const from = new Date(y, m - 1, d).toISOString();
-  const to = new Date(y, m - 1, d + 1).toISOString();
+  const { from, to } = localDayBounds(date);
   return db.get<{ n: number }>(
     `SELECT COUNT(*) AS n FROM event WHERE child_id = ? AND type = 'lesson_end' AND at >= ? AND at < ?`,
     [childId, from, to],
@@ -79,7 +79,7 @@ export function lessonsDoneToday(db: Db, childId: string, date: string): number 
 
 /** True once the child has finished their lessons_per_day on that local day. */
 export function goalMetToday(db: Db, childId: string, date: string): boolean {
-  const child = db.get<{ lessons_per_day: number }>('SELECT lessons_per_day FROM child_profile WHERE id = ?', [childId]);
+  const child = getChild(db, childId);
   return !!child && lessonsDoneToday(db, childId, date) >= child.lessons_per_day;
 }
 

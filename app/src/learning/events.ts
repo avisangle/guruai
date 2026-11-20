@@ -23,14 +23,11 @@ export type AnswerEvent = {
   counts: boolean;
 };
 
-/** What the session layer adds to each answer. `at` is an ISO timestamp. */
-export type AnswerContext = {
-  childId: string;
-  sessionId: string;
-  at: string;
-  ms?: number;
-  margin?: number;
-};
+/** Where and when an event happened. `at` is an ISO timestamp. */
+export type EventContext = { childId: string; sessionId: string; at: string };
+
+/** What the session layer adds to each answer. */
+export type AnswerContext = EventContext & { ms?: number; margin?: number };
 
 /** A stored `event` row. */
 export type EventRow = {
@@ -40,9 +37,6 @@ export type EventRow = {
   type: string;
   payload: string;
 };
-
-/** Where and when an event happened. `at` is an ISO timestamp. */
-export type EventContext = Pick<AnswerContext, 'childId' | 'sessionId' | 'at'>;
 
 /** Appends one `event` row; `stamp` is the write time. */
 export function appendEvent(db: Db, ctx: EventContext, type: string, payload: object, stamp = now()): void {

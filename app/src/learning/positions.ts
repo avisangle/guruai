@@ -18,9 +18,9 @@ export function savePosition(db: Db, childId: string, templateId: string, positi
 
 /** The saved position, or null if none is saved or it was saved for another lesson version. */
 export function loadPosition(db: Db, childId: string, templateId: string, version: number): Position | null {
-  const row = db.get<{ version: number; position: string }>(
-    'SELECT version, position FROM lesson_position WHERE child_id = ? AND template_id = ?',
-    [childId, templateId],
+  const row = db.get<{ position: string }>(
+    'SELECT position FROM lesson_position WHERE child_id = ? AND template_id = ? AND version = ?',
+    [childId, templateId, version],
   );
-  return row && row.version === version ? JSON.parse(row.position) : null;
+  return row ? JSON.parse(row.position) : null;
 }
