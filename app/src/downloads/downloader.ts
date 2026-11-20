@@ -14,7 +14,9 @@ type NetState = { type?: string; isConnected?: boolean | null };
 export type FetchResponse = {
   ok: boolean;
   status: number;
-  body: { getReader(): { read(): Promise<{ done: boolean; value?: Uint8Array }> } } | null;
+  body: {
+    getReader(): { read(): Promise<{ done: boolean; value?: Uint8Array }>; cancel?(): Promise<void> };
+  } | null;
   json(): Promise<unknown>;
 };
 
@@ -271,8 +273,14 @@ export function createDownloader(deps: DownloaderDeps) {
         const { done: end, value } = await reader.read();
         if (end) break;
         if (!value?.length) continue;
-        fs.append(part, value);
-        done += value.length;
+        // Never write past the manifest size; the checksum judges what was kept.
+        const keep = value.subarray(0, Math.max(0, job.bytes - done));
+        fs.append(part, keep);
+        done += keep.length;
+        if (done >= job.bytes) {
+          await reader.cancel?.();
+          break;
+        }
         if (done - saved >= PROGRESS_STEP) {
           setRow(job, 'downloading', done);
           saved = done;
