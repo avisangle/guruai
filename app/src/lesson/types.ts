@@ -1,15 +1,57 @@
 // Shapes of content/lessons/<template>.json and content/prompts/<lang>.json.
 export type Anchor = { word: string; picture: string };
 
-export type Item = {
+export type Lang = 'mr' | 'en' | 'hi';
+export type DecidedBy = 'shekru' | 'tap';
+export type ItemKind = 'letter' | 'word';
+
+// What the engine receives for one listening turn. The judge only classifies;
+// the engine applies the language rules (TDD 2.2).
+export type Heard =
+  | { kind: 'correct'; by: DecidedBy; text?: string; lang?: Lang } // right answer in the target language
+  | { kind: 'meaning'; by: 'shekru'; text: string; lang: Lang } // right item, not the target language
+  | { kind: 'wrong'; by: DecidedBy; text?: string } // other item's answer, or "other"
+  | { kind: 'silent'; by: DecidedBy; unsure?: boolean }; // nothing, unclear, unsure-wrong
+
+// Picture reactions, on both kinds.
+type ReactLines = { react_1?: string; react_2?: string };
+
+type ItemBase = {
   id: string;
   item_key: string;
   display: string;
+  target_lang: 'mr' | 'en';
   anchor: Anchor;
-  // also_correct: answers that count as right without being this item's answer (vowel-length partner)
-  assessment: { mode: string; expected: string[]; accepted_variants: string[]; also_correct?: string[] };
-  lines: { teach: string; hint: string; correct: string };
+  assessment: {
+    mode: string;
+    expected: string[];
+    accepted_variants: string[];
+    // answers that count as right without being this item's answer (vowel-length partner)
+    also_correct?: string[];
+    // answer text -> its languages; an answer not listed is [target_lang]
+    langs?: Record<string, Lang[]>;
+  };
+  // answers in different languages that the judge cannot tell apart
+  ambiguous_lang?: boolean;
+  // line name -> on-screen text (English in Latin letters); absent: the voice text
+  captions?: Record<string, string>;
 };
+
+export type Item =
+  | (ItemBase & { kind: 'letter'; lines: { teach: string; hint: string; correct: string } & ReactLines })
+  | (ItemBase & {
+      kind: 'word';
+      ask_direction?: 'picture_to_target' | 'word_to_meaning';
+      lines: {
+        teach_mr_led: string;
+        teach_en_led: string;
+        ask: string; // the question in the target language, per ask_direction
+        hint: string; // the Marathi bridge
+        correct: string;
+        ack_meaning: string;
+        model_mr: string; // Marathi word for the Hindi follow-up
+      } & ReactLines;
+    });
 
 export type FlowEntry =
   | { play: string; state: string }
@@ -20,12 +62,17 @@ export type Lesson = {
   template_id: string;
   title: string; // home screen menu
   version: number;
+  pack?: string;
+  classes?: string[];
+  learning_language?: string; // 'mr-IN' | 'en-IN'
+  status?: string; // 'draft' | 'pilot' ...
   lines: Record<string, string>;
+  captions?: Record<string, string>;
   items: Item[];
   flow: FlowEntry[];
 };
 
-export type Prompts = { lines: Record<string, string> };
+export type Prompts = { lines: Record<string, string>; captions?: Record<string, string> };
 
 export type Answer = 'correct' | 'wrong' | 'silent';
 // teach: repeat after the tutor, any speech passes. quiz: name the letter.

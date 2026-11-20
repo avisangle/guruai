@@ -51,8 +51,9 @@ export function createLesson(
     ({ type: 'say', line: id, text: prompts.lines[id], state, item, showAnchor });
   const lessonLine = (name: string, state: string): Say =>
     ({ type: 'say', line: `${lesson.template_id}.${name}`, text: lesson.lines[name], state, item: null, showAnchor: false });
-  const itemLine = (item: Item, name: keyof Item['lines'], state: string, showAnchor: boolean): Say =>
-    ({ type: 'say', line: `${lesson.template_id}.${item.id}.${name}`, text: item.lines[name], state, item, showAnchor });
+  // letter-item lines; word items need the v2 engine
+  const itemLine = (item: Item, name: 'teach' | 'hint' | 'correct', state: string, showAnchor: boolean): Say =>
+    ({ type: 'say', line: `${lesson.template_id}.${item.id}.${name}`, text: (item.lines as Record<string, string>)[name], state, item, showAnchor });
   const listen = (item: Item, kind: Listen['kind'], showAnchor: boolean): Listen => ({ type: 'listen', item, kind, showAnchor });
 
   // Random variant, never the one used last time.

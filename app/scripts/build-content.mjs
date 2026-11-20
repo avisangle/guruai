@@ -1,7 +1,8 @@
 // Copies lesson content into the app. Re-run after any lesson, prompt or
 // voice change:  npm run build:content
 //
-//   content/lessons/<each of LESSONS>.json                  -> src/content/generated/lessons.json (in menu order)
+//   content/lessons/<each of LESSONS>.json                  -> src/content/generated/lessons.json (in menu order),
+//                                                              after validateContent (src/content/validate.ts) passes
 //   content/prompts/mr.json                                 -> src/content/generated/prompts.json
 //   content/audio/visemes.json (the lessons' ids)           -> src/content/generated/clips.json
 //   content/audio/shekru/<id>.mp3                           -> assets/audio/lesson/<id with _ for .>.mp3
@@ -10,6 +11,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+
+import { validateContent } from '../src/content/validate.ts';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const content = path.join(here, '../../content');
@@ -22,12 +25,18 @@ const LESSONS = [
 ]; // the home screen's lesson menu, in order
 const TUTOR = 'shekru';
 
+const lessons = LESSONS.map((name) => JSON.parse(fs.readFileSync(path.join(content, 'lessons', `${name}.json`), 'utf8')));
+const prompts = JSON.parse(fs.readFileSync(path.join(content, 'prompts/mr.json'), 'utf8'));
+const { tokens } = JSON.parse(fs.readFileSync(path.join(here, '../src/asr/generated/mr-tokens.json'), 'utf8'));
+const errors = validateContent(lessons, prompts, tokens);
+if (errors.length) {
+  console.error(`content: ${errors.length} error(s), nothing written:\n${errors.map((e) => `  ${e}`).join('\n')}`);
+  process.exit(1);
+}
+
 fs.mkdirSync(out, { recursive: true });
 fs.rmSync(audioOut, { recursive: true, force: true });
 fs.mkdirSync(audioOut, { recursive: true });
-
-const lessons = LESSONS.map((name) => JSON.parse(fs.readFileSync(path.join(content, 'lessons', `${name}.json`), 'utf8')));
-const prompts = JSON.parse(fs.readFileSync(path.join(content, 'prompts/mr.json'), 'utf8'));
 fs.writeFileSync(path.join(out, 'lessons.json'), JSON.stringify(lessons) + '\n');
 fs.writeFileSync(path.join(out, 'prompts.json'), JSON.stringify(prompts) + '\n');
 
