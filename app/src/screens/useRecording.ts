@@ -4,10 +4,11 @@
 // (web, no model, mic denied) the tester buttons answer instead.
 // Recording mode only decides whether takes are kept as clips: the switch starts off at
 // every launch so nobody is recorded by accident; child code and age are remembered.
+// The switches and mic status are process-wide: the home panel sets them, the lesson route uses them.
 // Tap mode (tester switch, also off at launch): the tester's buttons decide, and with
 // recording on the judge scores each clip alongside, giving tester-labelled clips.
 import { requestRecordingPermissionsAsync, setAudioModeAsync, useAudioStream } from 'expo-audio';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { Platform } from 'react-native';
 
 import { judgeClip, type ClipJudge } from '../asr/lessonJudge';
@@ -33,13 +34,27 @@ export type JudgedClip = { answer: string; judge: ClipJudge; tapped: boolean };
 
 export type MicStatus = 'unknown' | 'granted' | 'denied' | 'unsupported';
 
-export function useRecording(templateId: string, items: Item[], inner: AnswerSource) {
-  const [on, setOnState] = useState(false);
-  const [tap, setTap] = useState(false);
-  const tapRef = useRef(tap);
-  tapRef.current = tap;
+type Switches = { on: boolean; tap: boolean; mic: MicStatus };
+let switches: Switches = { on: false, tap: false, mic: 'unknown' };
+const listeners = new Set<() => void>();
+const setSwitches = (change: Partial<Switches>) => {
+  switches = { ...switches, ...change };
+  listeners.forEach((l) => l());
+};
+const subscribe = (l: () => void) => {
+  listeners.add(l);
+  return () => void listeners.delete(l);
+};
+const setOnState = (on: boolean) => setSwitches({ on });
+const setTap = (tap: boolean) => setSwitches({ tap });
+const setMic = (mic: MicStatus) => setSwitches({ mic });
+
+// Without a mic, model or tap mode and no inner source, a listen turn waits until cancelled.
+const NO_ANSWERS: AnswerSource = { listen: () => new Promise(() => undefined), cancel: () => undefined };
+
+export function useRecording(templateId: string, items: Item[], inner: AnswerSource = NO_ANSWERS) {
+  const { on, tap, mic } = useSyncExternalStore(subscribe, () => switches);
   const [settings, setSettings] = useState(loadSettings);
-  const [mic, setMic] = useState<MicStatus>('unknown');
   const [count, setCount] = useState(countClips);
   const [error, setError] = useState<string | null>(null);
   const [judged, setJudged] = useState<JudgedClip | null>(null);
@@ -78,8 +93,6 @@ export function useRecording(templateId: string, items: Item[], inner: AnswerSou
     setOnState(granted && RECORDING_SUPPORTED);
   }, []);
 
-  const micRef = useRef(mic);
-  micRef.current = mic;
   // Asks for the microphone before a lesson; the judge listens only with permission.
   const prepare = useCallback(async () => {
     if (!RECORDING_SUPPORTED || !modelAvailable()) return;
@@ -89,8 +102,7 @@ export function useRecording(templateId: string, items: Item[], inner: AnswerSou
     } catch {
       // treated as denied
     }
-    micRef.current = granted ? 'granted' : 'denied'; // the first listen comes before a re-render
-    setMic(micRef.current);
+    setMic(granted ? 'granted' : 'denied');
   }, []);
 
   const source = useMemo((): AnswerSource => {
@@ -120,16 +132,16 @@ export function useRecording(templateId: string, items: Item[], inner: AnswerSou
       startDelayMs: CHIME_MS,
       judge: (uri, listen) => judgeClip(uri, listen, itemsRef.current),
       context: () => context.current,
-      tapped: () => (tapRef.current ? inner : null),
+      tapped: () => (switches.tap ? inner : null),
       onJudged: (judge, answer, saved, tapped) => {
         if (saved) setCount(countClips());
         setJudged({ answer, judge, tapped });
       },
       onError: (e) => setError(String(e)),
     });
-    const judgeReady = () => RECORDING_SUPPORTED && modelAvailable() && micRef.current === 'granted';
+    const judgeReady = () => RECORDING_SUPPORTED && modelAvailable() && switches.mic === 'granted';
     // tap mode records only in recording mode, as before the judge drove lessons
-    const useMic = () => (tapRef.current ? context.current != null && micRef.current === 'granted' : judgeReady());
+    const useMic = () => (switches.tap ? context.current != null && switches.mic === 'granted' : judgeReady());
     return {
       listen: (step) => (useMic() ? judged : inner).listen(step),
       cancel: () => {

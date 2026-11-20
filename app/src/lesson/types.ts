@@ -85,7 +85,8 @@ export type ListenKind = 'teach' | 'quiz';
 export type Say = {
   type: 'say';
   line: string; // audio id
-  text: string;
+  text: string; // voice text
+  caption?: string; // on-screen text with English in Latin letters; absent: show `text`
   state: string; // Shekru state
   item: Item | null; // letter on the card
   showAnchor: boolean; // anchor picture under the letter
@@ -95,7 +96,7 @@ export type Listen = { type: 'listen'; item: Item; kind: ListenKind; showAnchor:
 // Between two items (D-GURU-19-tutor-variety): a silent one-shot state, then for all but
 // celebrate a surprise_line joke or fact the player speaks over talking (D-GURU-7-tutor-state-contract).
 export type SurpriseState = (typeof SURPRISE_STATES)[number];
-export type Surprise = { type: 'surprise'; state: SurpriseState; line?: string; text?: string };
+export type Surprise = { type: 'surprise'; state: SurpriseState; line?: string; text?: string; caption?: string };
 export type Step = Say | Listen | Surprise | { type: 'done' };
 
 // An item from another lesson, asked in this lesson's quiz.

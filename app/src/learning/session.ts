@@ -28,6 +28,16 @@ export function startSession(db: Db, childId: string, at: string): string {
   return id;
 }
 
+/** The child's open session (not ended), the latest if several, or null. */
+export function openSession(db: Db, childId: string): string | null {
+  return (
+    db.get<{ id: string }>(
+      'SELECT id FROM session WHERE child_id = ? AND ended_at IS NULL ORDER BY started_at DESC, rowid DESC LIMIT 1',
+      [childId],
+    )?.id ?? null
+  );
+}
+
 /** Ends a session the child or parent ended; `closed` is for closeOpenSessions only. */
 export function endSession(db: Db, sessionId: string, reason: Exclude<EndReason, 'closed'>, end: SessionEnd): void {
   db.run('UPDATE session SET ended_at = ?, end_reason = ?, active_ms = ?, parent_helps = ?, updated_at = ? WHERE id = ?', [

@@ -9,32 +9,39 @@ import type { ShekruRig, VisemeEvent } from '../shekru/useShekruRig';
 const CLIPS = clipsJson as unknown as Record<string, { duration: number; events: VisemeEvent[] }>;
 const CHIME = require('../../assets/audio/chime.wav');
 
+/** How a line stopped: 'interrupted' when the system paused it mid-way (Android audio focus loss, e.g. a call). */
+export type LineEnd = void | 'interrupted';
+
 export function useLinePlayer(rig: ShekruRig) {
   const player = useAudioPlayer(null, { updateInterval: 50 });
   const chime = useAudioPlayer(CHIME);
-  const current = useRef<{ resolve: () => void; timer: ReturnType<typeof setTimeout> } | null>(null);
+  const current = useRef<{ resolve: (how: LineEnd) => void; timer: ReturnType<typeof setTimeout>; started?: boolean } | null>(null);
 
-  const end = useCallback(() => {
+  const end = useCallback((how: LineEnd) => {
     const line = current.current;
     if (!line) return;
     current.current = null;
     clearTimeout(line.timer);
     rig.setSpeech(null);
-    line.resolve();
+    line.resolve(how);
   }, [rig]);
 
   // Lip-sync follows the real audio position.
   useEffect(() => {
     const sub = player.addListener('playbackStatusUpdate', (s) => {
+      const line = current.current;
       if (s.didJustFinish) end();
-      else if (s.playing) rig.syncSpeech(true, s.currentTime);
+      else if (s.playing) {
+        if (line) line.started = true;
+        rig.syncSpeech(true, s.currentTime);
+      } else if (line?.started) end('interrupted'); // stopped by the system: stop() clears `current` first
     });
     return () => sub.remove();
   }, [player, rig, end]);
 
   return useMemo(() => ({
     // Resolves when the line ends or is stopped.
-    play: (id: string, text: string) => new Promise<void>((resolve) => {
+    play: (id: string, text: string) => new Promise<LineEnd>((resolve) => {
       end();
       const clip = CLIPS[id];
       if (!clip) {
