@@ -42,14 +42,14 @@ function checkItem(where: string, item: Item, tokens: Record<string, number[]>):
 
   if (item.ambiguous_lang) return errors;
   const tagsOf = (text: string): Lang[] => langs[text] ?? [item.target_lang];
+  const norm = answers.map(normalise);
   for (let i = 0; i < answers.length; i++) {
     for (let j = i + 1; j < answers.length; j++) {
       const [a, b] = [answers[i], answers[j]];
       const [la, lb] = [tagsOf(a), tagsOf(b)];
       if (la.some((l) => lb.includes(l))) continue;
-      const close =
-        normalise(a) === normalise(b) || (!!tokens[a] && !!tokens[b] && editDistance(tokens[a], tokens[b]) <= 2);
-      if (close) errors.push(`${where}: "${a}" (${la}) and "${b}" (${lb}) cannot be told apart; set ambiguous_lang`);
+      if (norm[i] === norm[j] || (tokens[a] && tokens[b] && editDistance(tokens[a], tokens[b]) <= 2))
+        errors.push(`${where}: "${a}" (${la}) and "${b}" (${lb}) cannot be told apart; set ambiguous_lang`);
     }
   }
   return errors;
@@ -61,10 +61,8 @@ export function validateContent(lessons: Lesson[], prompts: Prompts, tokens: Rec
   const errors: string[] = [];
   for (const lesson of lessons) {
     const displays = new Set(lesson.items.map((i) => i.display));
-    for (const entry of lesson.flow) {
-      for (const display of 'order' in entry ? entry.order : []) {
-        if (!displays.has(display)) errors.push(`${lesson.template_id}: flow order names "${display}", which is no item's display`);
-      }
+    for (const display of lesson.flow.flatMap((entry) => ('order' in entry ? entry.order : []))) {
+      if (!displays.has(display)) errors.push(`${lesson.template_id}: flow order names "${display}", which is no item's display`);
     }
     for (const item of lesson.items) errors.push(...checkItem(`${lesson.template_id}.${item.id}`, item, tokens));
   }
