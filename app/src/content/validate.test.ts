@@ -282,6 +282,10 @@ describe('npm run build:content', () => {
     for (const p of ['content/lessons', 'content/prompts', 'app/src', 'app/scripts', 'app/package.json']) {
       fs.cpSync(path.join(ROOT, p), path.join(tmp, p), { recursive: true });
     }
+    // GURU-16: the build reads its lesson list from content/paths
+    if (fs.existsSync(path.join(ROOT, 'content/paths'))) {
+      fs.cpSync(path.join(ROOT, 'content/paths'), path.join(tmp, 'content/paths'), { recursive: true });
+    }
     fs.symlinkSync(fs.realpathSync(path.join(APP, 'node_modules')), path.join(tmp, 'app/node_modules'));
   });
   afterEach(() => fs.rmSync(tmp, { recursive: true, force: true }));

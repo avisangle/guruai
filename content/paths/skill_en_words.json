@@ -1,0 +1,20 @@
+{
+  "path_id": "skill_en_words",
+  "kind": "skill",
+  "title": {
+    "mr": "इंग्लिश शब्द आणि अर्थ",
+    "en": "English words and meanings"
+  },
+  "skill": "en_words",
+  "pack": "en-words",
+  "units": [
+    {
+      "unit_id": "en_words_1",
+      "title": {
+        "mr": "इंग्लिश शब्द 1",
+        "en": "English words 1"
+      },
+      "lessons": []
+    }
+  ]
+}

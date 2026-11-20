@@ -1,0 +1,48 @@
+{
+  "path_id": "class_msb_LKG",
+  "kind": "class",
+  "title": {
+    "mr": "ज्युनिअर केजी (महाराष्ट्र राज्य मंडळ)",
+    "en": "Junior KG (Maharashtra State Board)"
+  },
+  "board": "msb",
+  "class": "LKG",
+  "pack": "kg",
+  "units": [
+    {
+      "unit_id": "mr_swar",
+      "title": {
+        "mr": "मराठी स्वर",
+        "en": "Marathi vowels"
+      },
+      "lessons": [
+        "tpl_kg_mr_swar_1",
+        "tpl_kg_mr_swar_2"
+      ]
+    },
+    {
+      "unit_id": "mr_vyanjan",
+      "title": {
+        "mr": "मराठी व्यंजन",
+        "en": "Marathi consonants"
+      },
+      "lessons": [
+        "tpl_kg_mr_vyanjan_1"
+      ]
+    },
+    {
+      "unit_id": "en_letters",
+      "title": {
+        "mr": "इंग्लिश अक्षरं",
+        "en": "English letters"
+      },
+      "lessons": [
+        "tpl_kg_en_letters_1",
+        "tpl_kg_en_letters_2",
+        "tpl_kg_en_letters_3",
+        "tpl_kg_en_letters_4",
+        "tpl_kg_en_letters_5"
+      ]
+    }
+  ]
+}

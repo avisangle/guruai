@@ -2,6 +2,7 @@
 
 - `prompts/<lang>.json`: shared tutor lines (prompt library), used by every lesson.
 - `lessons/<template>.json`: one lesson template: items (blueprint item schema), the lines tied to each item, and the lesson flow.
+- `paths/`: learning paths, default goals and audio packs (below). Only lessons reachable from a path are built into the app.
 
 Item `assessment`: `expected` (the answer), `accepted_variants` (other ways to say it, e.g. letter + picture word; also the closed-set candidates for speech scoring), optional `also_correct` (answers that count as right though they belong to another item: the vowel-length partner, `docs/decisions/D-STT-lenient-vowel-length.md`).
 
@@ -23,10 +24,19 @@ Types: `app/src/lesson/types.ts`. Answer-language design: `docs/decisions/D-GURU
 - Lines. Letter items: `teach`, `hint`, `correct`. Word items: `teach_mr_led`, `teach_en_led` (in place of `teach`), `ask` (the question in the target language, per `ask_direction`), `hint` (the Marathi bridge), `correct`, `ack_meaning` ("हो, सफरचंद! इंग्लिशमध्ये?"), `model_mr` (the Marathi word for the Hindi follow-up). Both kinds may add `react_1` and `react_2` (picture reactions).
 - `captions` (optional, on lessons, on items, and on `prompts/<lang>.json`): line name to the on-screen text, with English letters and words in Latin letters ("हे बघ, A. A for Apple! आता तू म्हण!" for the voice line "हे बघ, ए. ए फॉर ॲपल! आता तू म्हण!"). A line without a caption shows its voice text. Captions are never voiced. Every line that speaks an English letter name or word gets one.
 
+## Learning paths and packs
+
+- `paths/<path_id>.json`: `{path_id, kind, title: {mr, en}, board?, class?, skill?, pack, units: [{unit_id, title, lessons}]}`, file name = `path_id`; `lessons` are `template_id`s. Class paths (`kind: "class"`, `class_<board>_<class>`) exist for every board (`msb`, `cbse`) and class (`Nursery`, `LKG`, `UKG`, `Class1`, `Class2`); skill paths (`kind: "skill"`, `skill_<skill>`) for `mr_letters`, `en_letters`, `en_words`, `numbers`. A unit may list no lessons yet.
+- `paths/goals.json`: class to its default skill goals (skill ids).
+- `paths/packs.json`: pack id to `{title, lessons}`. Every lesson reachable from a path is in exactly one pack; `starter` ships inside the app. Why packs follow class bands: `docs/decisions/D-GURU-16-packs-by-class-band.md`.
+
+The build writes `app/src/content/generated/paths.json` (`{paths, goals, packs, lessonPack}`) and `lessons.json` (the reachable lessons, ordered by path file name, then unit).
+
 ## Build check
 
-`npm run build:content` (from `app/`) runs `validateContent` (`app/src/content/validate.ts`) first, prints every error and exits non-zero without writing anything when there are any. It reports:
+`npm run build:content` (from `app/`) runs `validatePaths` and `validateContent` (`app/src/content/validate.ts`) first, prints every error and exits non-zero without writing anything when there are any. It reports:
 
+- a path naming an unknown lesson or a pack not in `packs.json`; a reachable lesson in no pack; a lesson in two packs; a board and class with no class path;
 - a flow `order` entry that names no item `display`;
 - an item without a valid `kind` or `target_lang`, or missing a line its kind requires;
 - an `assessment.langs` key that is not one of the item's answers;

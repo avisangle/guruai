@@ -1,0 +1,37 @@
+{
+  "path_id": "class_cbse_Class1",
+  "kind": "class",
+  "title": {
+    "mr": "पहिली (CBSE)",
+    "en": "Class 1 (CBSE)"
+  },
+  "board": "cbse",
+  "class": "Class1",
+  "pack": "class1",
+  "units": [
+    {
+      "unit_id": "marathi",
+      "title": {
+        "mr": "मराठी",
+        "en": "Marathi"
+      },
+      "lessons": []
+    },
+    {
+      "unit_id": "english",
+      "title": {
+        "mr": "इंग्लिश",
+        "en": "English"
+      },
+      "lessons": []
+    },
+    {
+      "unit_id": "numbers",
+      "title": {
+        "mr": "अंक",
+        "en": "Numbers"
+      },
+      "lessons": []
+    }
+  ]
+}

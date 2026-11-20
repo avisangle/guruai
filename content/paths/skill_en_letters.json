@@ -1,0 +1,26 @@
+{
+  "path_id": "skill_en_letters",
+  "kind": "skill",
+  "title": {
+    "mr": "इंग्लिश अक्षरं",
+    "en": "English letters"
+  },
+  "skill": "en_letters",
+  "pack": "kg",
+  "units": [
+    {
+      "unit_id": "en_letters",
+      "title": {
+        "mr": "इंग्लिश अक्षरं",
+        "en": "English letters"
+      },
+      "lessons": [
+        "tpl_kg_en_letters_1",
+        "tpl_kg_en_letters_2",
+        "tpl_kg_en_letters_3",
+        "tpl_kg_en_letters_4",
+        "tpl_kg_en_letters_5"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,37 @@
+{
+  "path_id": "class_msb_Class2",
+  "kind": "class",
+  "title": {
+    "mr": "दुसरी (महाराष्ट्र राज्य मंडळ)",
+    "en": "Class 2 (Maharashtra State Board)"
+  },
+  "board": "msb",
+  "class": "Class2",
+  "pack": "class2",
+  "units": [
+    {
+      "unit_id": "marathi",
+      "title": {
+        "mr": "मराठी",
+        "en": "Marathi"
+      },
+      "lessons": []
+    },
+    {
+      "unit_id": "english",
+      "title": {
+        "mr": "इंग्लिश",
+        "en": "English"
+      },
+      "lessons": []
+    },
+    {
+      "unit_id": "numbers",
+      "title": {
+        "mr": "अंक",
+        "en": "Numbers"
+      },
+      "lessons": []
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "path_id": "skill_numbers",
+  "kind": "skill",
+  "title": {
+    "mr": "अंक 1 ते 20",
+    "en": "Numbers 1 to 20"
+  },
+  "skill": "numbers",
+  "pack": "numbers",
+  "units": [
+    {
+      "unit_id": "numbers_1_20",
+      "title": {
+        "mr": "अंक 1 ते 20",
+        "en": "Numbers 1 to 20"
+      },
+      "lessons": []
+    }
+  ]
+}

@@ -1,0 +1,37 @@
+{
+  "path_id": "class_cbse_Class2",
+  "kind": "class",
+  "title": {
+    "mr": "दुसरी (CBSE)",
+    "en": "Class 2 (CBSE)"
+  },
+  "board": "cbse",
+  "class": "Class2",
+  "pack": "class2",
+  "units": [
+    {
+      "unit_id": "marathi",
+      "title": {
+        "mr": "मराठी",
+        "en": "Marathi"
+      },
+      "lessons": []
+    },
+    {
+      "unit_id": "english",
+      "title": {
+        "mr": "इंग्लिश",
+        "en": "English"
+      },
+      "lessons": []
+    },
+    {
+      "unit_id": "numbers",
+      "title": {
+        "mr": "अंक",
+        "en": "Numbers"
+      },
+      "lessons": []
+    }
+  ]
+}
