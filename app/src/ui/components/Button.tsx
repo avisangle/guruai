@@ -1,31 +1,50 @@
-import { Pressable, StyleSheet } from 'react-native';
+import { Pressable, StyleSheet, type TextStyle, type ViewStyle } from 'react-native';
 
 import { theme } from '../theme';
-import { Text } from './Text';
+import { Text, type TextLook } from './Text';
 
-export type ButtonVariant = 'childPrimary' | 'childSecondary' | 'parent';
+const { color, radius, space, touch } = theme;
+
+type Look = { text: TextLook; label: TextStyle; box: ViewStyle };
+
+const variants = {
+  childPrimary: {
+    text: { mode: 'child', variant: 'mainButton' },
+    label: { color: color.child.onPrimary },
+    box: { backgroundColor: color.child.primary, minHeight: touch.child.mainButton, borderRadius: radius.child.mainButton },
+  },
+  // A tappable edge on the child background needs borderStrong (tokens: 3:1).
+  childSecondary: {
+    text: { mode: 'child', variant: 'button' },
+    label: { color: color.child.text },
+    box: {
+      backgroundColor: color.child.surface,
+      minHeight: touch.child.min,
+      borderRadius: radius.child.tile,
+      borderWidth: 2,
+      borderColor: color.child.borderStrong,
+    },
+  },
+  parent: {
+    text: { mode: 'parent', variant: 'section' },
+    label: { color: color.parent.onAccent },
+    box: { backgroundColor: color.parent.accent, minHeight: touch.parent.min, borderRadius: radius.parent.control },
+  },
+} satisfies Record<string, Look>;
+
+export type ButtonVariant = keyof typeof variants;
 
 type Props = { variant: ButtonVariant; label: string; onPress: () => void };
 
-const { color, font, radius, space, touch } = theme;
-
-const looks = {
-  childPrimary: { font: font.child.mainButton, color: color.child.onPrimary },
-  childSecondary: { font: font.child.button, color: color.child.text },
-  parent: { font: font.parent.section, color: color.parent.onAccent },
-};
-
 export function Button({ variant, label, onPress }: Props) {
-  const look = looks[variant];
+  const look: Look = variants[variant];
   return (
     <Pressable
       accessibilityRole="button"
       onPress={onPress}
-      style={({ pressed }) => [styles.base, styles[variant], pressed && styles.pressed]}
+      style={({ pressed }) => [styles.base, look.box, pressed && styles.pressed]}
     >
-      <Text
-        style={{ fontFamily: look.font.family, fontSize: look.font.size, lineHeight: look.font.lineHeight, color: look.color }}
-      >
+      <Text {...look.text} style={look.label}>
         {label}
       </Text>
     </Pressable>
@@ -34,19 +53,5 @@ export function Button({ variant, label, onPress }: Props) {
 
 const styles = StyleSheet.create({
   base: { alignItems: 'center', justifyContent: 'center', paddingHorizontal: space[4] },
-  childPrimary: {
-    backgroundColor: color.child.primary,
-    minHeight: touch.child.mainButton,
-    borderRadius: radius.child.mainButton,
-  },
-  // A tappable edge on the child background needs borderStrong (tokens: 3:1).
-  childSecondary: {
-    backgroundColor: color.child.surface,
-    minHeight: touch.child.min,
-    borderRadius: radius.child.tile,
-    borderWidth: 2,
-    borderColor: color.child.borderStrong,
-  },
-  parent: { backgroundColor: color.parent.accent, minHeight: touch.parent.min, borderRadius: radius.parent.control },
   pressed: { opacity: 0.8 },
 });

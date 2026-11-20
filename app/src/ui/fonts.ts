@@ -20,3 +20,15 @@ export const fontFiles = {
 };
 
 export type FontName = keyof typeof fontFiles;
+
+/** Token family (tokens.json font.family) and weight to the loaded face. */
+export const faces: Record<'childDisplay' | 'text', Partial<Record<number, FontName>>> = {
+  childDisplay: { 700: 'Baloo2_700Bold', 800: 'Baloo2_800ExtraBold' },
+  text: {
+    400: 'Mukta_400Regular',
+    500: 'Mukta_500Medium',
+    600: 'Mukta_600SemiBold',
+    700: 'Mukta_700Bold',
+    800: 'Mukta_800ExtraBold',
+  },
+};

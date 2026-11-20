@@ -9,6 +9,6 @@ export const mr = {
   backToChildren: 'मुलांच्या भागात परत',
   langMr: 'मराठी',
   langEn: 'English',
-} as const;
+};
 
 export type StringKey = keyof typeof mr;
