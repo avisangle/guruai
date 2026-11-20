@@ -2,22 +2,24 @@
 import { randomUUID } from 'expo-crypto';
 
 import { now, type Db } from '../data/db';
-import { applyAnswer, localDay, MASTERY_COLUMNS, type MasteryRow } from './mastery';
+import type { StyleLevel } from '../data/types';
+import type { DecidedBy, Heard, Item, ItemKind, Lang } from '../lesson/types';
+import { applyAnswer, getMastery, localDay, saveMastery } from './mastery';
 
 /** One listening turn, as the lesson engine emits it (TDD 2.3). */
 export type AnswerEvent = {
   template_id: string;
   item_key: string;
-  item_kind: 'letter' | 'word';
-  target_lang: 'mr' | 'en';
+  item_kind: ItemKind;
+  target_lang: Item['target_lang'];
   phase: 'teach' | 'quiz' | 'retry' | 'revision' | 'followup';
-  heard_kind: 'correct' | 'meaning' | 'wrong' | 'silent';
+  heard_kind: Heard['kind'];
   matched_text?: string;
-  matched_lang?: 'mr' | 'en' | 'hi';
-  decided_by: 'shekru' | 'tap';
+  matched_lang?: Lang;
+  decided_by: DecidedBy;
   attempt: number;
   unsure: boolean;
-  style_level: 'mr_led' | 'en_led';
+  style_level: StyleLevel;
   counts: boolean;
 };
 
@@ -49,32 +51,8 @@ export function recordAnswer(db: Db, ctx: AnswerContext, event: AnswerEvent): vo
       [randomUUID(), ctx.childId, ctx.sessionId, ctx.at, 'answer', payload, stamp, stamp],
     );
 
-    const current =
-      db.get<MasteryRow>(
-        `SELECT ${MASTERY_COLUMNS} FROM item_mastery WHERE child_id = ? AND item_key = ? AND lang = ?`,
-        [ctx.childId, event.item_key, event.target_lang],
-      ) ?? undefined;
+    const current = getMastery(db, ctx.childId, event.item_key, event.target_lang);
     const next = applyAnswer(current, event, localDay(ctx.at));
-    if (!next || next === current) return;
-
-    db.run(
-      `INSERT INTO item_mastery (id, ${MASTERY_COLUMNS}, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-       ON CONFLICT (child_id, item_key, lang) DO UPDATE SET state = excluded.state, streak = excluded.streak,
-         interval_days = excluded.interval_days, next_due = excluded.next_due,
-         last_result = excluded.last_result, updated_at = excluded.updated_at`,
-      [
-        randomUUID(),
-        ctx.childId,
-        next.item_key,
-        next.lang,
-        next.state,
-        next.streak,
-        next.interval_days,
-        next.next_due,
-        next.last_result,
-        stamp,
-        stamp,
-      ],
-    );
+    if (next && next !== current) saveMastery(db, { ...next, child_id: ctx.childId }, stamp);
   });
 }
