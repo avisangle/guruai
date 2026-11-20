@@ -13,7 +13,7 @@ Android app (Expo, React Native) in which Shekru, a squirrel tutor, teaches chil
 | Path | What |
 |---|---|
 | `app/` | Expo app. Routes in `app/src/app/`; lesson engine `app/src/lesson/`; speech judge `app/src/asr/`; native judge module `app/modules/guru-asr/`. Read `app/AGENTS.md` before touching Expo APIs. |
-| `content/` | Lesson templates and shared tutor lines; rules in `content/README.md`. Voiced audio (`content/audio/`) is built, not committed. |
+| `content/` | Lesson templates, shared tutor lines, learning paths and packs; rules in `content/README.md`. Voiced audio (`content/audio/`) is built, not committed. |
 | `tools/` | `gen_voice.py` (voicing), `stt_bench/` (judge benchmark, see its README). |
 | `design/` | Wireframes, tokens, character art and rigs. |
 | `docs/` | PRD, decision records, clip export format, provider notes. |

@@ -1,0 +1,33 @@
+{
+  "path_id": "skill_mr_letters",
+  "kind": "skill",
+  "title": {
+    "mr": "मराठी अक्षरं",
+    "en": "Marathi letters"
+  },
+  "skill": "mr_letters",
+  "pack": "kg",
+  "units": [
+    {
+      "unit_id": "mr_swar",
+      "title": {
+        "mr": "मराठी स्वर",
+        "en": "Marathi vowels"
+      },
+      "lessons": [
+        "tpl_kg_mr_swar_1",
+        "tpl_kg_mr_swar_2"
+      ]
+    },
+    {
+      "unit_id": "mr_vyanjan",
+      "title": {
+        "mr": "मराठी व्यंजन",
+        "en": "Marathi consonants"
+      },
+      "lessons": [
+        "tpl_kg_mr_vyanjan_1"
+      ]
+    }
+  ]
+}

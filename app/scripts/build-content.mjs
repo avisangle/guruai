@@ -1,8 +1,10 @@
 // Copies lesson content into the app. Re-run after any lesson, prompt or
 // voice change:  npm run build:content
 //
-//   content/lessons/<each of LESSONS>.json                  -> src/content/generated/lessons.json (in menu order),
-//                                                              after validateContent (src/content/validate.ts) passes
+//   content/paths/*.json (paths, goals.json, packs.json)    -> src/content/generated/paths.json
+//                                                              ({ paths, goals, packs, lessonPack })
+//   content/lessons/*.json reachable from a path            -> src/content/generated/lessons.json (in path order)
+//   both only after validatePaths and validateContent (src/content/validate.ts) pass
 //   content/prompts/mr.json                                 -> src/content/generated/prompts.json
 //   content/audio/visemes.json (the lessons' ids)           -> src/content/generated/clips.json
 //   content/audio/shekru/<id>.mp3                           -> assets/audio/lesson/<id with _ for .>.mp3
@@ -12,23 +14,39 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { validateContent } from '../src/content/validate.ts';
+import { reachableLessons, validateContent, validatePaths } from '../src/content/validate.ts';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const content = path.join(here, '../../content');
 const out = path.join(here, '../src/content/generated');
 const audioOut = path.join(here, '../assets/audio/lesson');
 
-const LESSONS = [
-  'kg-mr-swar-1', 'kg-mr-swar-2', 'kg-mr-vyanjan-1',
-  'kg-en-letters-1', 'kg-en-letters-2', 'kg-en-letters-3', 'kg-en-letters-4', 'kg-en-letters-5',
-]; // the home screen's lesson menu, in order
 const TUTOR = 'shekru';
+const readJson = (p) => JSON.parse(fs.readFileSync(p, 'utf8'));
+const jsonFiles = (dir) => fs.readdirSync(dir).filter((f) => f.endsWith('.json')).sort();
 
-const lessons = LESSONS.map((name) => JSON.parse(fs.readFileSync(path.join(content, 'lessons', `${name}.json`), 'utf8')));
-const prompts = JSON.parse(fs.readFileSync(path.join(content, 'prompts/mr.json'), 'utf8'));
-const { tokens } = JSON.parse(fs.readFileSync(path.join(here, '../src/asr/generated/mr-tokens.json'), 'utf8'));
-const errors = validateContent(lessons, prompts, tokens);
+const pathsDir = path.join(content, 'paths');
+const paths = jsonFiles(pathsDir)
+  .filter((f) => f !== 'goals.json' && f !== 'packs.json')
+  .map((f) => readJson(path.join(pathsDir, f)));
+const goals = readJson(path.join(pathsDir, 'goals.json'));
+const packs = readJson(path.join(pathsDir, 'packs.json'));
+
+const allLessons = new Map(
+  jsonFiles(path.join(content, 'lessons')).map((f) => {
+    const lesson = readJson(path.join(content, 'lessons', f));
+    return [lesson.template_id, lesson];
+  }),
+);
+// The menu: every lesson reachable from a path, in path order (paths sorted by file name).
+const lessons = reachableLessons(paths).filter((id) => allLessons.has(id)).map((id) => allLessons.get(id));
+const inMenu = new Set(lessons.map((l) => l.template_id));
+const lessonPack = {};
+for (const [id, pack] of Object.entries(packs)) for (const l of pack.lessons) if (inMenu.has(l)) lessonPack[l] = id;
+
+const prompts = readJson(path.join(content, 'prompts/mr.json'));
+const { tokens } = readJson(path.join(here, '../src/asr/generated/mr-tokens.json'));
+const errors = [...validatePaths(paths, packs, [...allLessons.keys()]), ...validateContent(lessons, prompts, tokens)];
 if (errors.length) {
   console.error(`content: ${errors.length} error(s), nothing written:\n${errors.map((e) => `  ${e}`).join('\n')}`);
   process.exit(1);
@@ -39,6 +57,7 @@ fs.rmSync(audioOut, { recursive: true, force: true });
 fs.mkdirSync(audioOut, { recursive: true });
 fs.writeFileSync(path.join(out, 'lessons.json'), JSON.stringify(lessons) + '\n');
 fs.writeFileSync(path.join(out, 'prompts.json'), JSON.stringify(prompts) + '\n');
+fs.writeFileSync(path.join(out, 'paths.json'), JSON.stringify({ paths, goals, packs, lessonPack }) + '\n');
 
 // Every line the lessons can speak, by audio id.
 const text = { ...prompts.lines };
@@ -96,7 +115,7 @@ wav.write('data', 36); wav.writeUInt32LE(samples.length * 2, 40);
 samples.forEach((s, i) => wav.writeInt16LE(Math.round(Math.max(-1, Math.min(1, s)) * 32767), 44 + i * 2));
 fs.writeFileSync(path.join(here, '../assets/audio/chime.wav'), wav);
 
-console.log(`content: ${LESSONS.join(', ')}, ${Object.keys(clips).length}/${Object.keys(text).length} voice lines`);
+console.log(`content: ${lessons.map((l) => l.template_id).join(', ')}, ${Object.keys(clips).length}/${Object.keys(text).length} voice lines`);
 if (stale.length) console.warn(`  text changed since the audio was made: ${stale.join(', ')}`);
 if (missing.length) {
   console.warn(`  no audio yet (the app shows these lines silently): ${missing.join(', ')}`);

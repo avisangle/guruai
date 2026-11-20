@@ -1,0 +1,54 @@
+{
+  "starter": {
+    "title": {
+      "mr": "सुरुवात",
+      "en": "Starter"
+    },
+    "lessons": [
+      "tpl_kg_mr_swar_1",
+      "tpl_kg_en_letters_1"
+    ]
+  },
+  "kg": {
+    "title": {
+      "mr": "नर्सरी ते सीनिअर केजी",
+      "en": "Nursery to Senior KG"
+    },
+    "lessons": [
+      "tpl_kg_mr_swar_2",
+      "tpl_kg_mr_vyanjan_1",
+      "tpl_kg_en_letters_2",
+      "tpl_kg_en_letters_3",
+      "tpl_kg_en_letters_4",
+      "tpl_kg_en_letters_5"
+    ]
+  },
+  "class1": {
+    "title": {
+      "mr": "पहिली",
+      "en": "Class 1"
+    },
+    "lessons": []
+  },
+  "class2": {
+    "title": {
+      "mr": "दुसरी",
+      "en": "Class 2"
+    },
+    "lessons": []
+  },
+  "en-words": {
+    "title": {
+      "mr": "इंग्लिश शब्द",
+      "en": "English words"
+    },
+    "lessons": []
+  },
+  "numbers": {
+    "title": {
+      "mr": "अंक",
+      "en": "Numbers"
+    },
+    "lessons": []
+  }
+}

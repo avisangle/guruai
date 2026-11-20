@@ -68,3 +68,56 @@ export function validateContent(lessons: Lesson[], prompts: Prompts, tokens: Rec
   }
   return errors;
 }
+
+// Learning paths (content/paths). A child's goals are skill ids.
+export type Title = { mr: string; en: string };
+export type PathUnit = { unit_id: string; title: Title; lessons: string[] };
+export type LearningPath = {
+  path_id: string;
+  kind: 'class' | 'skill';
+  title: Title;
+  board?: string;
+  class?: string;
+  skill?: string;
+  pack: string;
+  units: PathUnit[];
+};
+export type Packs = Record<string, { title: Title; lessons: string[] }>;
+
+export const BOARDS = ['msb', 'cbse'];
+export const CLASSES = ['Nursery', 'LKG', 'UKG', 'Class1', 'Class2'];
+
+/** Lessons reachable from the paths, in path order, each once. */
+export function reachableLessons(paths: LearningPath[]): string[] {
+  return [...new Set(paths.flatMap((p) => p.units.flatMap((u) => u.lessons)))];
+}
+
+export function validatePaths(paths: LearningPath[], packs: Packs, lessonIds: string[]): string[] {
+  const errors: string[] = [];
+  const known = new Set(lessonIds);
+  for (const p of paths) {
+    if (!(p.pack in packs)) errors.push(`${p.path_id}: pack "${p.pack}" is not in packs.json`);
+    for (const u of p.units) {
+      for (const l of u.lessons) {
+        if (!known.has(l)) errors.push(`${p.path_id}.${u.unit_id}: names "${l}", which is no lesson's template_id`);
+      }
+    }
+  }
+
+  const packsOf = new Map<string, string[]>();
+  for (const [id, pack] of Object.entries(packs)) {
+    for (const l of pack.lessons) packsOf.set(l, [...(packsOf.get(l) ?? []), id]);
+  }
+  for (const [l, ids] of packsOf) if (ids.length > 1) errors.push(`${l}: in more than one pack (${ids.join(', ')})`);
+  for (const l of reachableLessons(paths)) {
+    if (known.has(l) && !packsOf.has(l)) errors.push(`${l}: reachable from a path but in no pack`);
+  }
+
+  for (const board of BOARDS) {
+    for (const cls of CLASSES) {
+      if (!paths.some((p) => p.kind === 'class' && p.board === board && p.class === cls))
+        errors.push(`no class path for board "${board}" and class "${cls}"`);
+    }
+  }
+  return errors;
+}
