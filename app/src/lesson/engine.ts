@@ -1,7 +1,9 @@
 // Lesson engine: turns a lesson file into steps and reacts to answers.
 // No React, no audio, no clock. The rules live in the lesson file's
-// `rules` and `flow`; this implements them.
-import type { Answer, FlowEntry, Item, Lesson, Listen, Mastery, Position, Progress, Prompts, Say, Step } from './types';
+// `rules` and `flow`; this implements them, plus the word-item language rules
+// (PRD Language design, D-GURU-10-language-design). It reports one event per
+// answer; mastery is derived from the events elsewhere.
+import type { AnswerEvent, FlowEntry, Heard, Item, Lesson, Listen, Position, Prompts, Say, Step, StyleLevel } from './types';
 
 export function newPosition(lesson: Lesson): Position {
   return { version: lesson.version, flow: 0, index: 0, attempts: 0, silences: 0, reveal: false, retry: [], last: {} };
@@ -14,21 +16,25 @@ export function isFinished(lesson: Lesson, position: Position) {
 export type LessonEngine = {
   // Next step to perform. After a `listen` step, call answer() first.
   next(): Step;
-  // Feeds the child's answer and returns the progress to save.
-  answer(answer: Answer): Progress;
-  progress(): Progress;
+  // Feeds the child's answer; returns the position to save and the answer's event.
+  answer(heard: Heard): { position: Position; event: AnswerEvent };
+  position(): Position;
 };
 
 export function createLesson(
   lesson: Lesson,
   prompts: Prompts,
-  saved?: { position?: Position | null; mastery?: Mastery },
-  rng: () => number = Math.random,
+  opts: {
+    position?: Position | null;
+    styleLevel?: StyleLevel;
+    wordItemsGated?: boolean; // D-GURU-12-word-items-practice-only
+    rng?: () => number;
+  } = {},
 ): LessonEngine {
-  const pos: Position = saved?.position && saved.position.version === lesson.version
-    ? structuredClone(saved.position)
+  const { styleLevel = 'mr_led', wordItemsGated = false, rng = Math.random } = opts;
+  const pos: Position = opts.position && opts.position.version === lesson.version
+    ? structuredClone(opts.position)
     : newPosition(lesson);
-  const mastery: Mastery = structuredClone(saved?.mastery ?? {});
   const queue: Step[] = [];
   let listening: Listen | null = null;
 
@@ -42,19 +48,27 @@ export function createLesson(
     if (!item) throw new Error(`Flow names "${display}" but no item displays it`);
     return item;
   };
-  const variants = (family: string) =>
-    Object.keys(prompts.lines)
+  const variants = (family: string) => {
+    const n = (id: string) => +id.slice(family.length + 1);
+    return Object.keys(prompts.lines)
       .filter((id) => new RegExp(`^${family}_\\d+$`).test(id))
-      .sort((a, b) => +a.split('_')[1] - +b.split('_')[1]);
+      .sort((a, b) => n(a) - n(b));
+  };
 
   const shared = (id: string, state: string, item: Item | null = null, showAnchor = false): Say =>
     ({ type: 'say', line: id, text: prompts.lines[id], state, item, showAnchor });
   const lessonLine = (name: string, state: string): Say =>
     ({ type: 'say', line: `${lesson.template_id}.${name}`, text: lesson.lines[name], state, item: null, showAnchor: false });
-  // letter-item lines; word items need the v2 engine
-  const itemLine = (item: Item, name: 'teach' | 'hint' | 'correct', state: string, showAnchor: boolean): Say =>
+  const itemLine = (item: Item, name: string, state: string, showAnchor: boolean): Say =>
     ({ type: 'say', line: `${lesson.template_id}.${item.id}.${name}`, text: (item.lines as Record<string, string>)[name], state, item, showAnchor });
-  const listen = (item: Item, kind: Listen['kind'], showAnchor: boolean): Listen => ({ type: 'listen', item, kind, showAnchor });
+  // A line that opens the mic, and the listen it opens.
+  const ask = (say: Say, kind: Listen['kind']): [Say, Listen] =>
+    [say, { type: 'listen', item: say.item!, kind, showAnchor: say.showAnchor, prompt: say.text }];
+  // Teach turn and reveal: word items use the lesson's style line.
+  const teach = (item: Item) =>
+    ask(itemLine(item, item.kind === 'word' ? `teach_${styleLevel}` : 'teach', 'talking', true), 'teach');
+  const hint = (item: Item) => ask(itemLine(item, 'hint', 'hint', true), 'quiz');
+  const gated = (item: Item) => wordItemsGated && item.kind === 'word';
 
   // Random variant, never the one used last time.
   const pickRandom = (family: string) => {
@@ -78,12 +92,16 @@ export function createLesson(
     pos.silences = 0;
     pos.repeats = 0;
     pos.reveal = false;
+    pos.bridged = false;
+    delete pos.followup;
     if (pos.index >= itemsOf(lesson.flow[pos.flow]).length) nextEntry();
   };
   const nextEntry = () => {
     pos.flow++;
     pos.index = 0;
   };
+  // Some item is still to be asked, from the current position on.
+  const itemsLeft = () => lesson.flow.slice(pos.flow).some((e, i) => itemsOf(e).length > (i === 0 ? pos.index : 0));
 
   // Queues the steps that open the current position. Also used on resume,
   // so a half-finished item restarts from its last mic-opening line.
@@ -100,30 +118,41 @@ export function createLesson(
       if (pos.index >= items.length) { nextEntry(); continue; } // empty retry round
       const item = items[pos.index];
       if (entry.phase === 'teach') {
-        queue.push(itemLine(item, 'teach', 'talking', true), listen(item, 'teach', true));
+        queue.push(...teach(item));
         return;
       }
-      const fresh = pos.index === 0 && pos.attempts === 0 && pos.silences === 0 && !pos.reveal;
+      if (pos.followup === 'ask') {
+        queue.push(...ask(shared(pickRandom('ask_mr'), 'talking', item, true), 'quiz'));
+        return;
+      }
+      if (pos.followup === 'model') {
+        queue.push(...ask(itemLine(item, 'model_mr', 'talking', true), 'teach'));
+        return;
+      }
+      const fresh = pos.index === 0 && pos.attempts === 0 && pos.silences === 0 && !pos.reveal && !pos.bridged;
       if (entry.phase === 'retry' && fresh) queue.push(shared('retry_intro', 'talking'));
-      if (pos.reveal) queue.push(itemLine(item, 'teach', 'talking', true), listen(item, 'teach', true));
-      else if (pos.attempts === 1) queue.push(itemLine(item, 'hint', 'hint', true), listen(item, 'quiz', true));
-      else queue.push(shared(pickNext('ask'), 'talking', item), listen(item, 'quiz', false));
+      if (pos.reveal) queue.push(...teach(item));
+      else if (pos.attempts === 1) queue.push(...hint(item));
+      else if (item.kind === 'word') queue.push(...ask(itemLine(item, 'ask', 'talking', false), 'quiz'));
+      else queue.push(...ask(shared(pickNext('ask'), 'talking', item), 'quiz'));
       return;
     }
   };
 
-  // rules.teach_response; also closes the repeat after a reveal. Never changes mastery.
-  const teachResponse = (item: Item, answer: Answer) => {
-    if (answer === 'silent') {
+  // rules.teach_response; also closes the repeat after a reveal.
+  const teachResponse = (item: Item, heard: Heard) => {
+    // on a word item a meaning is not the word being taught
+    const kind = heard.kind === 'meaning' ? 'wrong' : heard.kind;
+    if (kind === 'silent') {
       if (pos.silences === 0) {
         pos.silences = 1; // nohear asks for a repeat, so listen once more
         queue.push(shared('nohear', 'nohear', item, true), listening!);
         return;
       }
-    } else if (answer === 'wrong') {
+    } else if (kind === 'wrong') {
       if (!pos.repeats) {
-        pos.repeats = 1; // model the letter again and listen again
-        queue.push(shared(pickRandom('again'), 'tryagain', item, true), itemLine(item, 'teach', 'talking', true), listen(item, 'teach', true));
+        pos.repeats = 1; // model the item again and listen again
+        queue.push(shared(pickRandom('again'), 'tryagain', item, true), ...teach(item));
         return;
       }
       queue.push(shared(pickRandom('moveon'), 'talking', item, true)); // no praise for a wrong repeat
@@ -133,36 +162,72 @@ export function createLesson(
     nextItem();
   };
 
-  const quizAnswer = (item: Item, answer: Answer, phase: 'quiz' | 'retry') => {
-    if (answer === 'correct') {
-      mastery[item.item_key] = { mastered: true }; // rules.mastered_when
-      queue.push(itemLine(item, 'correct', 'correct', true));
-      nextItem();
-      return;
-    }
-    // rules.quiz_silence
-    if (answer === 'silent' && pos.silences === 0) {
-      pos.silences = 1;
-      queue.push(shared('nohear', 'nohear', item, listening!.showAnchor), listening!);
-      return;
-    }
-    // rules.quiz_attempts
+  // rules.quiz_attempts: a missed try. wrong_* says "a different letter", so it is
+  // only for a wrong letter, never after silence or on a word item.
+  // Returns whether the miss counts.
+  const miss = (item: Item, phase: 'quiz' | 'retry', wrongLine: boolean) => {
     pos.silences = 0;
     pos.attempts++;
     if (pos.attempts === 1) {
-      // wrong_* says "a different letter", which is untrue after silence: go straight to the hint
-      if (answer !== 'silent') queue.push(shared(pickRandom('wrong'), 'tryagain', item));
-      queue.push(itemLine(item, 'hint', 'hint', true), listen(item, 'quiz', true));
-      return;
+      if (wrongLine) queue.push(shared(pickRandom('wrong'), 'tryagain', item));
+      queue.push(...hint(item));
+    } else {
+      pos.reveal = true;
+      // rules.retry_round: a miss in the retry round is not queued again
+      if (phase === 'quiz' && !gated(item) && !pos.retry.includes(item.id)) pos.retry.push(item.id);
+      queue.push(...teach(item));
     }
-    pos.reveal = true;
-    mastery[item.item_key] ??= { mastered: false };
-    // rules.retry_round: a miss in the retry round is not queued again
-    if (phase === 'quiz' && !pos.retry.includes(item.id)) pos.retry.push(item.id);
-    queue.push(itemLine(item, 'teach', 'talking', true), listen(item, 'teach', true));
+    return !gated(item);
   };
 
-  const progress = (): Progress => structuredClone({ position: pos, mastery });
+  // Returns whether the answer counts.
+  const quizAnswer = (item: Item, heard: Heard, phase: 'quiz' | 'retry'): boolean => {
+    // A right meaning on a word item, other than Hindi on a Marathi-target item, is the
+    // bridge step (PRD Language design 8): acknowledge and ask again, not an attempt.
+    if (heard.kind === 'meaning' && !(item.target_lang === 'mr' && heard.lang === 'hi')) {
+      if (pos.bridged) {
+        return miss(item, phase, false); // a second meaning goes on as a missed try, so the lesson always ends
+      }
+      pos.bridged = true;
+      const shown = listening!.showAnchor;
+      const ack = heard.lang === 'hi'
+        ? shared(pickRandom('meaning_hi_ack'), 'talking', item, shown) // never repeats the Hindi word
+        : itemLine(item, 'ack_meaning', 'talking', shown);
+      queue.push(...ask(ack, 'quiz'));
+      return false;
+    }
+    if (heard.kind === 'correct' || heard.kind === 'meaning') {
+      queue.push(itemLine(item, 'correct', 'correct', true));
+      // Hindi right meaning on a Marathi-target item (PRD Language design 7)
+      if (heard.kind === 'meaning') {
+        if (!item.ambiguous_lang) {
+          pos.followup = 'ask'; // fill() asks for the Marathi word
+          return true;
+        }
+        queue.push(itemLine(item, 'model_mr', 'talking', true));
+      }
+      nextItem();
+      return true;
+    }
+    // rules.quiz_silence
+    if (heard.kind === 'silent' && pos.silences === 0) {
+      pos.silences = 1;
+      queue.push(shared('nohear', 'nohear', item, listening!.showAnchor), listening!);
+      return false;
+    }
+    return miss(item, phase, heard.kind === 'wrong' && item.kind === 'letter');
+  };
+
+  // The unscored Marathi follow-up: right gets short praise; anything else
+  // models the word (fill) and listens once for the repeat.
+  const followupAnswer = (item: Item, heard: Heard) => {
+    if (heard.kind === 'correct') queue.push(shared(pickRandom('ok'), 'correct', item, true));
+    else if (pos.followup === 'ask') {
+      pos.followup = 'model';
+      return;
+    }
+    nextItem();
+  };
 
   return {
     next() {
@@ -172,16 +237,39 @@ export function createLesson(
       if (step.type === 'listen') listening = step;
       return step;
     },
-    answer(answer) {
+    answer(heard) {
       if (!listening) throw new Error('answer() called while not listening');
       const entry = lesson.flow[pos.flow];
       if (!('phase' in entry)) throw new Error('Listening outside a phase');
       const { item } = listening;
-      if (entry.phase === 'teach' || pos.reveal) teachResponse(item, answer);
-      else quizAnswer(item, answer, entry.phase);
+      const phase = pos.followup ? 'followup' : entry.phase;
+      const attempt = pos.attempts + 1;
+      // a meaning on a letter item names the letter
+      const rule: Heard = heard.kind === 'meaning' && item.kind === 'letter' ? { ...heard, kind: 'correct' } : heard;
+      let counts = false;
+      if (phase === 'followup') followupAnswer(item, rule);
+      else if (phase === 'teach' || pos.reveal) teachResponse(item, rule);
+      else counts = quizAnswer(item, rule, phase);
       listening = null;
-      return progress();
+      // After the last answer, queue the closing lines now so the saved position is finished.
+      if (!queue.some((s) => s.type === 'listen') && !itemsLeft()) while (queue.at(-1)?.type !== 'done') fill();
+      const event: AnswerEvent = {
+        template_id: lesson.template_id,
+        item_key: item.item_key,
+        item_kind: item.kind,
+        target_lang: item.target_lang,
+        phase,
+        heard_kind: heard.kind,
+        decided_by: heard.by,
+        attempt,
+        unsure: heard.kind === 'silent' && !!heard.unsure,
+        style_level: styleLevel,
+        counts,
+      };
+      if ('text' in heard && heard.text !== undefined) event.matched_text = heard.text;
+      if ('lang' in heard && heard.lang) event.matched_lang = heard.lang;
+      return { position: structuredClone(pos), event };
     },
-    progress,
+    position: () => structuredClone(pos),
   };
 }

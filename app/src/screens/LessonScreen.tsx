@@ -161,10 +161,11 @@ export function LessonScreen() {
     if (resume && saved.position && isFinished(lesson, saved.position)) return goHome();
     // a finished lesson starts over; mastery is kept
     const engine = createLesson(lesson, prompts, {
-      mastery: saved.mastery,
       position: saved.position && !isFinished(lesson, saved.position) ? saved.position : null,
     });
-    const save = (progress = engine.progress()) => {
+    const mastery = { ...saved.mastery };
+    const save = (position = engine.position()) => {
+      const progress = { position, mastery: { ...mastery } };
       saveProgress(lesson.template_id, progress);
       setSaved(progress);
     };
@@ -197,7 +198,12 @@ export function LessonScreen() {
         const answer = await source.listen(step.item, step.kind);
         if (!alive()) return;
         setListening(false);
-        save(engine.answer(answer)); // progress is saved after every answer
+        const { position, event } = engine.answer(answer);
+        // interim boolean mastery, until the sessions issue derives it from the events
+        if (event.counts && event.heard_kind === 'correct' && (event.phase === 'quiz' || event.phase === 'retry')) {
+          mastery[event.item_key] = { mastered: true };
+        }
+        save(position); // progress is saved after every answer
         rig.setState('thinking');
         await wait(THINKING_SECONDS);
       }

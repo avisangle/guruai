@@ -23,14 +23,11 @@ export type AnswerEvent = {
   counts: boolean;
 };
 
-/** What the session layer adds to each answer. `at` is an ISO timestamp. */
-export type AnswerContext = {
-  childId: string;
-  sessionId: string;
-  at: string;
-  ms?: number;
-  margin?: number;
-};
+/** Where and when an event happened. `at` is an ISO timestamp. */
+export type EventContext = { childId: string; sessionId: string; at: string };
+
+/** What the session layer adds to each answer. */
+export type AnswerContext = EventContext & { ms?: number; margin?: number };
 
 /** A stored `event` row. */
 export type EventRow = {
@@ -41,15 +38,19 @@ export type EventRow = {
   payload: string;
 };
 
+/** Appends one `event` row; `stamp` is the write time. */
+export function appendEvent(db: Db, ctx: EventContext, type: string, payload: object, stamp = now()): void {
+  db.run(
+    'INSERT INTO event (id, child_id, session_id, at, type, payload, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+    [randomUUID(), ctx.childId, ctx.sessionId, ctx.at, type, JSON.stringify(payload), stamp, stamp],
+  );
+}
+
 /** Appends the answer event and applies it to item_mastery, atomically. */
 export function recordAnswer(db: Db, ctx: AnswerContext, event: AnswerEvent): void {
   db.transaction(() => {
     const stamp = now();
-    const payload = JSON.stringify({ ...event, ms: ctx.ms, margin: ctx.margin });
-    db.run(
-      'INSERT INTO event (id, child_id, session_id, at, type, payload, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-      [randomUUID(), ctx.childId, ctx.sessionId, ctx.at, 'answer', payload, stamp, stamp],
-    );
+    appendEvent(db, ctx, 'answer', { ...event, ms: ctx.ms, margin: ctx.margin }, stamp);
 
     const current = getMastery(db, ctx.childId, event.item_key, event.target_lang);
     const next = applyAnswer(current, event, localDay(ctx.at));

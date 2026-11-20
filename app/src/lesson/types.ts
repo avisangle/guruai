@@ -1,4 +1,6 @@
 // Shapes of content/lessons/<template>.json and content/prompts/<lang>.json.
+import type { StyleLevel } from '../data/types';
+
 export type Anchor = { word: string; picture: string };
 
 export type Lang = 'mr' | 'en' | 'hi';
@@ -74,6 +76,7 @@ export type Lesson = {
 
 export type Prompts = { lines: Record<string, string>; captions?: Record<string, string> };
 
+// A judge verdict or tester tap reduced to three kinds (clip labels, evaluator stub).
 export type Answer = 'correct' | 'wrong' | 'silent';
 // teach: repeat after the tutor, any speech passes. quiz: name the letter.
 export type ListenKind = 'teach' | 'quiz';
@@ -86,7 +89,8 @@ export type Say = {
   item: Item | null; // letter on the card
   showAnchor: boolean; // anchor picture under the letter
 };
-export type Listen = { type: 'listen'; item: Item; kind: ListenKind; showAnchor: boolean };
+// prompt: voice text of the line that opened the mic (the judge ignores words in it)
+export type Listen = { type: 'listen'; item: Item; kind: ListenKind; showAnchor: boolean; prompt: string };
 export type Step = Say | Listen | { type: 'done' };
 
 // Where the child is in one lesson. Saved after every answer.
@@ -98,11 +102,29 @@ export type Position = {
   silences: number; // silences since the last counted attempt
   repeats?: number; // wrong repeats in the current teach turn (absent in older saves)
   reveal: boolean; // answer was revealed, the child still has to repeat it
+  bridged?: boolean; // the current word item already had its bridge step (a right meaning)
+  followup?: 'ask' | 'model'; // Hindi follow-up turn on a Marathi-target item: asked, or word modelled
   retry: string[]; // item ids missed in the quiz
   last: Record<string, string>; // last variant used per family (ok, ask, wrong)
 };
 
-// Per child, shared by all lessons. Keyed by item_key.
-export type Mastery = Record<string, { mastered: boolean }>;
+// Word-item teaching style, picked once per lesson from the child's level.
+export type { StyleLevel };
 
-export type Progress = { position: Position; mastery: Mastery };
+// One per answer (TDD 2.3). The session layer adds child, session, time and judge detail.
+export type AnswerEvent = {
+  template_id: string;
+  item_key: string;
+  item_kind: ItemKind;
+  target_lang: ItemBase['target_lang'];
+  phase: 'teach' | 'quiz' | 'retry' | 'revision' | 'followup';
+  heard_kind: Heard['kind'];
+  matched_text?: string;
+  matched_lang?: Lang;
+  decided_by: DecidedBy;
+  attempt: number;
+  unsure: boolean;
+  style_level: StyleLevel;
+  // false: teach turns and reveal repeats, a first silence, the follow-up, the bridge step, a miss on a gated word item
+  counts: boolean;
+};
