@@ -49,6 +49,34 @@ export function createGate({ db, auth, secureStore, crypto, now }: GateDeps) {
     return (await auth.getEnrolledLevelAsync()) >= SecurityLevel.SECRET;
   }
 
+  async function checkPin(pin: string, at: number): Promise<PinResult> {
+    const current = row();
+    const until = current.lockout_until ? Date.parse(current.lockout_until) : 0;
+    if (at < until) return { ok: false, waitUntil: until };
+
+    const stored = await secureStore.getItemAsync(PIN_KEY);
+    if (stored && (await pinMatches(crypto, pin, JSON.parse(stored) as PinRecord))) {
+      resetCounters();
+      return { ok: true };
+    }
+
+    const failed = current.failed + 1;
+    const wait = lockoutFor(failed);
+    if (!wait) {
+      db.run('UPDATE parent_gate SET failed = ?, updated_at = ?', [failed, stamp()]);
+      return { ok: false };
+    }
+    const waitUntil = at + wait;
+    db.run(
+      'UPDATE parent_gate SET failed = ?, lockout_until = ?, lockout_stage = lockout_stage + 1, updated_at = ?',
+      [failed, new Date(waitUntil).toISOString(), stamp()],
+    );
+    return { ok: false, waitUntil };
+  }
+
+  // One check at a time: overlapping calls would read the same `failed` and lose a count.
+  let queue: Promise<unknown> = Promise.resolve();
+
   return {
     async mode(): Promise<GateMode> {
       return row().mode;
@@ -78,29 +106,10 @@ export function createGate({ db, auth, secureStore, crypto, now }: GateDeps) {
     },
 
     /** During a wait, refuses without checking. Every 3rd wrong PIN starts a wait. */
-    async verifyPin(pin: string, at: number = now()): Promise<PinResult> {
-      const current = row();
-      const until = current.lockout_until ? Date.parse(current.lockout_until) : 0;
-      if (at < until) return { ok: false, waitUntil: until };
-
-      const stored = await secureStore.getItemAsync(PIN_KEY);
-      if (stored && (await pinMatches(crypto, pin, JSON.parse(stored) as PinRecord))) {
-        resetCounters();
-        return { ok: true };
-      }
-
-      const failed = current.failed + 1;
-      const wait = lockoutFor(failed);
-      if (!wait) {
-        db.run('UPDATE parent_gate SET failed = ?, updated_at = ?', [failed, stamp()]);
-        return { ok: false };
-      }
-      const waitUntil = at + wait;
-      db.run(
-        'UPDATE parent_gate SET failed = ?, lockout_until = ?, lockout_stage = lockout_stage + 1, updated_at = ?',
-        [failed, new Date(waitUntil).toISOString(), stamp()],
-      );
-      return { ok: false, waitUntil };
+    verifyPin(pin: string, at: number = now()): Promise<PinResult> {
+      const result = queue.then(() => checkPin(pin, at));
+      queue = result.catch(() => undefined);
+      return result;
     },
 
     /**
