@@ -7,7 +7,10 @@ export type UiLang = 'mr' | 'en';
 
 const tables: Record<UiLang, Record<StringKey, string>> = { mr, en };
 
-type I18n = { lang: UiLang; setLang: (lang: UiLang) => void; t: (key: StringKey) => string };
+/** `values` fill {name} placeholders in the string. */
+type Translate = (key: StringKey, values?: Record<string, string | number>) => string;
+
+type I18n = { lang: UiLang; setLang: (lang: UiLang) => void; t: Translate };
 
 const I18nContext = createContext<I18n | null>(null);
 
@@ -28,7 +31,14 @@ export function LanguageProvider({ initial = 'mr', onChange, children }: Props) 
     },
     [onChange],
   );
-  const value = useMemo<I18n>(() => ({ lang, setLang, t: (key) => tables[lang][key] }), [lang, setLang]);
+  const value = useMemo<I18n>(
+    () => ({
+      lang,
+      setLang,
+      t: (key, values) => (values ? tables[lang][key].replace(/\{(\w+)\}/g, (m, name: string) => String(values[name] ?? m)) : tables[lang][key]),
+    }),
+    [lang, setLang],
+  );
   return createElement(I18nContext.Provider, { value }, children);
 }
 

@@ -1,8 +1,7 @@
 // Parent home (wireframes pm-home, pm-home-2, pm-attention): one tab per child, today's progress,
 // the attention banner, the "Finish setting up" card and the lesson sections.
-import { getRecordingPermissionsAsync, requestRecordingPermissionsAsync } from 'expo-audio';
 import { router, useFocusEffect, type Href } from 'expo-router';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Linking, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { judgeReadiness, type JudgeReadiness } from '../../asr/speedCheck';
@@ -11,10 +10,11 @@ import { getDevice, updateDevice } from '../../data/device';
 import { liveDb } from '../../data/liveDb';
 import { listChildren } from '../../data/profiles';
 import type { ChildProfile, Device } from '../../data/types';
-import { isLessonInstalled, startInitialDownloads, subscribeDownloads } from '../../downloads/downloader';
+import { downloadStatus, isLessonInstalled, startInitialDownloads, subscribeDownloads } from '../../downloads/downloader';
 import { localDay } from '../../learning/mastery';
+import { lessonTitle } from '../../learning/queueInput';
 import { attentionBanner, type Banner, type MicState } from '../../parent/attention';
-import { lessonTitle, loadChildHome, type ChildHome, type HomeSection } from '../../parent/home';
+import { loadChildHome, type HomeSection } from '../../parent/home';
 import { useParentMode } from '../../parent/ParentModeProvider';
 import { setupRows, type SetupRow, type SetupSection } from '../../parent/setup';
 import { Button } from '../../ui/components/Button';
@@ -25,45 +25,43 @@ import { CHILD_PICTURES } from '../../ui/PicturePicker';
 import type { StringKey } from '../../ui/strings/mr';
 import { theme } from '../../ui/theme';
 
-type Home = { children: ChildProfile[]; device: Device | null };
+/** fn(), or the fallback when SQLite or a native module is missing (component tests without them). */
+function attempt<T>(fn: () => T, fallback: T): T {
+  try {
+    return fn();
+  } catch {
+    return fallback;
+  }
+}
+
+/** Changes when a model or pack is installed or fails, not on byte progress. */
+const downloadsKey = () => attempt(() => downloadStatus().items.map((i) => `${i.id}:${i.status}`).join(), '');
+
+type Home = { children: ChildProfile[]; device: Device | null; readiness: JudgeReadiness; downloads: string };
 
 function readHome(): Home {
-  try {
-    const db = liveDb();
-    return { children: listChildren(db), device: getDevice(db) };
-  } catch {
-    return { children: [], device: null }; // no SQLite (component tests without a database)
-  }
+  const { children, device } = attempt(
+    () => {
+      const db = liveDb();
+      return { children: listChildren(db), device: getDevice(db) as Device | null };
+    },
+    { children: [], device: null },
+  );
+  return { children, device, readiness: attempt<JudgeReadiness>(() => judgeReadiness(), 'ready'), downloads: downloadsKey() };
 }
 
-function readChild(child: ChildProfile): ChildHome | null {
-  try {
-    return loadChildHome(liveDb(), child, localDay(new Date().toISOString()), isLessonInstalled);
-  } catch {
-    return null;
-  }
-}
-
-function readReadiness(): JudgeReadiness {
-  try {
-    return judgeReadiness();
-  } catch {
-    return 'ready'; // no database or model module: nothing to report
-  }
-}
+// Lazy: loading expo-audio touches its native module, which tests without an audio mock lack.
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const audio = () => require('expo-audio') as typeof import('expo-audio');
 
 async function readMic(): Promise<MicState> {
   try {
-    const { granted, canAskAgain } = await getRecordingPermissionsAsync();
+    const { granted, canAskAgain } = await audio().getRecordingPermissionsAsync();
     return { granted, canAskAgain };
   } catch {
     return { granted: true, canAskAgain: true }; // unknown: no mic banner
   }
 }
-
-/** Fills {name} placeholders in a string table entry. */
-const fill = (text: string, values: Record<string, string | number>) =>
-  text.replace(/\{(\w+)\}/g, (_, key: string) => String(values[key] ?? ''));
 
 const SECTION_TITLE: Record<HomeSection['id'], StringKey> = {
   upNext: 'sectionUpNext',
@@ -84,31 +82,40 @@ export default function ParentHome() {
   const { exit } = useParentMode();
   const [home, setHome] = useState(readHome);
   const [childId, setChildId] = useState<string | null>(null);
-  const [readiness, setReadiness] = useState(readReadiness);
   const [mic, setMic] = useState<MicState | null>(null); // null until read: no banner flashes
   const [completedOpen, setCompletedOpen] = useState(false);
+  const firstFocus = useRef(true);
 
-  // Reread on every return to this screen, so a saved profile or consent leaves the setup card.
+  // Reread on every return to this screen (the first focus has the initial read), so a saved
+  // profile or consent leaves the setup card.
   useFocusEffect(
     useCallback(() => {
-      setHome(readHome());
-      setReadiness(readReadiness());
+      if (!firstFocus.current) setHome(readHome());
+      firstFocus.current = false;
       readMic().then(setMic);
     }, []),
   );
 
-  // A finished model download clears the banner without leaving the screen.
-  useEffect(() => {
-    try {
-      return subscribeDownloads(() => setReadiness(readReadiness()));
-    } catch {
-      return undefined;
-    }
-  }, []);
+  // An installed model or pack updates the banner and the sections without leaving the screen.
+  useEffect(
+    () =>
+      attempt(
+        () =>
+          subscribeDownloads(() => {
+            const key = downloadsKey();
+            setHome((h) => (h.downloads === key ? h : readHome()));
+          }),
+        undefined,
+      ),
+    [],
+  );
 
   const child = home.children.find((c) => c.id === childId) ?? home.children[0];
-  const data = useMemo(() => (child ? readChild(child) : null), [child]);
-  const banner = mic && attentionBanner({ readiness, mic, micLastGrantedAt: home.device?.mic_last_granted_at ?? null });
+  const data = useMemo(
+    () => (child ? attempt(() => loadChildHome(liveDb(), child, localDay(new Date().toISOString()), isLessonInstalled), null) : null),
+    [child],
+  );
+  const banner = mic && attentionBanner({ readiness: home.readiness, mic, micLastGrantedAt: home.device?.mic_last_granted_at ?? null });
   const rows = child && home.device ? setupRows(child, home.device) : [];
 
   const act = async (b: Banner) => {
@@ -116,7 +123,7 @@ export default function ParentHome() {
     else if (b.action === 'openSettings') Linking.openSettings().catch(() => undefined);
     else if (b.action === 'requestPermission') {
       try {
-        const { granted, canAskAgain } = await requestRecordingPermissionsAsync();
+        const { granted, canAskAgain } = await audio().requestRecordingPermissionsAsync();
         if (granted) updateDevice(liveDb(), { mic_last_granted_at: now() });
         setMic({ granted, canAskAgain });
       } catch {
@@ -156,7 +163,7 @@ export default function ParentHome() {
 
         {data && (
           <View testID="today-progress" style={styles.card}>
-            <Text variant="helper">{fill(t('todayProgress'), { done: data.done, goal: data.goal })}</Text>
+            <Text variant="helper">{t('todayProgress', { done: data.done, goal: data.goal })}</Text>
             <View style={styles.track}>
               <View style={[styles.fill, { width: `${Math.min(100, (data.done / Math.max(1, data.goal)) * 100)}%` }]} />
             </View>
@@ -180,22 +187,28 @@ export default function ParentHome() {
   );
 }
 
+function bannerText(banner: Banner): { title: StringKey; body: StringKey; action?: StringKey } {
+  switch (banner.kind) {
+    case 'model':
+      return { title: 'bannerModelTitle', body: 'bannerModelBody', action: 'bannerModelAction' };
+    case 'weak':
+      return { title: 'bannerWeakTitle', body: 'bannerWeakBody' };
+    case 'mic':
+      return banner.action === 'openSettings'
+        ? { title: 'bannerMicTitle', body: 'bannerMicSettings', action: 'bannerMicSettingsAction' }
+        : { title: 'bannerMicTitle', body: banner.chooseWhileUsing ? 'bannerMicWhileUsing' : 'bannerMicBody', action: 'bannerMicAction' };
+  }
+}
+
 function AttentionBanner({ banner, onAction }: { banner: Banner; onAction: () => void }) {
   const { t } = useT();
-  let title: StringKey;
-  let body: StringKey;
-  let action: StringKey | null = null;
-  if (banner.kind === 'model') {
-    [title, body, action] = ['bannerModelTitle', 'bannerModelBody', 'bannerModelAction'];
-  } else if (banner.kind === 'mic') {
-    title = 'bannerMicTitle';
-    if (banner.action === 'openSettings') [body, action] = ['bannerMicSettings', 'bannerMicSettingsAction'];
-    else [body, action] = [banner.chooseWhileUsing ? 'bannerMicWhileUsing' : 'bannerMicBody', 'bannerMicAction'];
-  } else {
-    [title, body] = ['bannerWeakTitle', 'bannerWeakBody'];
-  }
+  const { title, body, action } = bannerText(banner);
   return (
-    <View testID="attention-banner" accessibilityRole="alert" style={[styles.banner, banner.kind === 'weak' && styles.bannerInfo]}>
+    <View
+      testID="attention-banner"
+      accessibilityRole="alert"
+      style={[styles.card, banner.kind === 'weak' ? styles.bannerInfo : styles.bannerWarn]}
+    >
       <Text variant="label">{t(title)}</Text>
       <Text>{t(body)}</Text>
       {action && <Button testID="attention-action" variant="parent" label={t(action)} onPress={onAction} />}
@@ -209,7 +222,7 @@ function SetupCard({ child, rows }: { child: ChildProfile; rows: SetupRow[] }) {
     <View testID="setup-card" style={styles.card}>
       <View style={styles.row}>
         <Text variant="section">{t('setupTitle')}</Text>
-        <Text variant="small">{fill(t('setupLeft'), { n: rows.length })}</Text>
+        <Text variant="small">{t('setupLeft', { n: rows.length })}</Text>
       </View>
       {rows.map((row) => (
         <Pressable
@@ -217,11 +230,11 @@ function SetupCard({ child, rows }: { child: ChildProfile; rows: SetupRow[] }) {
           testID={`setup-row-${row.kind}`}
           accessibilityRole="link"
           onPress={() => router.push(row.href as Href)}
-          style={styles.link}
+          style={styles.tapRow}
         >
           {row.kind === 'profile' ? (
             <>
-              <Text variant="label">{fill(t('setupProfile'), { name: child.nickname })}</Text>
+              <Text variant="label">{t('setupProfile', { name: child.nickname })}</Text>
               <Text variant="helper">{row.sections.map((s) => t(SETUP_LABEL[s])).join(', ')}</Text>
             </>
           ) : (
@@ -238,49 +251,53 @@ type SectionProps = { section: HomeSection; assigned: string[]; open: boolean; o
 function Section({ section, assigned, open, onToggle }: SectionProps) {
   const { t } = useT();
   const count = section.id === 'revision' ? section.items.length : section.lessons.length;
-  const title = fill(t(SECTION_TITLE[section.id]), { n: count });
-  const header =
-    section.id === 'completed' ? (
-      <Pressable
-        testID="home-section-completed"
-        accessibilityRole="button"
-        accessibilityState={{ expanded: open }}
-        onPress={onToggle}
-        style={styles.toggle}
-      >
-        <Text variant="section">{title}</Text>
-      </Pressable>
-    ) : (
-      <Text variant="section">{title}</Text>
-    );
+  const title = t(SECTION_TITLE[section.id], { n: count });
 
-  let content = null;
-  if (open && count === 0) content = <Text variant="helper">{t('sectionEmpty')}</Text>;
-  else if (open && section.id === 'revision') {
-    content = (
+  // Completed's header is the press target, so its testID sits on the header, not the section.
+  return (
+    <View testID={section.id === 'completed' ? undefined : `home-section-${section.id}`} style={styles.section}>
+      {section.id === 'completed' ? (
+        <Pressable
+          testID="home-section-completed"
+          accessibilityRole="button"
+          accessibilityState={{ expanded: open }}
+          onPress={onToggle}
+          style={styles.tapRow}
+        >
+          <Text variant="section">{title}</Text>
+        </Pressable>
+      ) : (
+        <Text variant="section">{title}</Text>
+      )}
+      {open && (
+        <View style={styles.card}>
+          <SectionBody section={section} count={count} assigned={assigned} />
+        </View>
+      )}
+    </View>
+  );
+}
+
+function SectionBody({ section, count, assigned }: { section: HomeSection; count: number; assigned: string[] }) {
+  const { t } = useT();
+  if (count === 0) return <Text variant="helper">{t('sectionEmpty')}</Text>;
+  if (section.id === 'revision') {
+    return (
       <View>
-        <Text variant="label">{fill(t('revisionCount'), { n: count })}</Text>
+        <Text variant="label">{t('revisionCount', { n: count })}</Text>
         <Text variant="helper">
           {section.items.map((i) => i.item_key).join(', ')} · {t('revisionNotCounted')}
         </Text>
       </View>
     );
-  } else if (open && section.id !== 'revision') {
-    content = section.lessons.map((id) => (
-      <View key={id} testID={`lesson-row-${id}`} style={styles.lesson}>
-        <Text variant="label">{lessonTitle(id)}</Text>
-        {section.id === 'upNext' && assigned.includes(id) && <Text variant="small">{t('assignedToday')}</Text>}
-        {section.id === 'waiting' && <Text variant="helper">{t('waitingNote')}</Text>}
-      </View>
-    ));
   }
-
-  return (
-    <View testID={section.id === 'completed' ? undefined : `home-section-${section.id}`} style={styles.section}>
-      {header}
-      {content && <View style={styles.card}>{content}</View>}
+  return section.lessons.map((id) => (
+    <View key={id} testID={`lesson-row-${id}`} style={styles.lesson}>
+      <Text variant="label">{lessonTitle(id)}</Text>
+      {section.id === 'upNext' && assigned.includes(id) && <Text variant="small">{t('assignedToday')}</Text>}
+      {section.id === 'waiting' && <Text variant="helper">{t('waitingNote')}</Text>}
     </View>
-  );
+  ));
 }
 
 const { color, radius, space, touch } = theme;
@@ -308,20 +325,12 @@ const styles = StyleSheet.create({
     borderColor: color.parent.border,
     backgroundColor: color.parent.surface,
   },
+  bannerWarn: { borderColor: color.parent.warning },
+  bannerInfo: { backgroundColor: color.parent.accentSurface },
   track: { height: space[2], borderRadius: radius.parent.round, backgroundColor: color.parent.border, overflow: 'hidden' },
   fill: { height: '100%', backgroundColor: color.parent.accent },
-  banner: {
-    gap: space[2],
-    padding: space[4],
-    borderRadius: radius.parent.card,
-    borderWidth: 1,
-    borderColor: color.parent.warning,
-    backgroundColor: color.parent.surface,
-  },
-  bannerInfo: { borderColor: color.parent.border, backgroundColor: color.parent.accentSurface },
   row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  link: { minHeight: touch.parent.min, justifyContent: 'center' },
+  tapRow: { minHeight: touch.parent.min, justifyContent: 'center' },
   section: { gap: space[2] },
-  toggle: { minHeight: touch.parent.min, justifyContent: 'center' },
   lesson: { gap: space[1], paddingVertical: space[1] },
 });
