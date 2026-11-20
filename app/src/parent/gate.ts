@@ -26,6 +26,11 @@ const PIN_KEY = 'guru.parent_pin';
 
 type GateRow = { mode: GateMode; failed: number; lockout_until: string | null };
 
+/** Whether recoverWithBiometrics can work on this phone. */
+export async function strongBiometricsAvailable(auth: Pick<GateDeps['auth'], 'getEnrolledLevelAsync'>) {
+  return (await auth.getEnrolledLevelAsync()) >= SecurityLevel.BIOMETRIC_STRONG;
+}
+
 export function createGate({ db, auth, secureStore, crypto, now }: GateDeps) {
   const stamp = () => new Date(now()).toISOString();
 
@@ -47,10 +52,6 @@ export function createGate({ db, auth, secureStore, crypto, now }: GateDeps) {
 
   async function deviceLockAvailable() {
     return (await auth.getEnrolledLevelAsync()) >= SecurityLevel.SECRET;
-  }
-
-  async function strongBiometricsAvailable() {
-    return (await auth.getEnrolledLevelAsync()) >= SecurityLevel.BIOMETRIC_STRONG;
   }
 
   async function checkPin(pin: string, at: number): Promise<PinResult> {
@@ -85,9 +86,6 @@ export function createGate({ db, auth, secureStore, crypto, now }: GateDeps) {
 
     deviceLockAvailable,
 
-    /** Whether recoverWithBiometrics can work on this phone. */
-    strongBiometricsAvailable,
-
     /** Decision 25: device mode with no screen lock on the phone must set up a PIN. */
     async state(): Promise<GateState> {
       if (row().mode === 'pin') return 'pin';
@@ -120,7 +118,7 @@ export function createGate({ db, auth, secureStore, crypto, now }: GateDeps) {
      * can set a new PIN. False with no prompt when the phone has no strong biometrics.
      */
     async recoverWithBiometrics(promptMessage?: string): Promise<boolean> {
-      if (!(await strongBiometricsAvailable())) return false;
+      if (!(await strongBiometricsAvailable(auth))) return false;
       const result = await auth.authenticateAsync({
         promptMessage,
         disableDeviceFallback: true,

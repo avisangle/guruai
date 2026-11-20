@@ -4,11 +4,12 @@ import * as SplashScreen from 'expo-splash-screen';
 import { useEffect, useMemo, useState } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
-import { appDb } from '../data/appDb';
 import { getDevice, updateDevice } from '../data/device';
+import { liveDb } from '../data/liveDb';
 import { listChildren } from '../data/profiles';
 import { startInitialDownloads } from '../downloads/downloader';
 import { FirstRunContext } from '../onboarding/firstRun';
+import { ParentModeProvider } from '../parent/ParentModeProvider';
 import { fontFiles } from '../ui/fonts';
 import { LanguageProvider, type UiLang } from '../ui/i18n';
 
@@ -17,7 +18,7 @@ SplashScreen.preventAutoHideAsync();
 
 function readStart(): { lang: UiLang; hasChild: boolean } {
   try {
-    const db = appDb();
+    const db = liveDb();
     return { lang: getDevice(db).parent_lang, hasChild: listChildren(db).length > 0 };
   } catch {
     // No SQLite (component tests without a database): plain stack, never forced into onboarding.
@@ -25,7 +26,7 @@ function readStart(): { lang: UiLang; hasChild: boolean } {
   }
 }
 
-const saveLang = (lang: UiLang) => updateDevice(appDb(), { parent_lang: lang });
+const saveLang = (lang: UiLang) => updateDevice(liveDb(), { parent_lang: lang });
 
 export default function RootLayout() {
   const [loaded, error] = useFonts(fontFiles);
@@ -47,16 +48,18 @@ export default function RootLayout() {
   return (
     <SafeAreaProvider>
       <LanguageProvider initial={start.lang} onChange={saveLang}>
-        <FirstRunContext.Provider value={firstRun}>
-          <Stack screenOptions={{ headerShown: false }}>
-            <Stack.Protected guard={hasChild} redirectTo="/onboarding/welcome">
-              <Stack.Screen name="index" />
-            </Stack.Protected>
-            <Stack.Protected guard={!hasChild}>
-              <Stack.Screen name="onboarding" />
-            </Stack.Protected>
-          </Stack>
-        </FirstRunContext.Provider>
+        <ParentModeProvider>
+          <FirstRunContext.Provider value={firstRun}>
+            <Stack screenOptions={{ headerShown: false }}>
+              <Stack.Protected guard={hasChild} redirectTo="/onboarding/welcome">
+                <Stack.Screen name="index" />
+              </Stack.Protected>
+              <Stack.Protected guard={!hasChild}>
+                <Stack.Screen name="onboarding" />
+              </Stack.Protected>
+            </Stack>
+          </FirstRunContext.Provider>
+        </ParentModeProvider>
       </LanguageProvider>
     </SafeAreaProvider>
   );

@@ -1,11 +1,12 @@
 // First run 2 of 3: parent lock. The phone's screen lock by default; a GuruAI PIN, set and
 // confirmed here, when chosen or when the phone has no screen lock (D-GURU-13-parent-gate).
 import { useRouter } from 'expo-router';
+import * as LocalAuthentication from 'expo-local-authentication';
 import { useEffect, useRef, useState } from 'react';
 import { StyleSheet } from 'react-native';
 
-import type { GateMode } from '../../parent/gate';
-import { appGate } from '../../parent/appGate';
+import { strongBiometricsAvailable, type GateMode } from '../../parent/gate';
+import { liveGate } from '../../parent/live';
 import { isValidPin } from '../../parent/pin';
 import { Button } from '../../ui/components/Button';
 import { Choice } from '../../ui/components/Choice';
@@ -30,8 +31,8 @@ export default function Lock() {
 
   useEffect(() => {
     let live = true;
-    const gate = appGate();
-    Promise.all([gate.deviceLockAvailable(), gate.strongBiometricsAvailable()])
+    const gate = liveGate();
+    Promise.all([gate.deviceLockAvailable(), strongBiometricsAvailable(LocalAuthentication)])
       // An unreadable lock state is treated as no screen lock: the PIN is the safe side.
       .catch(() => [false, false])
       .then(([available, strong]) => {
@@ -58,7 +59,7 @@ export default function Lock() {
     }
     if (saving.current) return;
     saving.current = true;
-    appGate()
+    liveGate()
       .setPin(nextPin)
       .then(() => router.push('/onboarding/who'))
       .finally(() => {
@@ -88,7 +89,7 @@ export default function Lock() {
       />
       {deviceLock === false ? (
         <Text testID="lock-no-screen-lock-note" variant="helper">
-          {t('lockNoScreenLock')}
+          {t('pinNoScreenLock')}
         </Text>
       ) : null}
       {choice === 'device' ? (
@@ -103,7 +104,7 @@ export default function Lock() {
         <>
           <Field
             testID="pin-new"
-            label={t('pinNew')}
+            label={t('pinFirst')}
             value={pin}
             onChangeText={(v) => onPins(digits(v), again)}
             keyboardType="number-pad"

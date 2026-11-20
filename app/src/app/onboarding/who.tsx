@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import paths from '../../content/generated/paths.json';
-import { appDb } from '../../data/appDb';
+import { liveDb } from '../../data/liveDb';
 import { now } from '../../data/db';
 import { updateDevice } from '../../data/device';
 import { createChild, updateChild } from '../../data/profiles';
@@ -13,7 +13,7 @@ import type { Medium } from '../../data/types';
 import { queueChildPacks } from '../../downloads/downloader';
 import { ensureEnrolment } from '../../learning/enrol';
 import { useFirstRun } from '../../onboarding/firstRun';
-import { appGate } from '../../parent/appGate';
+import { liveGate } from '../../parent/live';
 import type { GateMode } from '../../parent/gate';
 import { Button } from '../../ui/components/Button';
 import { Choice } from '../../ui/components/Choice';
@@ -47,7 +47,7 @@ export default function Who() {
   const busy = useRef(false);
 
   useEffect(() => {
-    appGate()
+    liveGate()
       .mode()
       .then(setGateMode)
       .catch(() => undefined);
@@ -60,7 +60,7 @@ export default function Who() {
   async function handOver() {
     if (!complete || busy.current) return;
     busy.current = true;
-    const db = appDb();
+    const db = liveDb();
     const created = createChild(db, { nickname: name, picture, class: cls, medium });
     const child = updateChild(db, created.id, { goals: DEFAULT_GOALS[cls] ?? [] })!;
     ensureEnrolment(db, child);

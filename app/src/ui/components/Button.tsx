@@ -30,6 +30,11 @@ const variants = {
     label: { color: color.parent.onAccent },
     box: { backgroundColor: color.parent.accent, minHeight: touch.parent.min, borderRadius: radius.parent.control },
   },
+  parentGhost: {
+    text: { mode: 'parent', variant: 'section' },
+    label: { color: color.parent.accent },
+    box: { minHeight: touch.parent.min, borderRadius: radius.parent.control },
+  },
 } satisfies Record<string, Look>;
 
 export type ButtonVariant = keyof typeof variants;
