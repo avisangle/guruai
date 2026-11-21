@@ -8,12 +8,16 @@ import { Icon, LOCK } from './icons';
 
 const { hitArea, visual, holdMs } = theme.touch.parentGate;
 
-export function ParentLock() {
+/** `onOpen` runs before the unlock opens, e.g. to pause a lesson. */
+export function ParentLock({ onOpen }: { onOpen?: () => void }) {
   return (
     <Pressable
       testID="parent-lock"
       delayLongPress={holdMs}
-      onLongPress={() => router.push('/parent/unlock')}
+      onLongPress={() => {
+        onOpen?.();
+        router.push('/parent/unlock');
+      }}
       style={styles.hit}
     >
       <Icon d={LOCK} size={visual} color={theme.color.child.textMuted} />
