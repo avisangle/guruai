@@ -31,13 +31,16 @@ export async function strongBiometricsAvailable(auth: Pick<GateDeps['auth'], 'ge
   return (await auth.getEnrolledLevelAsync()) >= SecurityLevel.BIOMETRIC_STRONG;
 }
 
+const screenLockSet = async (auth: Pick<GateDeps['auth'], 'getEnrolledLevelAsync'>) =>
+  (await auth.getEnrolledLevelAsync()) >= SecurityLevel.SECRET;
+
 /**
  * Back to the phone's screen lock: removes the PIN record. False, changing nothing, when the phone has no
  * screen lock. The mode changes first, so a failed delete never leaves pin mode without a PIN. Kept off the
  * gate object (D-GURU-36-switch-back-outside-gate).
  */
 export async function switchToDeviceLock({ db, auth, secureStore, now }: Omit<GateDeps, 'crypto'>): Promise<boolean> {
-  if ((await auth.getEnrolledLevelAsync()) < SecurityLevel.SECRET) return false;
+  if (!(await screenLockSet(auth))) return false;
   db.run("UPDATE parent_gate SET mode = 'device', failed = 0, lockout_until = NULL, updated_at = ?", [
     new Date(now()).toISOString(),
   ]);
@@ -64,9 +67,7 @@ export function createGate({ db, auth, secureStore, crypto, now }: GateDeps) {
     db.run('UPDATE parent_gate SET failed = 0, lockout_until = NULL, updated_at = ?', [stamp()]);
   }
 
-  async function deviceLockAvailable() {
-    return (await auth.getEnrolledLevelAsync()) >= SecurityLevel.SECRET;
-  }
+  const deviceLockAvailable = () => screenLockSet(auth);
 
   async function checkPin(pin: string, at: number): Promise<PinResult> {
     const current = row();

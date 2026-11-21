@@ -7,9 +7,7 @@ import { Field } from '../ui/components/Field';
 import { Text } from '../ui/components/Text';
 import { useT } from '../ui/i18n';
 import { theme } from '../ui/theme';
-import { isValidPin } from './pin';
-
-const digits = (v: string) => v.replace(/\D/g, '').slice(0, 4);
+import { isValidPin, PIN_LENGTH, pinDigits } from './pin';
 
 type Props = { strongBiometrics: boolean; onSet: (pin: string) => Promise<void> };
 
@@ -43,19 +41,19 @@ export function PinSetup({ strongBiometrics, onSet }: Props) {
         testID="pin-new"
         label={t('pinFirst')}
         value={pin}
-        onChangeText={(v) => onPins(digits(v), again)}
+        onChangeText={(v) => onPins(pinDigits(v), again)}
         keyboardType="number-pad"
         secureTextEntry
-        maxLength={4}
+        maxLength={PIN_LENGTH}
       />
       <Field
         testID="pin-again"
         label={t('pinAgain')}
         value={again}
-        onChangeText={(v) => onPins(pin, digits(v))}
+        onChangeText={(v) => onPins(pin, pinDigits(v))}
         keyboardType="number-pad"
         secureTextEntry
-        maxLength={4}
+        maxLength={PIN_LENGTH}
       />
       {mismatch ? (
         <Text testID="pin-mismatch" style={styles.error}>

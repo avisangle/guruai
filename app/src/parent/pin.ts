@@ -13,6 +13,9 @@ export const PIN_LENGTH = 4;
 
 export const isValidPin = (pin: string) => pin.length === PIN_LENGTH && /^\d+$/.test(pin);
 
+/** Typed text kept to its first PIN_LENGTH digits. */
+export const pinDigits = (v: string) => v.replace(/\D/g, '').slice(0, PIN_LENGTH);
+
 const toHex = (bytes: Uint8Array) =>
   Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
 

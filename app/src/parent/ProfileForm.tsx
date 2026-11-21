@@ -4,9 +4,9 @@ import { useAudioPlayer } from 'expo-audio';
 import { useState, type ReactNode } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
-import paths from '../content/generated/paths.json';
 import { LINE_AUDIO } from '../content/generated/audio';
 import { liveDb } from '../data/liveDb';
+import { startingStyle } from '../data/profiles';
 import type { ChildProfile, Medium, StyleLevel } from '../data/types';
 import { Button } from '../ui/components/Button';
 import { Choice } from '../ui/components/Choice';
@@ -16,9 +16,8 @@ import { useT } from '../ui/i18n';
 import { PicturePicker } from '../ui/PicturePicker';
 import type { StringKey } from '../ui/strings/mr';
 import { theme } from '../ui/theme';
-import { saveProfile } from './profile';
+import { CLASSES, DEFAULT_GOALS, saveProfile } from './profile';
 
-export const CLASSES = ['Nursery', 'LKG', 'UKG', 'Class1', 'Class2'] as const;
 const BOARDS = [
   ['msb', 'boardMsb'],
   ['cbse', 'boardCbse'],
@@ -33,13 +32,11 @@ export const STYLE_LABEL: Record<StyleLevel, StringKey> = { mr_led: 'styleMrLed'
 const STYLE_HELP: Record<StyleLevel, StringKey> = { mr_led: 'styleMrLedHelp', en_led: 'styleEnLedHelp' };
 const LESSONS = [1, 2, 3, 4, 5];
 const CAPS = [20, 30, 45, null];
-const DEFAULT_GOALS: Record<string, string[]> = paths.goals;
 // Column defaults in migrations.ts, for a child not yet saved.
 const DEFAULT_LESSONS = 3;
 const DEFAULT_CAP = 30;
 
 export const classLabel = (cls: string) => `class${cls}` as StringKey;
-const startingStyle = (medium: Medium | null): StyleLevel => (medium === 'en' ? 'en_led' : 'mr_led');
 
 type Props = {
   /** null: add a child. */
@@ -65,8 +62,9 @@ export function ProfileForm({ child, taken, onSaved }: Props) {
   const [cap, setCap] = useState<number | null>(child ? child.active_cap_min : DEFAULT_CAP);
 
   const goals = pickedGoals ?? (cls ? (DEFAULT_GOALS[cls] ?? []) : []);
-  const style = pickedStyle ?? startingStyle(medium);
+  const style = pickedStyle ?? startingStyle(medium ?? 'mr');
   const name = nickname.trim();
+  const complete = name !== '' && picture !== null && cls !== null && medium !== null;
 
   const toggleGoal = (id: string) => setGoals(goals.includes(id) ? goals.filter((g) => g !== id) : [...goals, id]);
 
@@ -76,9 +74,21 @@ export function ProfileForm({ child, taken, onSaved }: Props) {
   };
 
   const save = () => {
-    if (!name || !picture || !cls || !medium) return;
-    const values = { nickname: name, picture, class: cls, board, medium, goals, style_level: style, style_locked: keep };
-    onSaved(saveProfile(liveDb(), child?.id ?? null, { ...values, lessons_per_day: lessons, active_cap_min: cap }));
+    if (!complete) return;
+    onSaved(
+      saveProfile(liveDb(), child?.id ?? null, {
+        nickname: name,
+        picture,
+        class: cls,
+        board,
+        medium,
+        goals,
+        style_level: style,
+        style_locked: keep,
+        lessons_per_day: lessons,
+        active_cap_min: cap,
+      }),
+    );
   };
 
   return (
@@ -162,7 +172,7 @@ export function ProfileForm({ child, taken, onSaved }: Props) {
         testID="profile-save"
         variant="parent"
         label={t('save')}
-        disabled={!name || !picture || !cls || !medium}
+        disabled={!complete}
         onPress={save}
       />
     </ScrollView>

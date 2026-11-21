@@ -9,6 +9,7 @@ import { judgeReadiness, rerunSpeedCheck, type JudgeReadiness } from '../../asr/
 import { answerConsent, getDevice } from '../../data/device';
 import { liveDb } from '../../data/liveDb';
 import { listChildren } from '../../data/profiles';
+import type { ChildProfile } from '../../data/types';
 import type { DownloadStatus } from '../../downloads/downloader';
 import { useDownloads } from '../../downloads/useDownloads';
 import type { MicState } from '../../parent/attention';
@@ -16,6 +17,7 @@ import { strongBiometricsAvailable, type GateMode } from '../../parent/gate';
 import { liveSwitchToDeviceLock } from '../../parent/live';
 import { askForMic, readMic } from '../../parent/mic';
 import { useParentMode } from '../../parent/ParentModeProvider';
+import { isValidPin, PIN_LENGTH, pinDigits } from '../../parent/pin';
 import { PinSetup } from '../../parent/PinSetup';
 import { classLabel, STYLE_LABEL } from '../../parent/ProfileForm';
 import { Button } from '../../ui/components/Button';
@@ -46,13 +48,12 @@ export default function SettingsScreen() {
   const { t, lang, setLang } = useT();
   const { exit } = useParentMode();
   const [device] = useState(() => getDevice(liveDb()));
-  const [children, setChildren] = useState(() => listChildren(liveDb()));
+  const [children, setChildren] = useState<ChildProfile[]>([]); // read on focus
   const [consent, setConsent] = useState({ clips: device.consent_clips ?? false, summaries: device.consent_summaries ?? false });
   const [clipsTurnedOff, setClipsTurnedOff] = useState(false);
   const [mic, setMic] = useState<MicState | null>(null); // null until read
   const [readiness, setReadiness] = useState<JudgeReadiness>(() => judgeReadiness());
   const [checking, setChecking] = useState(false);
-  const downloads = downloadsText(useDownloads());
 
   // A saved or added child shows on return from the profile form.
   useFocusEffect(
@@ -101,7 +102,7 @@ export default function SettingsScreen() {
               testID={`settings-child-${c.id}`}
               accessibilityRole="link"
               onPress={() => router.push(`/parent/child/${c.id}`)}
-              style={styles.tapRow}
+              style={styles.line}
             >
               <Text variant="section">{CHILD_PICTURES[c.picture] ?? ''}</Text>
               <View style={styles.grow}>
@@ -135,7 +136,7 @@ export default function SettingsScreen() {
         </Section>
 
         <Section title={t('downloadsPhoneTitle')}>
-          <StatusRow testID="settings-downloads" label={t('downloadsLabel')} value={t(...downloads)} />
+          <DownloadsRow />
           <StatusRow testID="settings-uploads-wifi" label={t('uploadsWifiLabel')} value={t('uploadsWifiValue')} />
           <StatusRow testID="settings-mic" label={t('micLabel')} value={mic ? t(mic.granted ? 'micGiven' : 'micNotGiven') : ''}>
             {mic && !mic.granted && (
@@ -212,9 +213,9 @@ function ParentLockSection() {
   };
 
   const enterOld = async (value: string) => {
-    const pin = value.replace(/\D/g, '').slice(0, 4);
+    const pin = pinDigits(value);
     setOldPin(pin);
-    if (pin.length < 4) return;
+    if (!isValidPin(pin)) return;
     const result = await gate().verifyPin(pin);
     setOldPin('');
     if (result.ok) setStep('change');
@@ -245,7 +246,7 @@ function ParentLockSection() {
       {deviceLock === false && <Text variant="helper">{t('pinNoScreenLock')}</Text>}
       {(step === 'pin' || step === 'change') && <PinSetup strongBiometrics={strongBiometrics} onSet={setNewPin} />}
       {mode === 'pin' && step === null && (
-        <Pressable testID="settings-change-pin" accessibilityRole="button" onPress={startChange} style={styles.tapRow}>
+        <Pressable testID="settings-change-pin" accessibilityRole="button" onPress={startChange} style={styles.line}>
           <View style={styles.grow}>
             <Text variant="label">{t('changePin')}</Text>
             <Text variant="helper">{t('changePinHelp')}</Text>
@@ -261,7 +262,7 @@ function ParentLockSection() {
             onChangeText={enterOld}
             keyboardType="number-pad"
             secureTextEntry
-            maxLength={4}
+            maxLength={PIN_LENGTH}
           />
           {message && <Text style={styles.error}>{t(message)}</Text>}
           {strongBiometrics && <Button variant="parentGhost" label={t('pinFingerprintKey')} onPress={recover} />}
@@ -270,6 +271,12 @@ function ParentLockSection() {
       {(step === 'verify' || step === 'change') && <Button variant="parentGhost" label={t('cancel')} onPress={() => setStep(null)} />}
     </Section>
   );
+}
+
+/** Its own component: download progress re-renders this row only. */
+function DownloadsRow() {
+  const { t } = useT();
+  return <StatusRow testID="settings-downloads" label={t('downloadsLabel')} value={t(...downloadsText(useDownloads()))} />;
 }
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
@@ -286,7 +293,7 @@ type StatusProps = { testID: string; label: string; value: string; children?: Re
 /** A label and its status; no switch. */
 function StatusRow({ testID, label, value, children }: StatusProps) {
   return (
-    <View testID={testID} style={styles.statusRow}>
+    <View testID={testID} style={styles.line}>
       <View style={styles.grow}>
         <Text variant="label">{label}</Text>
         <Text variant="helper">{value}</Text>
@@ -301,7 +308,7 @@ type SwitchProps = { testID: string; label: string; value: boolean; onChange: (o
 /** The whole row toggles; not accessible itself, so TalkBack still reaches the switch. */
 function SwitchRow({ testID, label, value, onChange }: SwitchProps) {
   return (
-    <Pressable accessible={false} onPress={() => onChange(!value)} style={styles.statusRow}>
+    <Pressable accessible={false} onPress={() => onChange(!value)} style={styles.line}>
       <Text variant="label" style={styles.grow}>
         {label}
       </Text>
@@ -331,8 +338,7 @@ const styles = StyleSheet.create({
     backgroundColor: color.parent.surface,
   },
   row: { flexDirection: 'row', flexWrap: 'wrap', gap: touch.parent.gap },
-  tapRow: { flexDirection: 'row', alignItems: 'center', gap: space[3], minHeight: touch.parent.min },
-  statusRow: { flexDirection: 'row', alignItems: 'center', gap: space[3], minHeight: touch.parent.min },
+  line: { flexDirection: 'row', alignItems: 'center', gap: space[3], minHeight: touch.parent.min },
   grow: { flex: 1 },
   accent: { color: color.parent.accent },
   error: { color: color.parent.error },

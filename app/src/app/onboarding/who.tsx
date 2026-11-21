@@ -1,19 +1,17 @@
 // First run 3 of 3: who is learning, then the hand-over. Everything not asked here takes its
 // default (board msb, goals from class, style from medium, 3 lessons a day, Shekru).
-import { requestRecordingPermissionsAsync } from 'expo-audio';
 import { useEffect, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
-import paths from '../../content/generated/paths.json';
 import { liveDb } from '../../data/liveDb';
-import { now } from '../../data/db';
-import { updateDevice } from '../../data/device';
 import { createChild, updateChild } from '../../data/profiles';
 import type { Medium } from '../../data/types';
 import { queueChildPacks } from '../../downloads/downloader';
 import { ensureEnrolment } from '../../learning/enrol';
 import { useFirstRun } from '../../onboarding/firstRun';
 import { liveGate } from '../../parent/live';
+import { askForMic } from '../../parent/mic';
+import { CLASSES, DEFAULT_GOALS } from '../../parent/profile';
 import type { GateMode } from '../../parent/gate';
 import { Button } from '../../ui/components/Button';
 import { Choice } from '../../ui/components/Choice';
@@ -24,17 +22,7 @@ import { OnboardingStep } from '../../ui/OnboardingStep';
 import { PicturePicker } from '../../ui/PicturePicker';
 import { theme } from '../../ui/theme';
 
-const CLASSES = ['Nursery', 'LKG', 'UKG', 'Class1', 'Class2'] as const;
 type ClassName = (typeof CLASSES)[number];
-const DEFAULT_GOALS: Record<string, string[]> = paths.goals;
-
-async function micGranted(): Promise<boolean> {
-  try {
-    return (await requestRecordingPermissionsAsync()).granted;
-  } catch {
-    return false; // a failed request counts as refused; the hand-over still happens
-  }
-}
 
 export default function Who() {
   const { t } = useT();
@@ -65,7 +53,7 @@ export default function Who() {
     const child = updateChild(db, created.id, { goals: DEFAULT_GOALS[cls] ?? [] })!;
     ensureEnrolment(db, child);
     queueChildPacks(child).catch(() => undefined); // background; the downloader retries on next start
-    if (await micGranted()) updateDevice(db, { mic_last_granted_at: now() });
+    await askForMic(db); // a refusal or a failed request still hands over
     childAdded(); // the root guards now send the app to the child picker
   }
 

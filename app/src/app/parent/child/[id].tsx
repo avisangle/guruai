@@ -3,16 +3,16 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 
 import { liveDb } from '../../../data/liveDb';
-import { getChild, listChildren } from '../../../data/profiles';
+import { listChildren } from '../../../data/profiles';
 import { ProfileForm } from '../../../parent/ProfileForm';
 import { Screen } from '../../../ui/components/Screen';
 
 export default function ChildProfileScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const [{ child, taken }] = useState(() => {
-    const db = liveDb();
-    const found = id === 'new' ? null : getChild(db, id);
-    return { child: found, taken: listChildren(db).filter((c) => c.id !== found?.id).map((c) => c.picture) };
+    const children = listChildren(liveDb());
+    const others = children.filter((c) => c.id !== id);
+    return { child: children.find((c) => c.id === id) ?? null, taken: others.map((c) => c.picture) };
   });
 
   const done = () => (router.canGoBack() ? router.back() : router.replace('/parent/settings'));
