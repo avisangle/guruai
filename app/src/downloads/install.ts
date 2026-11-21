@@ -20,6 +20,8 @@ export type HasherFactory = () => { update(chunk: Uint8Array): unknown; digest()
 const HASH_CHUNK = 1_000_000;
 /** Written next to the pack's audio, so installed lessons are known offline. */
 export const LESSONS_FILE = 'lessons.json';
+/** A pack's viseme clips by line id (build-packs.mjs). */
+export const CLIPS_FILE = 'clips.json';
 
 const hex = (b: Uint8Array) => Array.from(b, (x) => x.toString(16).padStart(2, '0')).join('');
 
@@ -52,15 +54,20 @@ export function installPack(fs: FsPort, zipPath: string, dir: string, lessons: s
   fs.delete(zipPath);
 }
 
+/** A JSON file in an installed pack folder; null when it is missing or unreadable. */
+export function readPackJson(fs: Pick<FsPort, 'size' | 'read'>, dir: string, file: string): unknown {
+  const path = `${dir}/${file}`;
+  const size = fs.size(path);
+  if (!size) return null;
+  try {
+    return JSON.parse(new TextDecoder().decode(fs.read(path, 0, size)));
+  } catch {
+    return null;
+  }
+}
+
 /** The lessons an installed pack recorded; empty when the file is missing or unreadable. */
 export function packLessons(fs: FsPort, dir: string): string[] {
-  const path = `${dir}/${LESSONS_FILE}`;
-  const size = fs.size(path);
-  if (!size) return [];
-  try {
-    const list: unknown = JSON.parse(new TextDecoder().decode(fs.read(path, 0, size)));
-    return Array.isArray(list) ? list.filter((l): l is string => typeof l === 'string') : [];
-  } catch {
-    return [];
-  }
+  const list = readPackJson(fs, dir, LESSONS_FILE);
+  return Array.isArray(list) ? list.filter((l): l is string => typeof l === 'string') : [];
 }
