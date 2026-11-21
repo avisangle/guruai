@@ -166,6 +166,14 @@ export default function ParentHome() {
             onPress={() => router.push(`/parent/assign/${child.id}`)}
           />
         )}
+        {child && (
+          <Button
+            testID="home-report"
+            variant="parentGhost"
+            label={t('reportTitle')}
+            onPress={() => router.push(`/parent/report/${child.id}`)}
+          />
+        )}
 
         {data?.sections.map((section) => (
           <Section
