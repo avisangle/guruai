@@ -69,6 +69,7 @@ export function LessonPlayer({ lesson, childId, sessionId, styleLevel, revision,
   const rec = useRecording(lesson.template_id, items, deps.answerSource ?? (IS_TEST_BUILD ? tester.source : undefined));
   const helps = useParentHelps(childId);
   const [tap] = useState(createTapSource);
+  const answers = helps ? { source: tap.source, prepare: undefined } : rec; // parent taps: no mic, no judge
   const [clock] = useState(() => sessionClock(sessionId));
   const ctx = useCallback((at = now()) => ({ childId, sessionId, at }), [childId, sessionId]);
 
@@ -83,10 +84,10 @@ export function LessonPlayer({ lesson, childId, sessionId, styleLevel, revision,
     styleLevel,
     revision,
     start,
-    source: helps ? tap.source : rec.source,
+    source: answers.source,
     lines,
     tutor: rig,
-    prepare: helps ? undefined : rec.prepare,
+    prepare: answers.prepare,
     onAnswer: (event, position) => {
       recordAnswer(db, ctx(), event);
       savePosition(db, childId, lesson.template_id, position);

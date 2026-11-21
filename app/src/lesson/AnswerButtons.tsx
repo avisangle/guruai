@@ -1,7 +1,7 @@
 // "Parent helps" in the lesson's control zone (wireframes h-talking, h-lesson): during the answer turn,
 // a strip in the parent palette with बरोबर / चूक / शांत for the adult; while Shekru speaks, a dashed
 // adult outline where the closed mic would be. Text follows the parent language.
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View, type ViewStyle } from 'react-native';
 
 import { ADULT, CHECK, CROSS, DOTS, Icon } from '../parent/icons';
 import { Text } from '../ui/components/Text';
@@ -12,9 +12,10 @@ import type { Answer } from './types';
 
 const { color, radius, space, touch } = theme;
 
-const BUTTONS: { answer: Answer; label: StringKey; icon: string }[] = [
-  { answer: 'correct', label: 'helpsCorrect', icon: CHECK },
-  { answer: 'wrong', label: 'helpsWrong', icon: CROSS },
+// correct: green edge; wrong: plain dark edge, not red (wireframe h-lesson)
+const BUTTONS: { answer: Answer; label: StringKey; icon: string; edge?: ViewStyle }[] = [
+  { answer: 'correct', label: 'helpsCorrect', icon: CHECK, edge: { borderColor: color.child.success } },
+  { answer: 'wrong', label: 'helpsWrong', icon: CROSS, edge: { borderColor: color.child.borderStrong } },
   { answer: 'silent', label: 'helpsSilent', icon: DOTS },
 ];
 
@@ -27,13 +28,13 @@ export function AnswerButtons({ onAnswer }: { onAnswer(answer: Answer): void }) 
         <Text variant="small">{t('helpsStrip')}</Text>
       </View>
       <View style={styles.row}>
-        {BUTTONS.map(({ answer, label, icon }) => (
+        {BUTTONS.map(({ answer, label, icon, edge }) => (
           <Pressable
             key={answer}
             testID={`parent-answer-${answer}`}
             accessibilityRole="button"
             onPress={() => onAnswer(answer)}
-            style={[styles.button, answer === 'correct' && styles.correct, answer === 'wrong' && styles.wrong]}>
+            style={[styles.button, edge]}>
             <Icon d={icon} size={space[5]} color={color.child.text} />
             <Text mode="child" variant="button">{t(label)}</Text>
           </Pressable>
@@ -63,8 +64,6 @@ const styles = StyleSheet.create({
     flex: 1, flexDirection: 'row', gap: space[1], minHeight: touch.child.min, borderRadius: radius.child.chip, borderWidth: 2,
     borderColor: color.child.border, backgroundColor: color.child.surface, alignItems: 'center', justifyContent: 'center',
   },
-  correct: { borderColor: color.child.success },
-  wrong: { borderColor: color.child.borderStrong },
   outline: {
     width: touch.child.min, height: touch.child.min, borderRadius: radius.child.round, borderWidth: 2, borderStyle: 'dashed',
     borderColor: color.child.borderStrong, alignItems: 'center', justifyContent: 'center',
