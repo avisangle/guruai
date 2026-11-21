@@ -19,7 +19,7 @@ function ensureParent(file: File) {
   file.parentDirectory.create({ intermediates: true, idempotent: true });
 }
 
-const fsPort: FsPort = {
+export const fsPort: FsPort = {
   size(path) {
     const f = new File(path);
     return f.exists ? f.size : null;

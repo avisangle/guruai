@@ -2,11 +2,9 @@
 import { useAudioPlayer } from 'expo-audio';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 
-import { LINE_AUDIO } from '../content/generated/audio';
-import clipsJson from '../content/generated/clips.json';
-import type { ShekruRig, VisemeEvent } from '../shekru/useShekruRig';
+import { resolveLine } from '../content/audioResolver';
+import type { ShekruRig } from '../shekru/useShekruRig';
 
-const CLIPS = clipsJson as unknown as Record<string, { duration: number; events: VisemeEvent[] }>;
 const CHIME = require('../../assets/audio/chime.wav');
 
 /** How a line stopped: 'interrupted' when the system paused it mid-way (Android audio focus loss, e.g. a call). */
@@ -43,14 +41,15 @@ export function useLinePlayer(rig: ShekruRig) {
     // Resolves when the line ends or is stopped.
     play: (id: string, text: string) => new Promise<LineEnd>((resolve) => {
       end();
-      const clip = CLIPS[id];
-      if (!clip) {
-        // no audio built for this line yet: hold the caption for a reading-length pause
+      const line = resolveLine(id);
+      if (!line) {
+        // no audio bundled or installed for this line: hold the caption for a reading-length pause
         current.current = { resolve, timer: setTimeout(end, Math.max(1200, text.length * 70)) };
         return;
       }
+      const { source, clip } = line;
       rig.setSpeech(clip.events);
-      player.replace(LINE_AUDIO[id]);
+      player.replace(source);
       player.play();
       // never hang the lesson if the player fails to report the end
       current.current = { resolve, timer: setTimeout(end, (clip.duration + 1.5) * 1000) };
