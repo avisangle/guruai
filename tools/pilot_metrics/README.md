@@ -21,7 +21,7 @@ python tools/pilot_metrics/report.py --source DIR --start 2026-12-01 --labels to
 | `--labels FILE` | a labelling sheet with `human_label` filled in; feeds false praise |
 | `--sheet-out FILE` | write the labelling sheet (CSV) |
 | `--out FILE` | write the Markdown report (default: stdout) |
-| `--r2` | first copy files not yet in `--source` from the bucket's `uploads/` prefix. Needs `boto3` in the venv (`pip install boto3`) and `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` in the environment, from an R2 API token with read access to the bucket; `R2_BUCKET` defaults to `guru-uploads` |
+| `--r2` | first copy files not yet in `--source` from the bucket's `uploads/` prefix: every `summary.json`, and clips only for sessions in the labelling sample. Keys outside the upload layout are skipped. Needs `boto3` in the venv (`pip install boto3`) and `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` in the environment, from an R2 API token with read access to the bucket; `R2_BUCKET` defaults to `guru-uploads` |
 
 Everything under `tools/pilot_metrics/data/` is children's data and is ignored by git. Keep downloads, sheets and reports there.
 

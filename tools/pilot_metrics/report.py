@@ -8,6 +8,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import sys
 from datetime import date
 from pathlib import Path
@@ -16,10 +17,12 @@ import metrics
 import sheet
 
 DEFAULT_SOURCE = Path(__file__).resolve().parent / "data" / "uploads"
+UUID = r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+UPLOAD_KEY = re.compile(rf"uploads/{UUID}/[A-HJ-NP-Z2-9]{{4}}/(?P<session>{UUID})/(?P<name>[a-z0-9-]+\.(?:wav|json))", re.I)
 
 
 def sync_r2(dest: Path) -> None:
-    """Copy the bucket's uploads/ prefix into `dest`, skipping files already there."""
+    """Copy new summaries, and clips of sampled sessions, from the bucket's uploads/ prefix into `dest`."""
     try:
         import boto3
     except ImportError:
@@ -37,10 +40,16 @@ def sync_r2(dest: Path) -> None:
     bucket = os.environ.get("R2_BUCKET", "guru-uploads")
     for page in s3.get_paginator("list_objects_v2").paginate(Bucket=bucket, Prefix="uploads/"):
         for obj in page.get("Contents", []):
+            # Only the Worker's key layout (workers/upload/src/validate.ts), so no key can write outside dest.
+            m = UPLOAD_KEY.fullmatch(obj["Key"])
+            # Metrics need every summary; clips are only listened to in sampled sessions.
+            if not m or (m["name"].endswith(".wav") and not sheet.sampled(m["session"])):
+                continue
             target = dest / obj["Key"].removeprefix("uploads/")
-            if not target.exists():
-                target.parent.mkdir(parents=True, exist_ok=True)
-                s3.download_file(bucket, obj["Key"], str(target))
+            if target.exists():
+                continue
+            target.parent.mkdir(parents=True, exist_ok=True)
+            s3.download_file(bucket, obj["Key"], str(target))
 
 
 def load(source: Path) -> list[dict]:
@@ -78,7 +87,7 @@ def main(argv: list[str] | None = None) -> None:
     p.add_argument("--sheet-out", type=Path, help="write the labelling sheet (CSV) here")
     p.add_argument("--out", type=Path, help="write the Markdown report here (default: stdout)")
     p.add_argument("--r2", action="store_true",
-                   help="first copy new files from the R2 bucket into --source; needs R2_ACCOUNT_ID, "
+                   help="first copy new summaries, and clips of sampled sessions, from the R2 bucket into --source; needs R2_ACCOUNT_ID, "
                         "R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY (R2_BUCKET defaults to guru-uploads)")
     args = p.parse_args(argv)
 

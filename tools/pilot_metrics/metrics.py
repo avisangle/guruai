@@ -1,7 +1,7 @@
 """The four pilot gate targets (PRD Goals), per pilot week, from session summaries (TDD 2.9)."""
 from __future__ import annotations
 
-from collections import defaultdict
+from collections import Counter, defaultdict
 from datetime import date, datetime, timedelta, timezone
 
 # Families are in India: a session's date is its IST calendar date (D-GURU-39-pilot-day-ist).
@@ -71,9 +71,7 @@ def compute(summaries: list[dict], start: date, labels: dict[str, str] | None = 
         revision = [a for _, a in answers if a["phase"] == "revision" and a.get("revision_interval_days") == 1]
         kept = [a for a in revision if a["decided_by"] == "shekru"]
 
-        per_family = defaultdict(int)
-        for s in sessions:
-            per_family[s["device_id"]] += 1
+        per_family = Counter(s["device_id"] for s in sessions)
 
         out[week] = {
             "lessons_finished": _result("lessons_finished", finished, len(lessons)),

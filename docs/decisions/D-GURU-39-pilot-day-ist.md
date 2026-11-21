@@ -14,4 +14,5 @@
 
 **Impact:**
 - Pilot week and "3 or more sessions in a week" use IST dates. If the pilot ever includes families outside IST, replace the fixed offset with each device's zone, which summaries do not carry today.
-- Changing `SEED` or `RATE` in `tools/pilot_metrics/sheet.py` changes which sessions are sampled. A session with a label filled in `--labels` stays in the sheet and its labels count in the report whatever the draw, so hand-labelling work is never dropped.
+- Changing `SEED` or `RATE` in `tools/pilot_metrics/sheet.py` changes which sessions are sampled. A clip with a label filled in `--labels` stays in the sheet and its label counts in the report whatever the draw, so hand-labelling work is never dropped.
+- `--r2` downloads clips only for sessions `sheet.sampled` picks, so a changed draw needs a fresh `--r2` run before its new sessions can be labelled.

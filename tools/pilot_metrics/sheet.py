@@ -22,17 +22,17 @@ def sampled(session_id: str) -> bool:
 
 
 def rows(summaries: list[dict], labels: dict[str, str] | None = None) -> list[dict]:
-    """Sheet rows for sampled sessions and any session already labelled, carrying the labels filled in."""
+    """Rows for the clips of sampled sessions, plus any clip already labelled, carrying the labels filled in."""
     labels = labels or {}
-    labelled = {path.split("/")[2] for path in labels}
     out = []
     for s in sorted(summaries, key=lambda s: (s["started_at"], s["session_id"])):
-        if not (sampled(s["session_id"]) or s["session_id"] in labelled):
-            continue
+        keep = sampled(s["session_id"])
         for a in s["answers"]:
             if not a.get("clip"):
                 continue
             path = clip_path(s, a)
+            if not (keep or path in labels):
+                continue
             out.append({
                 "clip_path": path,
                 "session_id": s["session_id"],
