@@ -6,7 +6,7 @@ import { now, type Db } from '../data/db';
 import { getChild } from '../data/profiles';
 import { completeAssignments } from './assignments';
 import { appendEvent, type EventContext } from './events';
-import { localDayBounds } from './mastery';
+import { localDay, localDayBounds } from './mastery';
 import { applyStyleLevelAtSessionStart } from './styleLevel';
 
 export type EndReason = 'goodbye' | 'stop' | 'closed';
@@ -32,22 +32,29 @@ export function startSession(db: Db, childId: string, at: string): string {
   return id;
 }
 
+const latestOpen = (db: Db, childId: string) =>
+  db.get<{ id: string; started_at: string }>(
+    'SELECT id, started_at FROM session WHERE child_id = ? AND ended_at IS NULL ORDER BY started_at DESC, rowid DESC LIMIT 1',
+    [childId],
+  );
+
 /** The child's open session (not ended), the latest if several, or null. */
 export function openSession(db: Db, childId: string): string | null {
-  return (
-    db.get<{ id: string }>(
-      'SELECT id FROM session WHERE child_id = ? AND ended_at IS NULL ORDER BY started_at DESC, rowid DESC LIMIT 1',
-      [childId],
-    )?.id ?? null
-  );
+  return latestOpen(db, childId)?.id ?? null;
 }
 
-/** The child's open session, or a new one: one sitting spans the picker, parent visits and lessons (D-GURU-21-one-open-session). */
+/**
+ * The child's open session, or a new one: one sitting spans the picker, parent visits and lessons.
+ * An open session from an earlier local day is closed first (D-GURU-21-one-open-session).
+ */
 export function ensureSession(db: Db, childId: string, at: string): string {
-  return openSession(db, childId) ?? startSession(db, childId, at);
+  const open = latestOpen(db, childId);
+  if (open && localDay(open.started_at) === localDay(at)) return open.id;
+  if (open) closeSessions(db, 'id = ?', [open.id]);
+  return startSession(db, childId, at);
 }
 
-/** Ends a session the child or parent ended; `closed` is for closeOpenSessions only. */
+/** Ends a session the child or parent ended; `closed` is only for leftovers (closeSessions). */
 export function endSession(db: Db, sessionId: string, reason: Exclude<EndReason, 'closed'>, end: SessionEnd): void {
   db.run('UPDATE session SET ended_at = ?, end_reason = ?, active_ms = ?, parent_helps = ?, updated_at = ? WHERE id = ?', [
     end.at,
@@ -75,12 +82,17 @@ export function closeLeftOpenSessions(db: Db): string[] {
  * run started stay open, so a root remount in the same run does not end a live sitting.
  */
 export function closeOpenSessions(db: Db): void {
+  closeSessions(db, 'started_at < ?', [RUN_STARTED]);
+}
+
+/** Closes the open sessions matching `where` as `closed` (see closeOpenSessions). */
+function closeSessions(db: Db, where: string, params: string[]): void {
   db.run(
     `UPDATE session SET end_reason = 'closed', updated_at = ?,
        ended_at = COALESCE((SELECT MAX(at) FROM event WHERE event.child_id = session.child_id
          AND event.at >= session.started_at AND event.session_id = session.id), started_at)
-     WHERE ended_at IS NULL AND started_at < ?`,
-    [now(), RUN_STARTED],
+     WHERE ended_at IS NULL AND ${where}`,
+    [now(), ...params],
   );
 }
 
