@@ -27,3 +27,6 @@ content/audio/
 # Source business document, superseded by docs/prd/guruai-v1.md
 GuruAI - Product Blueprint v3.docx
 !tools/stt_bench/fixtures/guruai-clips-20261115-000000.zip
+
+# Pilot uploads, labelling sheets and reports: children's data, never committed
+tools/pilot_metrics/data/
