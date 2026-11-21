@@ -5,8 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Linking, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { judgeReadiness, type JudgeReadiness } from '../../asr/speedCheck';
-import { now } from '../../data/db';
-import { getDevice, updateDevice } from '../../data/device';
+import { getDevice } from '../../data/device';
 import { liveDb } from '../../data/liveDb';
 import { listChildren } from '../../data/profiles';
 import type { ChildProfile, Device } from '../../data/types';
@@ -16,7 +15,7 @@ import { localDay } from '../../learning/mastery';
 import { lessonTitle } from '../../learning/queueInput';
 import { attentionBanner, type Banner, type MicState } from '../../parent/attention';
 import { loadChildHome, type HomeSection } from '../../parent/home';
-import { audio, readMic } from '../../parent/mic';
+import { askForMic, readMic } from '../../parent/mic';
 import { useParentMode } from '../../parent/ParentModeProvider';
 import { setupRows, type SetupRow, type SetupSection } from '../../parent/setup';
 import { Button } from '../../ui/components/Button';
@@ -110,13 +109,8 @@ export default function ParentHome() {
     if (b.action === 'resumeDownload') startInitialDownloads().catch(() => undefined);
     else if (b.action === 'openSettings') Linking.openSettings().catch(() => undefined);
     else if (b.action === 'requestPermission') {
-      try {
-        const { granted, canAskAgain } = await audio().requestRecordingPermissionsAsync();
-        if (granted) updateDevice(liveDb(), { mic_last_granted_at: now() });
-        setMic({ granted, canAskAgain });
-      } catch {
-        // the dialog failed to open; the banner stays
-      }
+      const next = await askForMic(liveDb()); // null: the dialog failed to open; the banner stays
+      if (next) setMic(next);
     }
   };
 
@@ -170,6 +164,7 @@ export default function ParentHome() {
           />
         ))}
       </ScrollView>
+      <Button testID="home-settings" variant="parentGhost" label={t('settingsTitle')} onPress={() => router.push('/parent/settings')} />
       <Button variant="parentGhost" label={t('backToChildren')} onPress={exit} />
     </Screen>
   );
