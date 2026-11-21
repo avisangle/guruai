@@ -4,11 +4,16 @@
     "development": {
       "developmentClient": true,
       "distribution": "internal",
+      "env": { "EXPO_PUBLIC_TEST_BUILD": "1" },
       "android": { "buildType": "apk" }
     },
     "preview": {
       "distribution": "internal",
+      "env": { "EXPO_PUBLIC_TEST_BUILD": "1" },
       "android": { "buildType": "apk" }
+    },
+    "production": {
+      "android": { "buildType": "app-bundle" }
     }
   }
 }
