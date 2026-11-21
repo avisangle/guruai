@@ -31,9 +31,6 @@ export const en: Record<StringKey, string> = {
   pinFirst: 'PIN',
   pinAgain: 'Same PIN again',
   pinMismatch: "The two PINs don't match. Enter it again.",
-  pinRemember: 'Remember the PIN.',
-  pinRememberBody:
-    'If you forget it, your fingerprint or face opens the parent area and you set a new one. Without those, the app must be reinstalled and progress is erased.',
   idleTitle: 'No activity for 2 minutes.',
   idleBody: "Returning to the children's area in 10 seconds.",
   idleStay: 'Stay here',

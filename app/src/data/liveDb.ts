@@ -6,8 +6,9 @@ let db: Db | undefined;
 
 export function liveDb(): Db {
   if (!db) {
-    db = openDb();
-    migrate(db);
+    const opened = openDb();
+    migrate(opened); // cached only once migrated, so a failure retries
+    db = opened;
   }
   return db;
 }

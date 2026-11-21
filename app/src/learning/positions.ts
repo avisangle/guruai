@@ -2,7 +2,8 @@
 import { randomUUID } from 'expo-crypto';
 
 import { now, type Db } from '../data/db';
-import type { Position } from '../lesson/types';
+import { isFinished } from '../lesson/engine';
+import type { Lesson, Position } from '../lesson/types';
 
 /** Inserts or replaces the child's position in a template. */
 export function savePosition(db: Db, childId: string, templateId: string, position: Position): void {
@@ -23,4 +24,17 @@ export function loadPosition(db: Db, childId: string, templateId: string, versio
     [childId, templateId, version],
   );
   return row ? JSON.parse(row.position) : null;
+}
+
+/** The position the lesson resumes from: saved for its current version and not finished (D-GURU-20-in-progress-is-resumable). */
+export function resumePosition(db: Db, childId: string, lesson: Lesson): Position | null {
+  const saved = loadPosition(db, childId, lesson.template_id, lesson.version);
+  return saved && !isFinished(lesson, saved) ? saved : null;
+}
+
+/** Template ids with a saved position for the child, newest first. */
+export function savedLessons(db: Db, childId: string): string[] {
+  return db
+    .all<{ id: string }>('SELECT template_id AS id FROM lesson_position WHERE child_id = ? ORDER BY updated_at DESC', [childId])
+    .map((r) => r.id);
 }

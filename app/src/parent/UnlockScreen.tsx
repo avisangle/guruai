@@ -137,9 +137,8 @@ export function UnlockScreen() {
         <PinRow label={t('pinFirst')} filled={first === null ? digits.length : PIN_LENGTH} active={first === null} />
         <PinRow label={t('pinAgain')} filled={first === null ? 0 : digits.length} active={first !== null} />
         {message && <Note tone="error">{t(message)}</Note>}
-        <Note tone="warning">
-          <Text variant="label">{t('pinRemember')}</Text> {t('pinRememberBody')}
-        </Note>
+        {/* No screen lock means no strong biometrics to recover with; the 'setup' mode follows a biometric recovery. */}
+        <Note tone="warning">{t(mode === 'needs_pin_setup' ? 'pinForgotReinstall' : 'pinForgotBiometric')}</Note>
       </>
     );
   }

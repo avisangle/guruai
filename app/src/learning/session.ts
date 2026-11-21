@@ -4,6 +4,7 @@ import { randomUUID } from 'expo-crypto';
 
 import { now, type Db } from '../data/db';
 import { getChild } from '../data/profiles';
+import { completeAssignments } from './assignments';
 import { appendEvent, type EventContext } from './events';
 import { localDayBounds } from './mastery';
 import { applyStyleLevelAtSessionStart } from './styleLevel';
@@ -41,6 +42,11 @@ export function openSession(db: Db, childId: string): string | null {
   );
 }
 
+/** The child's open session, or a new one: one sitting spans the picker, parent visits and lessons (D-GURU-21-one-open-session). */
+export function ensureSession(db: Db, childId: string, at: string): string {
+  return openSession(db, childId) ?? startSession(db, childId, at);
+}
+
 /** Ends a session the child or parent ended; `closed` is for closeOpenSessions only. */
 export function endSession(db: Db, sessionId: string, reason: Exclude<EndReason, 'closed'>, end: SessionEnd): void {
   db.run('UPDATE session SET ended_at = ?, end_reason = ?, active_ms = ?, parent_helps = ?, updated_at = ? WHERE id = ?', [
@@ -71,9 +77,10 @@ export function lessonStarted(db: Db, ctx: EventContext, templateId: string): vo
   appendEvent(db, ctx, 'lesson_start', { template_id: templateId });
 }
 
-/** The lesson reached its end; this is what counts toward the daily goal. */
+/** The lesson reached its end; this is what counts toward the daily goal, and it completes its assignments. */
 export function lessonEnded(db: Db, ctx: EventContext, templateId: string): void {
   appendEvent(db, ctx, 'lesson_end', { template_id: templateId });
+  completeAssignments(db, ctx.childId, templateId, ctx.at);
 }
 
 /** The lesson was left before its end, after `done` of `total` items. */

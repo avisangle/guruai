@@ -13,3 +13,13 @@ export function assignLesson(db: Db, childId: string, templateId: string, date: 
     [randomUUID(), childId, templateId, date, stamp, stamp],
   );
 }
+
+/** Marks the child's open assignments of the lesson done at `at`; called when the lesson ends. */
+export function completeAssignments(db: Db, childId: string, templateId: string, at: string): void {
+  db.run('UPDATE assignment SET done_at = ?, updated_at = ? WHERE child_id = ? AND template_id = ? AND done_at IS NULL', [
+    at,
+    now(),
+    childId,
+    templateId,
+  ]);
+}

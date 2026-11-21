@@ -7,7 +7,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { liveDb } from '../data/liveDb';
 import { listChildren } from '../data/profiles';
 import type { ChildProfile } from '../data/types';
-import { startSession } from '../learning/session';
+import { ensureSession } from '../learning/session';
 import { ParentLock } from '../parent/ParentLock';
 import { Screen } from '../ui/components/Screen';
 import { Text } from '../ui/components/Text';
@@ -25,7 +25,7 @@ export default function ChildPicker() {
   );
 
   const choose = (child: ChildProfile) => {
-    startSession(liveDb(), child.id, new Date().toISOString());
+    ensureSession(liveDb(), child.id, new Date().toISOString());
     router.push(`/child/${child.id}`);
   };
 

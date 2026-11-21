@@ -9,6 +9,7 @@ import { getDevice, updateDevice } from '../data/device';
 import { liveDb } from '../data/liveDb';
 import { listChildren } from '../data/profiles';
 import { startInitialDownloads } from '../downloads/downloader';
+import { closeOpenSessions } from '../learning/session';
 import { FirstRunContext } from '../onboarding/firstRun';
 import { ParentModeProvider } from '../parent/ParentModeProvider';
 import { fontFiles } from '../ui/fonts';
@@ -20,6 +21,7 @@ SplashScreen.preventAutoHideAsync();
 function readStart(): { lang: UiLang; hasChild: boolean } {
   try {
     const db = liveDb();
+    closeOpenSessions(db); // sessions an earlier run left open: their sitting ended with that run
     return { lang: getDevice(db).parent_lang, hasChild: listChildren(db).length > 0 };
   } catch {
     // No SQLite (component tests without a database): plain stack, never forced into onboarding.
