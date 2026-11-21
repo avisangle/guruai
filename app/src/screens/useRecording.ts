@@ -1,7 +1,7 @@
 // The lesson's answer source and tester recording mode. With the speech model on the phone
 // and mic permission, every listening turn records the child (16 kHz mono WAV), stops by
 // itself (asr/endpoint.ts) and the on-device judge's verdict is the answer. Without them
-// (web, no model, mic denied) the tester buttons answer instead.
+// (web, no model, mic denied) the inner source answers: the tester buttons, in test builds only.
 // Recording mode only decides whether takes are kept as clips: the switch starts off at
 // every launch so nobody is recorded by accident; child code and age are remembered.
 // The switches and mic status are process-wide: the home panel sets them, the lesson route uses them.

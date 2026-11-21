@@ -1,8 +1,8 @@
 // Parent home (wireframes pm-home, pm-home-2, pm-attention): one tab per child, today's progress,
-// the attention banner, the "Finish setting up" card and the lesson sections.
+// the attention banner, the "parent helps" switch, the "Finish setting up" card and the lesson sections.
 import { router, useFocusEffect, type Href } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Linking, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Linking, Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
 
 import { judgeReadiness, type JudgeReadiness } from '../../asr/speedCheck';
 import { getDevice } from '../../data/device';
@@ -15,7 +15,9 @@ import { localDay } from '../../learning/mastery';
 import { lessonTitle } from '../../learning/queueInput';
 import { attentionBanner, type Banner, type MicState } from '../../parent/attention';
 import { loadChildHome, type HomeSection } from '../../parent/home';
+import { ADULT, Icon } from '../../parent/icons';
 import { askForMic, readMic } from '../../parent/mic';
+import { parentHelps, useParentHelps } from '../../parent/parentHelps';
 import { useParentMode } from '../../parent/ParentModeProvider';
 import { setupRows, type SetupRow, type SetupSection } from '../../parent/setup';
 import { Button } from '../../ui/components/Button';
@@ -143,6 +145,8 @@ export default function ParentHome() {
 
         {banner && <AttentionBanner banner={banner} onAction={() => act(banner)} />}
 
+        {child && <ParentHelpsCard childId={child.id} />}
+
         {data && (
           <View testID="today-progress" style={styles.card}>
             <Text variant="helper">{t('todayProgress', { done: data.done, goal: data.goal })}</Text>
@@ -195,6 +199,31 @@ function AttentionBanner({ banner, onAction }: { banner: Banner; onAction: () =>
       <Text variant="label">{t(title)}</Text>
       <Text>{t(body)}</Text>
       {action && <Button testID="attention-action" variant="parent" label={t(action)} onPress={onAction} />}
+    </View>
+  );
+}
+
+/** The "parent helps" switch for one child (D-GURU-34-parent-helps). */
+function ParentHelpsCard({ childId }: { childId: string }) {
+  const { t } = useT();
+  const on = useParentHelps(childId);
+  return (
+    <View testID="parent-helps" style={[styles.card, styles.row]}>
+      <View style={styles.grow}>
+        <View style={styles.title}>
+          <Icon d={ADULT} size={space[5]} color={color.parent.accent} />
+          <Text variant="label">{t('helpsTitle')}</Text>
+        </View>
+        <Text variant="helper">{t(on ? 'helpsHelpOn' : 'helpsHelpOff')}</Text>
+      </View>
+      <Switch
+        testID="parent-helps-switch"
+        accessibilityLabel={t('helpsTitle')}
+        value={on}
+        onValueChange={(value) => parentHelps.set(childId, value)}
+        trackColor={{ false: color.parent.border, true: color.parent.accent }}
+        thumbColor={color.parent.surface}
+      />
     </View>
   );
 }
@@ -313,6 +342,8 @@ const styles = StyleSheet.create({
   track: { height: space[2], borderRadius: radius.parent.round, backgroundColor: color.parent.border, overflow: 'hidden' },
   fill: { height: '100%', backgroundColor: color.parent.accent },
   row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  grow: { flex: 1, gap: space[1] },
+  title: { flexDirection: 'row', alignItems: 'center', gap: space[2] },
   tapRow: { minHeight: touch.parent.min, justifyContent: 'center' },
   section: { gap: space[2] },
   lesson: { gap: space[1], paddingVertical: space[1] },

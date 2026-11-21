@@ -2,13 +2,15 @@
 // the listen turn, and the moments between (wireframes l-talking, l-listening, l-word-*, l-paused,
 // l-correct, l-streak, l-nohear, l-surprise, l-finished). Answers become events and
 // the position is saved after each one. Pause, the app leaving the foreground or an audio
-// interruption of a line (a call) pause the lesson; Stop ends the session.
+// interruption of a line (a call) pause the lesson; Stop ends the session. With "parent helps" on,
+// the parent's buttons answer and the mic and judge stay off (D-GURU-34-parent-helps).
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text as RNText, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { IS_TEST_BUILD } from '../config/build';
 import { PICTURES } from '../content/pictures';
 import { now } from '../data/db';
 import { liveDb } from '../data/liveDb';
@@ -17,6 +19,7 @@ import { savePosition } from '../learning/positions';
 import { lessonLeft, lessonStarted } from '../learning/session';
 import { endSessionNow, sessionClock } from '../learning/sessionClock';
 import { ParentLock } from '../parent/ParentLock';
+import { parentHelps, useParentHelps } from '../parent/parentHelps';
 import { useLinePlayer } from '../screens/useLinePlayer';
 import { useRecording, type JudgedClip } from '../screens/useRecording';
 import { useTesterAnswers } from '../screens/useTesterAnswers';
@@ -27,9 +30,11 @@ import { Screen } from '../ui/components/Screen';
 import { Text } from '../ui/components/Text';
 import { theme } from '../ui/theme';
 import type { AnswerSource } from './answerSource';
+import { AdultOutline, AnswerButtons } from './AnswerButtons';
 import { dotStates, ItemDots } from './ItemDots';
 import { MicIndicator } from './MicIndicator';
 import { CorrectBadge, FinishedStar, RewardStar, StreakTicks } from './Moments';
+import { createTapSource } from './tapSource';
 import { onLessonEnd, usePlayerLoop, type LinePlayer } from './usePlayerLoop';
 import type { Answer, Lesson, Position, RevisionItem, StyleLevel } from './types';
 
@@ -47,7 +52,7 @@ export type LessonPlayerProps = {
   start: Position | null;
 };
 
-// Tester buttons, shown only when the judge cannot answer (until "parent helps" replaces them).
+// Tester buttons (test builds only): tap mode, or when the judge cannot answer.
 const ANSWERS: [Answer, string][] = [['correct', '✓ बरोबर'], ['wrong', '✗ चूक'], ['silent', '… शांत']];
 
 export function LessonPlayer({ lesson, childId, sessionId, styleLevel, revision, start }: LessonPlayerProps) {
@@ -61,7 +66,10 @@ export function LessonPlayer({ lesson, childId, sessionId, styleLevel, revision,
   const lines = deps.linePlayer ?? defaultLines;
   const tester = useTesterAnswers();
   const items = useMemo(() => [...lesson.items, ...revision.map((r) => r.item)], [lesson, revision]);
-  const rec = useRecording(lesson.template_id, items, deps.answerSource ?? tester.source);
+  const rec = useRecording(lesson.template_id, items, deps.answerSource ?? (IS_TEST_BUILD ? tester.source : undefined));
+  const helps = useParentHelps(childId);
+  const [tap] = useState(createTapSource);
+  const answers = helps ? { source: tap.source, prepare: undefined } : rec; // parent taps: no mic, no judge
   const [clock] = useState(() => sessionClock(sessionId));
   const ctx = useCallback((at = now()) => ({ childId, sessionId, at }), [childId, sessionId]);
 
@@ -76,10 +84,10 @@ export function LessonPlayer({ lesson, childId, sessionId, styleLevel, revision,
     styleLevel,
     revision,
     start,
-    source: rec.source,
+    source: answers.source,
     lines,
     tutor: rig,
-    prepare: rec.prepare,
+    prepare: answers.prepare,
     onAnswer: (event, position) => {
       recordAnswer(db, ctx(), event);
       savePosition(db, childId, lesson.template_id, position);
@@ -103,7 +111,7 @@ export function LessonPlayer({ lesson, childId, sessionId, styleLevel, revision,
   // Only reachable while paused, so the loop is already halted.
   const stop = () => {
     lessonLeft(db, ctx(), lesson.template_id, { done: answered.current.size, total: items.length });
-    endSessionNow(db, sessionId, 'stop', false); // "parent helps" (GURU-34) is not wired yet
+    endSessionNow(db, sessionId, 'stop', parentHelps.end(childId));
     back();
   };
 
@@ -119,6 +127,7 @@ export function LessonPlayer({ lesson, childId, sessionId, styleLevel, revision,
   const control = finished ? <FinishedStar />
     : view.correct === 'ticks' ? <StreakTicks />
     : view.correct ? <RewardStar />
+    : helps ? (view.listening ? <AnswerButtons onAnswer={tap.give} /> : <AdultOutline />)
     : <MicIndicator open={view.listening} again={view.again} />;
 
   return (

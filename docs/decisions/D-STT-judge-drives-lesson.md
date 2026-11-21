@@ -1,5 +1,5 @@
 # D-STT: The on-device judge drives the lesson; tester buttons removed
-**Status:** Accepted
+**Status:** Superseded by D-GURU-34-parent-helps
 **Date:** 2026-11-16
 **Issue:** none (owner request)
 **Confluence:** none

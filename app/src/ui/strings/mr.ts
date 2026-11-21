@@ -99,6 +99,14 @@ export const mr = {
   bannerMicSettingsAction: 'सेटिंग्ज उघडा',
   bannerWeakTitle: 'हा फोन बोलणं तपासायला हळू आहे.',
   bannerWeakBody: 'या फोनवर धड्यांसाठी "मी उत्तरं तपासेन" स्विच चालू करावा लागेल.',
+  // "Parent helps" (wireframes pm-home, pm-attention, h-lesson).
+  helpsTitle: 'मी उत्तरं तपासेन',
+  helpsHelpOff: 'चालू केल्यावर धड्यांमध्ये बरोबर / चूक / शांत बटणं दिसतील. आजचा निरोप किंवा "थांब" होईपर्यंत चालू राहतं; ॲप बंद केल्यावर बंद होतं.',
+  helpsHelpOn: 'चालू: धड्यांमध्ये बरोबर / चूक / शांत बटणं दिसतील. आजचा निरोप किंवा "थांब" होईपर्यंत चालू राहतं; ॲप बंद केल्यावर बंद होतं.',
+  helpsStrip: 'पालकांची मदत: मूल काय म्हणालं?',
+  helpsCorrect: 'बरोबर',
+  helpsWrong: 'चूक',
+  helpsSilent: 'शांत',
   // Child picker and today's queue (wireframes c-*). The start label is for the child; the rest is for the adult.
   letsStart: 'सुरू करूया',
   stopLesson: 'धडा',
