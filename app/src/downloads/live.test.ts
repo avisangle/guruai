@@ -7,8 +7,12 @@ const child = (cls: string, goals: string[] = []) => ({ board: 'cbse', class: cl
 const STARTER = ['tpl_kg_mr_swar_1', 'tpl_kg_en_letters_1'];
 
 describe('packsForChild', () => {
-  it('queues nothing while every generated lesson is bundled', () => {
-    expect(packsForChild(child('UKG', ['en_letters']))).toEqual([]);
+  it('queues nothing for a child whose path lessons are all in the starter pack', () => {
+    expect(packsForChild(child('Class1'))).toEqual([]);
+  });
+
+  it('queues the kg pack for a UKG child with en_letters', () => {
+    expect(packsForChild(child('UKG', ['en_letters']))).toEqual(['kg']);
   });
 
   it("names each pack of the child's not-bundled lessons once", () => {

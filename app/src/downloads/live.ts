@@ -5,8 +5,8 @@ import { Directory, File, FileMode, Paths } from 'expo-file-system';
 import * as Network from 'expo-network';
 
 import { modelFile } from '../asr/model';
-import lessons from '../content/generated/lessons.json';
 import catalogue from '../content/generated/paths.json';
+import { STARTER_PACK } from '../content/packs';
 import { liveDb } from '../data/liveDb';
 import type { ChildProfile } from '../data/types';
 import { pathsFor } from '../learning/enrol';
@@ -66,9 +66,9 @@ const fsPort: FsPort = {
   freeBytes: () => Paths.availableDiskSpace,
 };
 
-// Lessons whose audio build-content bundles (D-GURU-14).
-const bundledLessons = lessons.map((l) => l.template_id);
 const lessonPack: Record<string, string | undefined> = catalogue.lessonPack;
+// Lessons whose audio build-content bundles: the starter pack's (D-GURU-14); the rest come in packs.
+const bundledLessons = Object.keys(lessonPack).filter((id) => lessonPack[id] === STARTER_PACK);
 
 /** Packs holding the not-bundled lessons of the child's paths, by `lessonPack` (D-GURU-16). */
 export function packsForChild(child: ChildProfile, bundled: string[] = bundledLessons): string[] {
