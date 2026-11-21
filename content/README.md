@@ -32,6 +32,18 @@ Types: `app/src/lesson/types.ts`. Answer-language design: `docs/decisions/D-GURU
 
 The build writes `app/src/content/generated/paths.json` (`{paths, goals, packs, lessonPack}`) and `lessons.json` (the reachable lessons, ordered by path file name, then unit).
 
+## Audio packs
+
+`build:content` bundles the audio of the shared lines and the `starter` pack's lessons into the app and prints its size. Every other pack is downloaded (`docs/decisions/D-GURU-14-downloads-starter-pack.md`). `npm run build:packs` (from `app/`, after `build:content`) zips each non-empty pack other than `starter` into `app/dist/packs/shekru/<pack>.v<n>.zip` (`<line id>.mp3` and `clips.json`), writes `app/dist/manifest.json` and updates `content/packs.lock.json`. A pack's version goes up only when its zip changes (`docs/decisions/D-GURU-23-pack-version-by-zip-hash.md`).
+
+To publish, add the model and the bucket. This puts every file not yet in R2 under `guru/v1/`, then the manifest:
+
+```sh
+R2_BUCKET=<bucket> npm run build:packs -- --model <path>/mr_ctc_wav.int8.onnx --model-version <n> --publish
+```
+
+Commit `content/packs.lock.json` after a publish.
+
 ## Build check
 
 `npm run build:content` (from `app/`) runs `validatePaths` and `validateContent` (`app/src/content/validate.ts`) first, prints every error and exits non-zero without writing anything when there are any. It reports:

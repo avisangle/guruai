@@ -59,6 +59,7 @@
     "build:shekru": "node scripts/build-shekru.mjs",
     "typecheck": "tsc --noEmit",
     "build:content": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/build-content.mjs",
+    "build:packs": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/build-packs.mjs",
     "build:theme": "node scripts/build-theme.mjs",
     "test": "jest",
     "lint": "expo lint"
