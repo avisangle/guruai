@@ -123,6 +123,8 @@ export const mr = {
   addChild: 'मूल जोडा',
   permissionsTitle: 'परवानग्या',
   consentClipsOff: 'बंद केलं. आतापासून कोणतंही रेकॉर्डिंग पाठवलं जाणार नाही.',
+  deleteSent: 'पाठवलेली रेकॉर्डिंग पुसायला सांगा',
+  deleteSentAsked: 'विनंती नोंदवली. फोन ऑनलाइन झाला की पाठवली जाईल.',
   downloadsPhoneTitle: 'डाउनलोड आणि फोन',
   downloadsLabel: 'डाउनलोड',
   downloadsDone: 'सगळं डाउनलोड झालं',

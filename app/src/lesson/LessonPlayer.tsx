@@ -20,6 +20,7 @@ import { ParentLock } from '../parent/ParentLock';
 import { useLinePlayer } from '../screens/useLinePlayer';
 import { useRecording, type JudgedClip } from '../screens/useRecording';
 import { useTesterAnswers } from '../screens/useTesterAnswers';
+import { keepClip, sessionEnded } from '../upload/uploadQueue';
 import { Shekru } from '../shekru/Shekru';
 import { useShekruRig } from '../shekru/useShekruRig';
 import { Button } from '../ui/components/Button';
@@ -61,7 +62,10 @@ export function LessonPlayer({ lesson, childId, sessionId, styleLevel, revision,
   const lines = deps.linePlayer ?? defaultLines;
   const tester = useTesterAnswers();
   const items = useMemo(() => [...lesson.items, ...revision.map((r) => r.item)], [lesson, revision]);
-  const rec = useRecording(lesson.template_id, items, deps.answerSource ?? tester.source);
+  // The take the upload queue kept (consent_clips), named in the answer it belongs to, then cleared.
+  const keptClip = useRef<string | null>(null);
+  const keep = useCallback((uri: string, recordedAt: Date) => (keptClip.current = keepClip(sessionId, uri, recordedAt)), [sessionId]);
+  const rec = useRecording(lesson.template_id, items, deps.answerSource ?? tester.source, keep);
   const [clock] = useState(() => sessionClock(sessionId));
   const ctx = useCallback((at = now()) => ({ childId, sessionId, at }), [childId, sessionId]);
 
@@ -81,7 +85,8 @@ export function LessonPlayer({ lesson, childId, sessionId, styleLevel, revision,
     tutor: rig,
     prepare: rec.prepare,
     onAnswer: (event, position) => {
-      recordAnswer(db, ctx(), event);
+      recordAnswer(db, { ...ctx(), clip: keptClip.current ?? undefined }, event);
+      keptClip.current = null;
       savePosition(db, childId, lesson.template_id, position);
       answered.current.add(event.item_key);
     },
@@ -104,6 +109,7 @@ export function LessonPlayer({ lesson, childId, sessionId, styleLevel, revision,
   const stop = () => {
     lessonLeft(db, ctx(), lesson.template_id, { done: answered.current.size, total: items.length });
     endSessionNow(db, sessionId, 'stop', false); // "parent helps" (GURU-34) is not wired yet
+    sessionEnded(sessionId).catch(() => undefined);
     back();
   };
 

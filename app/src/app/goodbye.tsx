@@ -27,6 +27,7 @@ import { useShekruRig } from '../shekru/useShekruRig';
 import { Screen } from '../ui/components/Screen';
 import { Text } from '../ui/components/Text';
 import { theme } from '../ui/theme';
+import { sessionEnded } from '../upload/uploadQueue';
 
 const prompts = promptsJson as Prompts;
 
@@ -58,7 +59,10 @@ export default function GoodbyeScreen() {
     if (!day) return;
     const db = liveDb();
     const session = openSession(db, child);
-    if (session) endSessionNow(db, session, 'goodbye', false); // "parent helps" (GURU-34) is not wired yet
+    if (session) {
+      endSessionNow(db, session, 'goodbye', false); // "parent helps" (GURU-34) is not wired yet
+      sessionEnded(session).catch(() => undefined);
+    }
 
     rig.setState('bye');
     lines.play(bye, prompts.lines[bye]).then(() => rig.setState('idle'));

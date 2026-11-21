@@ -20,6 +20,7 @@ import { useParentMode } from '../../parent/ParentModeProvider';
 import { isValidPin, PIN_LENGTH, pinDigits } from '../../parent/pin';
 import { PinSetup } from '../../parent/PinSetup';
 import { classLabel, STYLE_LABEL } from '../../parent/ProfileForm';
+import { consentChanged, requestDeletion } from '../../upload/uploadQueue';
 import { Button } from '../../ui/components/Button';
 import { Choice } from '../../ui/components/Choice';
 import { Field } from '../../ui/components/Field';
@@ -51,6 +52,7 @@ export default function SettingsScreen() {
   const [children, setChildren] = useState<ChildProfile[]>([]); // read on focus
   const [consent, setConsent] = useState({ clips: device.consent_clips ?? false, summaries: device.consent_summaries ?? false });
   const [clipsTurnedOff, setClipsTurnedOff] = useState(false);
+  const [deletionAsked, setDeletionAsked] = useState(false);
   const [mic, setMic] = useState<MicState | null>(null); // null until read
   const [readiness, setReadiness] = useState<JudgeReadiness>(() => judgeReadiness());
   const [checking, setChecking] = useState(false);
@@ -65,8 +67,15 @@ export default function SettingsScreen() {
 
   const changeConsent = (next: typeof consent) => {
     answerConsent(liveDb(), next); // at once: uploads check the flag before each file
+    consentChanged(); // drops the switched-off kind's pending items and aborts its upload
     setConsent(next);
     setClipsTurnedOff(consent.clips && !next.clips);
+  };
+
+  // Allowed with both consents off: it covers what was sent before (wireframe decision 15).
+  const askDeletion = () => {
+    requestDeletion().catch(() => undefined);
+    setDeletionAsked(true);
   };
 
   const micAction = async () => {
@@ -133,6 +142,13 @@ export default function SettingsScreen() {
             value={consent.summaries}
             onChange={(summaries) => changeConsent({ ...consent, summaries })}
           />
+          <Pressable testID="settings-delete-sent" accessibilityRole="button" onPress={askDeletion} style={styles.line}>
+            <View style={styles.grow}>
+              <Text variant="label">{t('deleteSent')}</Text>
+              <Text variant="helper">{t('deviceCode', { code: device.device_id })}</Text>
+              {deletionAsked && <Text variant="helper">{t('deleteSentAsked')}</Text>}
+            </View>
+          </Pressable>
         </Section>
 
         <Section title={t('downloadsPhoneTitle')}>

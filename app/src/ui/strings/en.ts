@@ -120,6 +120,8 @@ export const en: Record<StringKey, string> = {
   addChild: 'Add a child',
   permissionsTitle: 'Permissions',
   consentClipsOff: 'Turned off. From now on no recording will be sent.',
+  deleteSent: 'Ask to delete sent recordings',
+  deleteSentAsked: 'Request noted. It is sent when the phone is online.',
   downloadsPhoneTitle: 'Downloads and phone',
   downloadsLabel: 'Downloads',
   downloadsDone: 'Everything downloaded',

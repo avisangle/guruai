@@ -7,6 +7,7 @@
 // The switches and mic status are process-wide: the home panel sets them, the lesson route uses them.
 // Tap mode (tester switch, also off at launch): the tester's buttons decide, and with
 // recording on the judge scores each clip alongside, giving tester-labelled clips.
+// Outside recording mode, keep() may take a take for the consented upload queue (GURU-38).
 import { requestRecordingPermissionsAsync, setAudioModeAsync, useAudioStream } from 'expo-audio';
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { Platform } from 'react-native';
@@ -52,7 +53,12 @@ const setMic = (mic: MicStatus) => setSwitches({ mic });
 // Without a mic, model or tap mode and no inner source, a listen turn waits until cancelled.
 const NO_ANSWERS: AnswerSource = { listen: () => new Promise(() => undefined), cancel: () => undefined };
 
-export function useRecording(templateId: string, items: Item[], inner: AnswerSource = NO_ANSWERS) {
+export function useRecording(
+  templateId: string,
+  items: Item[],
+  inner: AnswerSource = NO_ANSWERS,
+  keep?: (audioUri: string, recordedAt: Date) => string | null,
+) {
   const { on, tap, mic } = useSyncExternalStore(subscribe, () => switches);
   const [settings, setSettings] = useState(loadSettings);
   const [count, setCount] = useState(countClips);
@@ -132,6 +138,7 @@ export function useRecording(templateId: string, items: Item[], inner: AnswerSou
       startDelayMs: CHIME_MS,
       judge: (uri, listen) => judgeClip(uri, listen, itemsRef.current),
       context: () => context.current,
+      keep,
       tapped: () => (switches.tap ? inner : null),
       onJudged: (judge, answer, saved, tapped) => {
         if (saved) setCount(countClips());
@@ -149,7 +156,7 @@ export function useRecording(templateId: string, items: Item[], inner: AnswerSou
         inner.cancel();
       },
     };
-  }, [stream, inner]);
+  }, [stream, inner, keep]);
 
   const exportAll = useCallback(async () => {
     setError(null);
