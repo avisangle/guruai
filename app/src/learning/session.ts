@@ -6,13 +6,16 @@ import { now, type Db } from '../data/db';
 import { getChild } from '../data/profiles';
 import { appendEvent, type EventContext } from './events';
 import { localDayBounds } from './mastery';
+import { applyStyleLevelAtSessionStart } from './styleLevel';
 
 export type EndReason = 'goodbye' | 'stop' | 'closed';
 
 export type SessionEnd = { at: string; activeMs: number; parentHelps: boolean };
 
-/** Opens a session for the child at `at` (ISO) and returns its id. */
+/** Opens a session for the child at `at` (ISO) and returns its id; the style level is settled first. */
 export function startSession(db: Db, childId: string, at: string): string {
+  // Before the insert, so the new empty session is not judged; outside the transaction, which does not nest on device.
+  applyStyleLevelAtSessionStart(db, childId);
   const id = randomUUID();
   db.transaction(() => {
     const stamp = now();
