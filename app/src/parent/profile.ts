@@ -5,10 +5,13 @@ import type { Db } from '../data/db';
 import { createChild, getChild, updateChild } from '../data/profiles';
 import type { ChildProfile, Medium, StyleLevel } from '../data/types';
 import { queueChildPacks } from '../downloads/downloader';
+import type { StringKey } from '../ui/strings/mr';
 import { ensureEnrolment } from '../learning/enrol';
 import { SETUP_SECTIONS } from './setup';
 
 export const CLASSES = ['Nursery', 'LKG', 'UKG', 'Class1', 'Class2'] as const;
+export const classLabel = (cls: string) => `class${cls}` as StringKey;
+export const STYLE_LABEL: Record<StyleLevel, StringKey> = { mr_led: 'styleMrLed', en_led: 'styleEnLed' };
 /** Goals a new child starts with, by class. */
 export const DEFAULT_GOALS: Record<string, string[]> = paths.goals;
 

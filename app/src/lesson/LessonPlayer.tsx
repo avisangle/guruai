@@ -41,7 +41,7 @@ import type { Answer, Lesson, Position, RevisionItem, StyleLevel } from './types
 
 const { color, font, radius, space, touch } = theme;
 
-/** Replaces the default answer source (mic and judge) or line player, e.g. in tests or "parent helps". */
+/** Replaces the default answer source (mic and judge) or line player, e.g. in tests. */
 export const LessonPlayerDeps = createContext<{ answerSource?: AnswerSource; linePlayer?: LinePlayer }>({});
 
 export type LessonPlayerProps = {
@@ -83,7 +83,7 @@ export function LessonPlayer({ lesson, childId, sessionId, styleLevel, revision,
     else router.replace({ pathname: '/child/[id]', params: { id: childId } });
   }, [router, childId]);
 
-  const answered = useRef(new Set<string>()); // items answered in this run, for lesson_left
+  const saved = useRef(start); // the engine position after the last answer, for lesson_left
   const { view, pause, resume } = usePlayerLoop({
     lesson,
     styleLevel,
@@ -97,7 +97,7 @@ export function LessonPlayer({ lesson, childId, sessionId, styleLevel, revision,
       recordAnswer(db, { ...ctx(), clip: keptClip.current ?? undefined }, event);
       keptClip.current = null;
       savePosition(db, childId, lesson.template_id, position);
-      answered.current.add(event.item_key);
+      saved.current = position;
     },
     onActivity: () => clock.activity(Date.now()),
     onPause: () => clock.pause(Date.now()),
@@ -116,7 +116,9 @@ export function LessonPlayer({ lesson, childId, sessionId, styleLevel, revision,
 
   // Only reachable while paused, so the loop is already halted.
   const stop = () => {
-    lessonLeft(db, ctx(), lesson.template_id, { done: answered.current.size, total: items.length });
+    // done dots, so items done before a resume count; the view's position lags in the thinking pause
+    const done = saved.current ? dotStates(lesson, revision, saved.current).filter((d) => d === 'done').length : 0;
+    lessonLeft(db, ctx(), lesson.template_id, { done, total: items.length });
     endSessionNow(db, sessionId, 'stop', parentHelps.end(childId));
     void sessionEnded(sessionId);
     back();
