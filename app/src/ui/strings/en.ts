@@ -181,7 +181,6 @@ export const en: Record<StringKey, string> = {
   downloadsResumeNote: 'If the app closes or the network drops, the download continues from here next time.',
   downloadsModel: 'Speech-checking file',
   downloadsSize: '{mb} MB',
-  downloadsItemDone: 'Done',
   downloadsItemQueued: 'In queue',
   downloadsItemFailed: 'Could not download. Check the network and try again.',
   downloadsResume: 'Resume',

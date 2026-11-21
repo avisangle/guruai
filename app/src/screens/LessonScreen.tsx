@@ -1,5 +1,5 @@
-// Home screen until the child picker replaces it: the lesson menu, which opens a lesson in the
-// lesson route (/lesson/[template]) for the first child, plus the tester tools. Shekru shrinks
+// Tester tools (route /tester, test builds only): the lesson menu, which opens a lesson in the
+// lesson route (/lesson/[template]) for the first child, plus the recording panel. Shekru shrinks
 // as the menu scrolls up, so the tester panel and its text fields get the screen.
 import { Link } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';

@@ -11,7 +11,7 @@ import { liveDb } from '../../data/liveDb';
 import { listChildren } from '../../data/profiles';
 import type { ChildProfile } from '../../data/types';
 import type { DownloadStatus } from '../../downloads/downloader';
-import { useDownloads } from '../../downloads/useDownloads';
+import { allInstalled, useDownloads } from '../../downloads/useDownloads';
 import type { MicState } from '../../parent/attention';
 import { strongBiometricsAvailable, type GateMode } from '../../parent/gate';
 import { liveSwitchToDeviceLock } from '../../parent/live';
@@ -41,10 +41,12 @@ const JUDGE_TEXT: Record<JudgeReadiness, StringKey> = {
 };
 
 function downloadsText(status: DownloadStatus): [StringKey, { done: number; total: number }?] {
+  if (status.plan?.kind === 'needs_choice') return ['storageTitle']; // the prompt waits on the Downloads screen
   if (status.waitingForWifi) return ['downloadsWaitingWifi'];
   if (status.items.some((i) => i.status === 'failed')) return ['downloadsFailed'];
+  if (allInstalled(status)) return ['downloadsDone'];
   const done = status.items.filter((i) => i.status === 'installed').length;
-  return done === status.items.length ? ['downloadsDone'] : ['downloadsProgress', { done, total: status.items.length }];
+  return ['downloadsProgress', { done, total: status.items.length }];
 }
 
 export default function SettingsScreen() {

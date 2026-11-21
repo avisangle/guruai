@@ -109,8 +109,11 @@ export default function ParentHome() {
   const rows = child && home.device ? setupRows(child, home.device) : [];
 
   const act = async (b: Banner) => {
-    if (b.action === 'resumeDownload') startInitialDownloads().catch(() => undefined);
-    else if (b.action === 'openSettings') Linking.openSettings().catch(() => undefined);
+    if (b.action === 'resumeDownload') {
+      // Short of space nothing queues until the parent picks on the downloads screen's storage prompt.
+      if (downloadStatus().plan?.kind === 'needs_choice') router.push('/parent/downloads');
+      else startInitialDownloads().catch(() => undefined);
+    } else if (b.action === 'openSettings') Linking.openSettings().catch(() => undefined);
     else if (b.action === 'requestPermission') {
       const next = await askForMic(liveDb()); // null: the dialog failed to open; the banner stays
       if (next) setMic(next);

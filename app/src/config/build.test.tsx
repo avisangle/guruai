@@ -6,7 +6,8 @@
 //   app/src/config/TestOnly.tsx  named export TestOnly({ children }): children only when IS_TEST_BUILD
 //   gated when false             RecordingPanel (testID recording-panel, holding record-toggle and
 //                                tap-toggle) and the demo link (testID demo-link) in LessonScreen;
-//                                /probe and /demo redirect to /
+//                                /probe, /demo and /tester redirect to /; the child picker's link to
+//                                /tester (testID tester-link)
 //   eas.json                     development, preview: env.EXPO_PUBLIC_TEST_BUILD "1"; production:
 //                                android.buildType "app-bundle", no EXPO_PUBLIC_TEST_BUILD
 //   app.json                     mic permission text speaks of listening to the child's answers
@@ -96,6 +97,7 @@ async function visit(url: string) {
       index: () => h(Text, { testID: 'home' }, 'home'),
       demo: require('../app/demo').default,
       probe: require('../app/probe').default,
+      tester: require('../app/tester').default,
     },
     { initialUrl: url },
   );
@@ -161,19 +163,28 @@ describe('GURU-9: test vs release builds', () => {
     expect(screen.getByTestId('demo-link')).toBeTruthy();
   });
 
-  it('release build: /demo and /probe redirect to /; test build: they open', async () => {
+  it('release build: /demo, /probe and /tester redirect to /; test build: they open', async () => {
     mockTestBuild = false;
-    for (const url of ['/demo', '/probe']) {
+    for (const url of ['/demo', '/probe', '/tester']) {
       const r = await visit(url);
       expect(await screen.findByTestId('home')).toBeTruthy();
       expect(r).toHavePathname('/');
       r.unmount();
     }
     mockTestBuild = true;
-    for (const url of ['/demo', '/probe']) {
+    for (const url of ['/demo', '/probe', '/tester']) {
       const r = await visit(url);
       expect(r).toHavePathname(url);
       expect(screen.queryByTestId('home')).toBeNull();
+      r.unmount();
+    }
+  });
+
+  it('the child picker links to the tester tools in test builds only', async () => {
+    for (const on of [false, true]) {
+      mockTestBuild = on;
+      const r = await renderRouter({ index: require('../app/index').default }, { initialUrl: '/' });
+      expect(screen.queryByTestId('tester-link') !== null).toBe(on);
       r.unmount();
     }
   });
