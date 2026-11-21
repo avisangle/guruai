@@ -65,3 +65,9 @@ export function answerConsent(db: Db, consent: { clips: boolean; summaries: bool
     at,
   ]);
 }
+
+/** Marks a deletion request as waiting to be sent (`at`), or as sent (null). */
+export function setDeletionRequested(db: Db, at: string | null): void {
+  getDevice(db);
+  db.run('UPDATE device SET deletion_requested_at = ?, updated_at = ?', [at, now()]);
+}

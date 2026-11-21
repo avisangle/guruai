@@ -113,6 +113,8 @@ const MIGRATIONS: string[] = [
     'CREATE INDEX item_mastery_child_due ON item_mastery (child_id, next_due);',
     'CREATE INDEX assignment_child_date ON assignment (child_id, for_date);',
   ].join('\n'),
+  // 2 (GURU-38): a parent's request to delete sent recordings, kept until the Worker has it.
+  'ALTER TABLE device ADD COLUMN deletion_requested_at TEXT;',
 ];
 
 /** Applies every migration above the database's user_version, each in its own transaction. */

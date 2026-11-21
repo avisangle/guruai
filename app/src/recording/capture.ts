@@ -1,7 +1,7 @@
 // Listening turns from the microphone. After the chime the mic records until the
 // endpointer says the answer is over (or nothing was said), the on-device judge scores
 // the take, and its Heard is the child's answer. In recording mode the take is kept as
-// a clip labelled by the judge; otherwise it is deleted.
+// a clip labelled by the judge; otherwise keep() may take it for upload (GURU-38), else it is deleted.
 // Tap mode (tester switch): the tester's button ends the take and is the answer; the judge
 // still scores the clip, for comparison. Mic, storage and judge are injected for tests.
 import { createEndpointer, MAX_MS, type EndReason, type Endpointer } from '../asr/endpoint';
@@ -34,6 +34,8 @@ export function createMicSource(mic: Mic, sink: ClipSink, opts: {
   startDelayMs: number; // let the chime finish before the mic opens
   judge(uri: string, listen: Listen): Promise<ClipJudge>; // the prompt's words are not candidates
   context(): CaptureContext | null;
+  // Outside recording mode: takes the take for upload and returns its name, or null to discard it.
+  keep?: (audioUri: string, recordedAt: Date) => string | null;
   tapped?: () => AnswerSource | null; // the tester's buttons, in tap mode
   now?: () => Date;
   wait?: (ms: number) => Promise<void>;
@@ -50,6 +52,15 @@ export function createMicSource(mic: Mic, sink: ClipSink, opts: {
 
   const discard = (uri: string | null) => {
     if (uri) sink.discard(uri);
+  };
+  // A storage failure must not cost the child's answer.
+  const kept = (uri: string, recordedAt: Date) => {
+    try {
+      return opts.keep?.(uri, recordedAt) ?? null;
+    } catch (e) {
+      opts.onError?.(e);
+      return null;
+    }
   };
 
   return {
@@ -127,7 +138,7 @@ export function createMicSource(mic: Mic, sink: ClipSink, opts: {
                 judge,
               };
               await sink.save(take.uri, meta);
-            } else {
+            } else if (!kept(take.uri, started)) {
               discard(take.uri);
             }
             opts.onJudged?.(judge, clipLabel, meta, tapped != null);
