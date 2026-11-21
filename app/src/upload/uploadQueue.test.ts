@@ -556,7 +556,7 @@ describe('GURU-38 upload queue', () => {
   });
 
   test('turning clips consent off deletes pending clips, aborts the clip in flight, stops capture; summaries go on; later summaries link no clip', async () => {
-    const r = rig({ net: WIFI, server: { hold: (c) => c.method === 'PUT' && c.url.endsWith('.wav') } });
+    const r = rig({ net: WIFI, server: { hold: (c) => c.method === 'PUT' && new URL(c.url).pathname.endsWith('.wav') } });
     const s1 = startSession(r.db, r.child.id, at(0));
     const c1 = r.queue.keepClip(s1, r.take(1), T0)!;
     const c2 = r.queue.keepClip(s1, r.take(2), new Date(T0.getTime() + 1000))!;
@@ -570,13 +570,13 @@ describe('GURU-38 upload queue', () => {
 
     answerConsent(r.db, { clips: false, summaries: true });
     r.queue.consentChanged();
-    const putsAtWithdrawal = r.server.puts().filter((c) => c.url.endsWith('.wav')).length;
+    const putsAtWithdrawal = r.server.puts().filter((c) => new URL(c.url).pathname.endsWith('.wav')).length;
 
     expect(inFlight.every((c) => c.signal?.aborted)).toBe(true);
     await running;
     await until(() => uploadRows(r.db).every((row) => row.status === 'uploaded'));
 
-    expect(r.server.puts().filter((c) => c.url.endsWith('.wav'))).toHaveLength(putsAtWithdrawal); // no clip after
+    expect(r.server.puts().filter((c) => new URL(c.url).pathname.endsWith('.wav'))).toHaveLength(putsAtWithdrawal); // no clip after
     expect(uploadRows(r.db)).toEqual([expect.objectContaining({ kind: 'summary', status: 'uploaded', session_id: s1 })]);
     expect(r.files.files.has(`${UPLOADS}/${s1}/${c1}`)).toBe(false);
     expect(r.files.files.has(`${UPLOADS}/${s1}/${c2}`)).toBe(false);
