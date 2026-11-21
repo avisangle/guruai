@@ -1,5 +1,6 @@
 // Audio packs (TDD 2.7, D-GURU-14, D-GURU-16). Pure: build-content.mjs and build-packs.mjs
 // run it under Node's type stripping, so only erasable syntax and .ts import paths.
+import type { Manifest, ManifestFile } from '../downloads/manifest.ts';
 import type { Lesson, Prompts } from '../lesson/types.ts';
 
 /** Ships inside the app with the shared lines; never zipped or published. */
@@ -10,13 +11,8 @@ export type Catalogue = { packs: Record<string, { lessons: string[] }>; lessonPa
 export type PackLock = Record<string, { version: number; hash: string }>;
 export type BuiltPack = { tutor: string; pack: string; version: number; sha256: string; bytes: number; lessons: string[] };
 export type BuiltModel = { id: string; version: number; sha256: string; bytes: number };
-type ManifestFile = { id: string; version: number; url: string; sha256: string; bytes: number };
-export type PackManifest = {
-  format: 1;
-  published_at: string;
-  model?: ManifestFile;
-  packs: (ManifestFile & { tutor: string; lessons: string[] })[];
-};
+/** The manifest parseManifest reads; the model is optional until publish. */
+export type PackManifest = Omit<Manifest, 'model'> & { model?: ManifestFile };
 
 /** Every line a lesson can speak, as [audio id, text]: `<template_id>.<name>`, `<template_id>.<item id>.<name>`. */
 export function lessonLines(lesson: Pick<Lesson, 'template_id' | 'lines' | 'items'>): [string, string][] {
@@ -53,9 +49,9 @@ export function nextVersions(lock: PackLock, hashes: Record<string, string>): Pa
 
 export const packId = (tutor: string, pack: string) => `${tutor}.${pack}`;
 export const packUrl = (tutor: string, pack: string, version: number) => `packs/${tutor}/${pack}.v${version}.zip`;
-export const modelUrl = (id: string, version: number) => `models/${id}.v${version}.onnx`;
+const modelUrl = (id: string, version: number) => `models/${id}.v${version}.onnx`;
 
-/** The TDD 2.7 manifest. URLs are relative to the manifest (`guru/v1/`). */
+/** The TDD 2.7 manifest. URLs are relative to the manifest's folder. */
 export function buildManifest(packs: BuiltPack[], model?: BuiltModel): PackManifest {
   return {
     format: 1,

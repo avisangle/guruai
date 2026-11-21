@@ -18,7 +18,8 @@ import { parseArgs } from 'node:util';
 
 import { zipSync } from 'fflate';
 
-import { STARTER_PACK, buildManifest, lessonLines, nextVersions, packContents, packId } from '../src/content/packs.ts';
+import { STARTER_PACK, buildManifest, lessonLines, nextVersions, packContents, packId, packUrl } from '../src/content/packs.ts';
+import { MANIFEST_PATH } from '../src/downloads/manifest.ts';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const content = path.join(here, '../../content');
@@ -27,7 +28,9 @@ const dist = path.join(here, '../dist');
 const lockPath = path.join(content, 'packs.lock.json');
 
 const TUTOR = 'shekru';
-const R2_PREFIX = 'guru/v1/';
+// R2 key of the manifest's folder (`guru/v1/`); file urls are relative to it.
+const R2_PREFIX = MANIFEST_PATH.slice(1, MANIFEST_PATH.lastIndexOf('/') + 1);
+const MANIFEST_NAME = MANIFEST_PATH.slice(MANIFEST_PATH.lastIndexOf('/') + 1);
 // Local-time fields, so the zip's DOS timestamps (and its bytes) are the same in every time zone.
 const ZIP_MTIME = new Date(2000, 0, 1);
 
@@ -62,9 +65,10 @@ const contents = Object.entries(packContents(catalogue, lessons, prompts))
   .filter(([pack, ids]) => pack !== STARTER_PACK && ids.length > 0)
   .sort(([a], [b]) => a.localeCompare(b));
 
-const missing = contents.flatMap(([, ids]) => ids.filter((id) => !visemes.clips[TUTOR]?.[id] || !fs.existsSync(mp3(id))));
+const packLines = contents.flatMap(([, ids]) => ids);
+const missing = packLines.filter((id) => !visemes.clips[TUTOR]?.[id] || !fs.existsSync(mp3(id)));
 if (missing.length) die(`no audio for ${missing.length} pack line(s), nothing written:\n  ${missing.join('\n  ')}`);
-const stale = contents.flatMap(([, ids]) => ids.filter((id) => visemes.lines[id] !== text[id]));
+const stale = packLines.filter((id) => visemes.lines[id] !== text[id]);
 if (stale.length) console.warn(`  text changed since the audio was made: ${stale.join(', ')}`);
 
 const zips = contents.map(([pack, ids]) => {
@@ -77,21 +81,21 @@ const zips = contents.map(([pack, ids]) => {
   }
   files['clips.json'] = new TextEncoder().encode(JSON.stringify(clips));
   const zip = zipSync(files, { mtime: ZIP_MTIME });
-  return { pack, zip, sha256: sha256(zip), lessons: catalogue.packs[pack].lessons };
+  return { pack, id: packId(TUTOR, pack), zip, sha256: sha256(zip), lessons: catalogue.packs[pack].lessons };
 });
 
 const lock = fs.existsSync(lockPath) ? readJson(lockPath) : {};
-const next = nextVersions(lock, Object.fromEntries(zips.map((z) => [packId(TUTOR, z.pack), z.sha256])));
+const next = nextVersions(lock, Object.fromEntries(zips.map((z) => [z.id, z.sha256])));
 
-const packsDir = path.join(dist, 'packs', TUTOR);
+// dist mirrors the R2 layout: dist/<manifest url>
 fs.rmSync(path.join(dist, 'packs'), { recursive: true, force: true });
-fs.mkdirSync(packsDir, { recursive: true });
 const built = zips.map((z) => {
-  const { version } = next[packId(TUTOR, z.pack)];
-  const file = path.join(packsDir, `${z.pack}.v${version}.zip`);
+  const { version } = next[z.id];
+  const file = path.join(dist, packUrl(TUTOR, z.pack, version));
+  fs.mkdirSync(path.dirname(file), { recursive: true });
   fs.writeFileSync(file, z.zip);
-  console.log(`  ${packId(TUTOR, z.pack)} v${version}: ${mb(z.zip.length)}`);
-  return { file, entry: { tutor: TUTOR, pack: z.pack, version, sha256: z.sha256, bytes: z.zip.length, lessons: z.lessons } };
+  console.log(`  ${z.id} v${version}: ${mb(z.zip.length)}`);
+  return { tutor: TUTOR, pack: z.pack, version, sha256: z.sha256, bytes: z.zip.length, lessons: z.lessons };
 });
 const sortedLock = Object.fromEntries(Object.entries(next).sort(([a], [b]) => a.localeCompare(b)));
 fs.writeFileSync(lockPath, JSON.stringify(sortedLock, null, 2) + '\n');
@@ -101,8 +105,8 @@ if (opts.model) {
   const bytes = fs.readFileSync(opts.model);
   model = { id: path.basename(opts.model).replace(/\.onnx$/, ''), version: modelVersion, sha256: sha256(bytes), bytes: bytes.length };
 }
-const manifest = buildManifest(built.map((b) => b.entry), model);
-const manifestPath = path.join(dist, 'manifest.json');
+const manifest = buildManifest(built, model);
+const manifestPath = path.join(dist, MANIFEST_NAME);
 fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + '\n');
 console.log(`build:packs: ${built.length} pack(s)${model ? `, model ${model.id} v${model.version}` : ''} -> dist/manifest.json`);
 
@@ -131,12 +135,13 @@ if (opts.publish) {
     }
   };
 
+  // Packs before the model, so a pack conflict stops the run before the model's large download.
   const files = [
+    ...manifest.packs.map((p) => ({ file: path.join(dist, p.url), url: p.url, sha256: p.sha256, type: 'application/zip' })),
     { file: opts.model, url: manifest.model.url, sha256: model.sha256, type: 'application/octet-stream' },
-    ...built.map((b, i) => ({ file: b.file, url: manifest.packs[i].url, sha256: b.entry.sha256, type: 'application/zip' })),
   ];
   // Check every file before putting any, so a conflict stops the publish with nothing changed.
   const fresh = files.filter((f) => !published(f.url, f.sha256));
   for (const f of fresh) put(f.file, f.url, f.type);
-  put(manifestPath, 'manifest.json', 'application/json');
+  put(manifestPath, MANIFEST_NAME, 'application/json');
 }

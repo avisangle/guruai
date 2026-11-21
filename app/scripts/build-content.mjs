@@ -63,7 +63,7 @@ fs.writeFileSync(path.join(out, 'paths.json'), JSON.stringify({ paths, goals, pa
 
 // The lines whose audio ships in the app, by audio id: shared lines and the starter pack.
 const lessonText = Object.fromEntries(lessons.flatMap(lessonLines));
-const starter = packContents({ packs, lessonPack }, lessons, prompts)[STARTER_PACK] ?? [];
+const starter = packContents({ packs, lessonPack }, lessons, prompts)[STARTER_PACK];
 const text = { ...prompts.lines, ...Object.fromEntries(starter.map((id) => [id, lessonText[id]])) };
 
 const visemesPath = path.join(content, 'audio/visemes.json');
