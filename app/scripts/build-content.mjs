@@ -6,14 +6,16 @@
 //   content/lessons/*.json reachable from a path            -> src/content/generated/lessons.json (in path order)
 //   both only after validatePaths and validateContent (src/content/validate.ts) pass
 //   content/prompts/mr.json                                 -> src/content/generated/prompts.json
-//   content/audio/visemes.json (the lessons' ids)           -> src/content/generated/clips.json
-//   content/audio/shekru/<id>.mp3                           -> assets/audio/lesson/<id with _ for .>.mp3
+//   bundled audio: shared lines + the starter pack's lessons (D-GURU-14); other packs: build-packs.mjs
+//   content/audio/visemes.json (the bundled ids)            -> src/content/generated/clips.json
+//   content/audio/shekru/<id>.mp3 (the bundled ids)         -> assets/audio/lesson/<id with _ for .>.mp3
 //   static require() map (Metro cannot require by variable) -> src/content/generated/audio.ts
 //   listening chime                                         -> assets/audio/chime.wav
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { STARTER_PACK, lessonLines, packContents } from '../src/content/packs.ts';
 import { packsByLesson, reachableLessons, validateContent, validatePaths } from '../src/content/validate.ts';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -59,14 +61,10 @@ fs.writeFileSync(path.join(out, 'lessons.json'), JSON.stringify(lessons) + '\n')
 fs.writeFileSync(path.join(out, 'prompts.json'), JSON.stringify(prompts) + '\n');
 fs.writeFileSync(path.join(out, 'paths.json'), JSON.stringify({ paths, goals, packs, lessonPack }) + '\n');
 
-// Every line the lessons can speak, by audio id.
-const text = { ...prompts.lines };
-for (const lesson of lessons) {
-  for (const [name, line] of Object.entries(lesson.lines)) text[`${lesson.template_id}.${name}`] = line;
-  for (const item of lesson.items) {
-    for (const [name, line] of Object.entries(item.lines)) text[`${lesson.template_id}.${item.id}.${name}`] = line;
-  }
-}
+// The lines whose audio ships in the app, by audio id: shared lines and the starter pack.
+const lessonText = Object.fromEntries(lessons.flatMap(lessonLines));
+const starter = packContents({ packs, lessonPack }, lessons, prompts)[STARTER_PACK] ?? [];
+const text = { ...prompts.lines, ...Object.fromEntries(starter.map((id) => [id, lessonText[id]])) };
 
 const visemesPath = path.join(content, 'audio/visemes.json');
 const visemes = fs.existsSync(visemesPath) ? readJson(visemesPath) : { lines: {}, clips: {} };
@@ -74,6 +72,7 @@ const clips = {};
 const requires = [];
 const missing = [];
 const stale = [];
+let bundledBytes = 0;
 for (const id of Object.keys(text)) {
   const clip = visemes.clips[TUTOR]?.[id];
   const mp3 = path.join(content, 'audio', TUTOR, `${id}.mp3`);
@@ -82,6 +81,7 @@ for (const id of Object.keys(text)) {
   // Android resource names keep only [a-z0-9_]
   const file = `${id.replaceAll('.', '_')}.mp3`;
   fs.copyFileSync(mp3, path.join(audioOut, file));
+  bundledBytes += fs.statSync(mp3).size;
   clips[id] = { duration: clip.duration, events: clip.events };
   requires.push(`  '${id}': require('../../../assets/audio/lesson/${file}'),`);
 }
@@ -115,7 +115,8 @@ wav.write('data', 36); wav.writeUInt32LE(samples.length * 2, 40);
 samples.forEach((s, i) => wav.writeInt16LE(Math.round(Math.max(-1, Math.min(1, s)) * 32767), 44 + i * 2));
 fs.writeFileSync(path.join(here, '../assets/audio/chime.wav'), wav);
 
-console.log(`content: ${lessons.map((l) => l.template_id).join(', ')}, ${Object.keys(clips).length}/${Object.keys(text).length} voice lines`);
+console.log(`content: ${lessons.map((l) => l.template_id).join(', ')}, ${Object.keys(clips).length}/${Object.keys(text).length} voice lines bundled`);
+console.log(`  bundled audio (shared lines + ${STARTER_PACK} pack): ${(bundledBytes / 1e6).toFixed(2)} MB`);
 if (stale.length) console.warn(`  text changed since the audio was made: ${stale.join(', ')}`);
 if (missing.length) {
   console.warn(`  no audio yet (the app shows these lines silently): ${missing.join(', ')}`);
