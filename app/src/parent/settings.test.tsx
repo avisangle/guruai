@@ -194,6 +194,13 @@ jest.mock('../downloads/downloader', () => ({
   subscribeDownloads: jest.fn(() => () => undefined),
 }));
 
+// GURU-38: the live upload queue. virtual: the module does not exist until /implement.
+jest.mock(
+  '../upload/uploadQueue',
+  () => ({ requestDeletion: jest.fn(async () => undefined), consentChanged: jest.fn() }),
+  { virtual: true },
+);
+
 jest.mock('expo-font', () => ({ useFonts: () => [true, null], isLoaded: () => true, loadAsync: async () => undefined }));
 jest.mock('expo-splash-screen', () => ({
   preventAutoHideAsync: jest.fn(async () => true),
@@ -207,6 +214,7 @@ jest.mock('react-native-safe-area-context', () => require('react-native-safe-are
 /* eslint-disable @typescript-eslint/no-require-imports */
 const micRequest = () => require('expo-audio').requestRecordingPermissionsAsync as jest.Mock;
 const rerun = () => require('../asr/speedCheck').rerunSpeedCheck as jest.Mock;
+const liveUploads = () => require('../upload/uploadQueue') as { requestDeletion: jest.Mock; consentChanged: jest.Mock };
 
 // Route files load lazily, so a missing one fails its own test with "Cannot find module".
 const ChildPickerStub = () => h(Text, null, 'child-picker');
@@ -416,6 +424,47 @@ describe('GURU-36 Settings', () => {
     await settle();
     expect(gateMode()).toBe('pin');
     expect(mockSecure.has(PIN_KEY)).toBe(true);
+  });
+});
+
+// GURU-38 (wireframe pm-settings, decision 15): testID settings-delete-sent; the live queue's
+// requestDeletion() and consentChanged() from src/upload/uploadQueue.ts.
+describe('GURU-38 Settings: deletion request and consent withdrawal', () => {
+  test('"Ask to delete sent recordings" shows the device code and sends requestDeletion(), also after consent is off; a consent change tells the live queue at once', async () => {
+    addChild('Chinu', 'peacock');
+    answerConsent(db, { clips: true, summaries: true });
+    await openSettings();
+    const deviceId = getDevice(db).device_id;
+
+    // Marathi by default.
+    const row = await screen.findByTestId('settings-delete-sent');
+    expect(row).toHaveTextContent(/पाठवलेली रेकॉर्डिंग पुसायला सांगा/);
+    expect(row).toHaveTextContent(new RegExp(deviceId));
+
+    // Withdrawal reaches the queue, so an upload in flight is aborted rather than finished. The queue
+    // reads the flags, so they must be written before it is told.
+    const seen: [boolean | null, boolean | null][] = [];
+    liveUploads().consentChanged.mockImplementation(() => {
+      const d = getDevice(db);
+      seen.push([d.consent_clips, d.consent_summaries]);
+    });
+    toggle('settings-consent-clips', false);
+    await waitFor(() => expect(liveUploads().consentChanged).toHaveBeenCalledTimes(1));
+    toggle('settings-consent-summaries', false);
+    await waitFor(() => expect(liveUploads().consentChanged).toHaveBeenCalledTimes(2));
+    expect(seen).toEqual([
+      [false, true],
+      [false, false],
+    ]);
+
+    // Deleting what was already sent is still possible with both consents off.
+    expect(liveUploads().requestDeletion).not.toHaveBeenCalled();
+    fireEvent.press(screen.getByTestId('settings-delete-sent'));
+    await waitFor(() => expect(liveUploads().requestDeletion).toHaveBeenCalledTimes(1));
+
+    // English string too.
+    fireEvent.press(screen.getByTestId('settings-lang-en'));
+    await waitFor(() => expect(screen.getByTestId('settings-delete-sent')).toHaveTextContent(/Ask to delete sent recordings/));
   });
 });
 

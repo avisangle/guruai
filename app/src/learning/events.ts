@@ -26,8 +26,11 @@ export type AnswerEvent = {
 /** Where and when an event happened. `at` is an ISO timestamp. */
 export type EventContext = { childId: string; sessionId: string; at: string };
 
-/** What the session layer adds to each answer. */
-export type AnswerContext = EventContext & { ms?: number; margin?: number };
+/** What the session layer adds to each answer; `clip` is the kept take's file name (GURU-38). */
+export type AnswerContext = EventContext & { ms?: number; margin?: number; clip?: string };
+
+/** The stored payload of an `answer` event. */
+export type AnswerPayload = AnswerEvent & { ms?: number; margin?: number; clip?: string; revision_interval_days?: number };
 
 /** A stored `event` row. */
 export type EventRow = {
@@ -52,13 +55,18 @@ export function appendEvent(
   );
 }
 
-/** Appends the answer event and applies it to item_mastery, atomically. */
+/**
+ * Appends the answer event and applies it to item_mastery, atomically. A revision answer also
+ * stores the interval that came due (`revision_interval_days`, TDD 2.9), read before this answer moves it.
+ */
 export function recordAnswer(db: Db, ctx: AnswerContext, event: AnswerEvent): void {
   db.transaction(() => {
     const stamp = now();
-    appendEvent(db, ctx, 'answer', { ...event, ms: ctx.ms, margin: ctx.margin }, stamp);
-
     const current = getMastery(db, ctx.childId, event.item_key, event.target_lang);
+    const revision_interval_days = event.phase === 'revision' ? current?.interval_days : undefined;
+    const payload: AnswerPayload = { ...event, ms: ctx.ms, margin: ctx.margin, clip: ctx.clip, revision_interval_days };
+    appendEvent(db, ctx, 'answer', payload, stamp);
+
     const next = applyAnswer(current, event, localDay(ctx.at));
     if (next && next !== current) saveMastery(db, { ...next, child_id: ctx.childId }, stamp);
   });

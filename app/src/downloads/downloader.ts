@@ -10,7 +10,7 @@ import { installPack, LESSONS_FILE, packLessons, sha256File, type FsPort, type H
 import { fileUrl, manifestUrl, parseManifest, type Manifest, type ManifestFile } from './manifest';
 import { storagePlan, type StoragePlan } from './plan';
 
-type NetState = { type?: string; isConnected?: boolean | null };
+export type NetState = { type?: string; isConnected?: boolean | null };
 
 export type FetchResponse = {
   ok: boolean;
@@ -75,8 +75,11 @@ type Job = ManifestFile & { kind: 'model' | 'pack'; dest: string; lessons: strin
 const MAX_REDOWNLOADS = 3;
 /** pack_install.bytes_done is written at most once per this many bytes. */
 const PROGRESS_STEP = 1_000_000;
-const backoff = (attempt: number) => Math.min(60_000, 2_000 * 2 ** attempt);
+/** Retry delay after a failure: 2 s doubling, at most 60 s. Uploads share it. */
+export const backoff = (attempt: number) => Math.min(60_000, 2_000 * 2 ** attempt);
 const UNMETERED = new Set(['WIFI', 'ETHERNET']);
+/** Connected on Wi-Fi or Ethernet. */
+export const onUnmetered = (s: NetState) => !!s.isConnected && UNMETERED.has(s.type ?? '');
 
 export function createDownloader(deps: DownloaderDeps) {
   const { db, fs, clock, paths } = deps;
@@ -121,7 +124,7 @@ export function createDownloader(deps: DownloaderDeps) {
 
   const allowMobileData = () => getDevice(db).allow_mobile_data;
 
-  const usable = (s: NetState) => !!s.isConnected && (UNMETERED.has(s.type ?? '') || allowMobileData());
+  const usable = (s: NetState) => onUnmetered(s) || (!!s.isConnected && allowMobileData());
 
   function setWaiting(v: boolean) {
     if (waitingForWifi === v) return;
