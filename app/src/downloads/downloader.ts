@@ -350,7 +350,9 @@ export function createDownloader(deps: DownloaderDeps) {
   async function queuePacks(packIds: string[]): Promise<void> {
     kick();
     if (!packIds.length) return pump();
-    return enqueue(packJobs(await manifest(), packIds));
+    const m = await manifest();
+    // The model id is accepted too: a storage choice (needs_choice.fits) can include it.
+    return enqueue([...(packIds.includes(m.model.id) ? [modelJob(m)] : []), ...packJobs(m, packIds)]);
   }
 
   const queueChildPacks = (child: ChildProfile) => queuePacks(deps.content.packsForChild(child));

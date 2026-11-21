@@ -3,7 +3,7 @@
 import { router, useFocusEffect } from 'expo-router';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
-import { Linking, Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
+import { Linking, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { judgeReadiness, rerunSpeedCheck, type JudgeReadiness } from '../../asr/speedCheck';
 import { answerConsent, getDevice } from '../../data/device';
@@ -20,6 +20,7 @@ import { useParentMode } from '../../parent/ParentModeProvider';
 import { isValidPin, PIN_LENGTH, pinDigits } from '../../parent/pin';
 import { PinSetup } from '../../parent/PinSetup';
 import { classLabel, STYLE_LABEL } from '../../parent/ProfileForm';
+import { StatusRow, SwitchRow } from '../../parent/rows';
 import { consentChanged, requestDeletion } from '../../upload/uploadQueue';
 import { Button } from '../../ui/components/Button';
 import { Choice } from '../../ui/components/Choice';
@@ -289,10 +290,14 @@ function ParentLockSection() {
   );
 }
 
-/** Its own component: download progress re-renders this row only. */
+/** Its own component: download progress re-renders this row only. Opens the downloads screen. */
 function DownloadsRow() {
   const { t } = useT();
-  return <StatusRow testID="settings-downloads" label={t('downloadsLabel')} value={t(...downloadsText(useDownloads()))} />;
+  return (
+    <Pressable testID="settings-downloads" accessibilityRole="link" onPress={() => router.push('/parent/downloads')}>
+      <StatusRow label={t('downloadsLabel')} value={t(...downloadsText(useDownloads()))} />
+    </Pressable>
+  );
 }
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
@@ -301,42 +306,6 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
       <Text variant="section">{title}</Text>
       <View style={styles.card}>{children}</View>
     </View>
-  );
-}
-
-type StatusProps = { testID: string; label: string; value: string; children?: ReactNode };
-
-/** A label and its status; no switch. */
-function StatusRow({ testID, label, value, children }: StatusProps) {
-  return (
-    <View testID={testID} style={styles.line}>
-      <View style={styles.grow}>
-        <Text variant="label">{label}</Text>
-        <Text variant="helper">{value}</Text>
-      </View>
-      {children}
-    </View>
-  );
-}
-
-type SwitchProps = { testID: string; label: string; value: boolean; onChange: (on: boolean) => void };
-
-/** The whole row toggles; not accessible itself, so TalkBack still reaches the switch. */
-function SwitchRow({ testID, label, value, onChange }: SwitchProps) {
-  return (
-    <Pressable accessible={false} onPress={() => onChange(!value)} style={styles.line}>
-      <Text variant="label" style={styles.grow}>
-        {label}
-      </Text>
-      <Switch
-        testID={testID}
-        accessibilityLabel={label}
-        value={value}
-        onValueChange={onChange}
-        trackColor={{ false: color.parent.border, true: color.parent.accent }}
-        thumbColor={color.parent.surface}
-      />
-    </Pressable>
   );
 }
 

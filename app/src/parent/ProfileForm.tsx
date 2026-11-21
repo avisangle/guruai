@@ -191,7 +191,7 @@ function Group({ label, children }: { label: string; children: ReactNode }) {
 type TickProps = { label: string; help?: string; checked: boolean; onPress: () => void; testID: string };
 
 /** A tick box: the tick and a thicker edge show the choice, not colour alone. */
-function TickBox({ label, help, checked, onPress, testID }: TickProps) {
+export function TickBox({ label, help, checked, onPress, testID }: TickProps) {
   return (
     <Pressable
       testID={testID}

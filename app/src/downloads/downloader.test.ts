@@ -584,6 +584,12 @@ describe('downloader', () => {
     await until(() => modelInstalled(roomy), 'model installed with exactly enough space');
   });
 
+  it('queuePacks takes the model id too, so a storage choice that includes the model downloads it (GURU-31)', async () => {
+    const r = rig();
+    run(r.dl.queuePacks(['mr_ctc_wav.int8']));
+    await until(() => modelInstalled(r), 'model installed through queuePacks');
+  });
+
   it('installs packs under packs/<pack id>/v<version>/; isLessonInstalled covers bundled and installed packs, offline after restart too', async () => {
     const child = { id: 'c1', tutor: 'shekru', class: 'jr_kg', goals: ['kg-en-letters'] } as unknown as ChildProfile;
     const packsForChild = jest.fn(() => ['shekru.kg-en-letters']);

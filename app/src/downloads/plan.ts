@@ -3,6 +3,9 @@
 /** Kept free for the OS and the child's recordings; decimal bytes, like the manifest sizes. */
 export const RESERVE_BYTES = 200_000_000;
 
+/** Decimal megabytes, like the manifest sizes. */
+export const toMb = (bytes: number) => Math.round(bytes / 1_000_000);
+
 export type PlanFile = { id: string; bytes: number };
 
 export type StoragePlan =
