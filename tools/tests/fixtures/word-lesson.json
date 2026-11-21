@@ -1,0 +1,115 @@
+{
+  "template_id": "tpl_test_en_words_1",
+  "title": "इंग्रजी शब्द: फळं",
+  "pack": "test",
+  "classes": ["UKG"],
+  "learning_language": "en-IN",
+  "status": "pilot",
+  "version": 1,
+  "lines": {
+    "intro": "नमस्कार! आज आपण फळांची इंग्लिश नावं शिकूया.",
+    "quiz_intro": "आता एक खेळ! चित्र बघ आणि इंग्लिशमध्ये नाव सांग.",
+    "outro": "आजचा अभ्यास संपला! आज आपण ॲपल आणि बनाना शिकलो. उद्या भेटूया!"
+  },
+  "captions": {
+    "outro": "आजचा अभ्यास संपला! आज आपण Apple आणि Banana शिकलो. उद्या भेटूया!"
+  },
+  "flow": [
+    { "play": "intro", "state": "hello" },
+    { "phase": "teach", "order": ["apple", "banana", "b"] },
+    { "play": "quiz_intro", "state": "talking" },
+    { "phase": "quiz", "order": ["banana", "b", "apple"] },
+    { "phase": "retry" },
+    { "play": "outro", "state": "bye" }
+  ],
+  "items": [
+    {
+      "id": "apple",
+      "item_key": "en:word:apple",
+      "display": "Apple",
+      "kind": "word",
+      "target_lang": "en",
+      "ask_direction": "picture_to_target",
+      "anchor": { "word": "ॲपल", "picture": "apple" },
+      "assessment": {
+        "mode": "say_word",
+        "expected": ["ॲपल"],
+        "accepted_variants": [],
+        "langs": { "सफरचंद": ["mr"], "सेब": ["hi"] }
+      },
+      "lines": {
+        "teach_mr_led": "हे बघ, सफरचंद! इंग्लिशमध्ये याला ॲपल म्हणतात. ॲपल!",
+        "teach_en_led": "लुक, ॲन ॲपल! इट इज रेड. ॲपल म्हणजे सफरचंद.",
+        "ask": "हे काय आहे? इंग्लिशमध्ये?",
+        "hint": "हे सफरचंद आहे. इंग्लिशमध्ये ॲपल!",
+        "correct": "ॲपल!",
+        "ack_meaning": "हो, सफरचंद! इंग्लिशमध्ये?",
+        "model_mr": "सफरचंद",
+        "react_1": "लाल लाल, गोड गोड सफरचंद!",
+        "react_2": "कुडुम कुडुम! मला पण द्या!"
+      },
+      "captions": {
+        "teach_mr_led": "हे बघ, सफरचंद! इंग्लिशमध्ये याला Apple म्हणतात. Apple!",
+        "teach_en_led": "Look, an apple! It is red. Apple म्हणजे सफरचंद.",
+        "hint": "हे सफरचंद आहे. इंग्लिशमध्ये Apple!",
+        "correct": "Apple!"
+      }
+    },
+    {
+      "id": "banana",
+      "item_key": "en:word:banana",
+      "display": "Banana",
+      "kind": "word",
+      "target_lang": "en",
+      "ask_direction": "word_to_meaning",
+      "anchor": { "word": "बनाना", "picture": "banana" },
+      "assessment": {
+        "mode": "say_word",
+        "expected": ["बनाना"],
+        "accepted_variants": [],
+        "langs": { "केळं": ["mr"], "केला": ["hi"] }
+      },
+      "lines": {
+        "teach_mr_led": "हे बघ, केळं! इंग्लिशमध्ये याला बनाना म्हणतात. बनाना!",
+        "teach_en_led": "लुक, अ बनाना! इट इज यलो. बनाना म्हणजे केळं.",
+        "ask": "बनाना म्हणजे काय?",
+        "hint": "हे पिवळं फळ आहे, केळं. इंग्लिशमध्ये बनाना!",
+        "correct": "बनाना!",
+        "ack_meaning": "हो, केळं! इंग्लिशमध्ये?",
+        "model_mr": "केळं",
+        "react_1": "पिवळं पिवळं केळं, माकडाला आवडतं!"
+      },
+      "captions": {
+        "teach_mr_led": "हे बघ, केळं! इंग्लिशमध्ये याला Banana म्हणतात. Banana!",
+        "teach_en_led": "Look, a banana! It is yellow. Banana म्हणजे केळं.",
+        "ask": "Banana म्हणजे काय?",
+        "hint": "हे पिवळं फळ आहे, केळं. इंग्लिशमध्ये Banana!",
+        "correct": "Banana!"
+      }
+    },
+    {
+      "id": "b",
+      "item_key": "en:letter:B",
+      "display": "B",
+      "kind": "letter",
+      "target_lang": "en",
+      "anchor": { "word": "बॉल", "picture": "ball" },
+      "assessment": {
+        "mode": "say_word",
+        "expected": ["बी"],
+        "accepted_variants": ["बी फॉर बॉल", "बी फोर बॉल", "बॉल"]
+      },
+      "lines": {
+        "teach": "हे बघ, बी. बी फॉर बॉल! आता तू म्हण!",
+        "hint": "हे अक्षर बॉलचं आहे. बॉल! आता तू सांग!",
+        "correct": "बी फॉर बॉल!",
+        "react_1": "टप टप टप, बॉल उड्या मारतोय!"
+      },
+      "captions": {
+        "teach": "हे बघ, B. B for Ball! आता तू म्हण!",
+        "hint": "हे अक्षर Ballचं आहे. Ball! आता तू सांग!",
+        "correct": "B for Ball!"
+      }
+    }
+  ]
+}
