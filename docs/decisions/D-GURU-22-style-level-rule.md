@@ -14,6 +14,6 @@
 - Using `counts` to filter answers: it drops gated word misses, so the rate could only go up while `WORD_ITEMS_GATED` is on.
 
 **Impact:**
-- `startSession` calls `applyStyleLevelAtSessionStart` before it inserts the new session and outside its transaction (device transactions do not nest). Do not move the call inside the transaction.
+- `startSession` calls `applyStyleLevelAtSessionStart` before its own transaction, because live `Db.transaction` does not nest (tests nest through savepoints, so they would not catch it). Keep it outside until the live adapter nests.
 - Each change appends a `style_change` event `{ from, to }` with a null `session_id`; nothing else writes `child_profile.style_level` except the parent's settings.
 - Tune the thresholds only in `config.ts`.

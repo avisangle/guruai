@@ -6,7 +6,7 @@ import { STYLE_DOWN_RATE, STYLE_MIN_ANSWERS, STYLE_UP_RATE, STYLE_WINDOW_SESSION
 import { appendEvent, type AnswerEvent } from './events';
 
 /** A stored answer event with the session it belongs to. */
-export type StoredAnswer = AnswerEvent & { session_id: string | null; at: string };
+export type StoredAnswer = AnswerEvent & { session_id: string | null };
 
 const COUNTED_PHASES: readonly AnswerEvent['phase'][] = ['quiz', 'retry', 'revision'];
 
@@ -43,14 +43,14 @@ export function applyStyleLevelAtSessionStart(db: Db, childId: string): StyleLev
   if (child.style_locked) return child.style_level;
 
   const events = db
-    .all<{ session_id: string | null; at: string; payload: string }>(
-      `SELECT session_id, at, payload FROM event WHERE child_id = ? AND type = 'answer' ORDER BY at, rowid`,
+    .all<{ session_id: string | null; payload: string }>(
+      `SELECT session_id, payload FROM event WHERE child_id = ? AND type = 'answer' ORDER BY at, rowid`,
       [childId],
     )
-    .map((r): StoredAnswer => ({ ...JSON.parse(r.payload), session_id: r.session_id, at: r.at }));
+    .map((r): StoredAnswer => ({ ...JSON.parse(r.payload), session_id: r.session_id }));
 
   const from = child.style_level;
-  const to = nextStyleLevel(events, from, false);
+  const to = nextStyleLevel(events, from, false); // lock already handled above, before the query
   if (to !== from) {
     db.transaction(() => {
       const stamp = now();

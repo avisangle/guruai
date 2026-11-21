@@ -41,7 +41,7 @@ export type EventRow = {
 /** Appends one `event` row; `stamp` is the write time. A null session is an event outside any sitting. */
 export function appendEvent(
   db: Db,
-  ctx: Omit<EventContext, 'sessionId'> & { sessionId: string | null },
+  ctx: { childId: string; sessionId: string | null; at: string },
   type: string,
   payload: object,
   stamp = now(),

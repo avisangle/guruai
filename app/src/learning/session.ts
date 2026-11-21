@@ -14,7 +14,7 @@ export type SessionEnd = { at: string; activeMs: number; parentHelps: boolean };
 
 /** Opens a session for the child at `at` (ISO) and returns its id; the style level is settled first. */
 export function startSession(db: Db, childId: string, at: string): string {
-  // Before the insert, so the new empty session is not judged; outside the transaction, which does not nest on device.
+  // Outside the transaction below: live Db transactions do not nest (bug.md).
   applyStyleLevelAtSessionStart(db, childId);
   const id = randomUUID();
   db.transaction(() => {
