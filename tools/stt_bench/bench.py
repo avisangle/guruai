@@ -29,7 +29,9 @@ from providers import ALL, BY_NAME  # noqa: E402
 from providers.base import Lesson  # noqa: E402
 
 PAIRS = {"इ/ई": {"i", "ii"}, "उ/ऊ": {"u", "uu"}}
-COLUMNS = ["clip", "child", "item", "kind", "label", "provider", "output", "verdict", "latency_ms", "error",
+# Word items stay practice-only until a tap-mode test passes both (PRD Language design 9).
+WORD_ACCEPT_MIN, WORD_FALSE_PRAISE_MAX = 80, 5  # percent
+COLUMNS = ["clip", "child", "item", "kind", "label", "provider", "output", "verdict", "heard", "latency_ms", "error",
            "normalised", "cost", "note", "transcript", "scores"]
 
 
@@ -59,12 +61,15 @@ def lessons_for(clips):
     for p in sorted((ROOT / "content" / "lessons").glob("*.json")):
         les = json.loads(p.read_text())
         out[les["template_id"]] = Lesson(les["template_id"], {
-            it["id"]: {"display": it["display"], "expected": it["assessment"]["expected"],
+            it["id"]: {"display": it["display"], "target_lang": it.get("target_lang"),
+                       "expected": it["assessment"]["expected"],
                        "accepted_variants": it["assessment"]["accepted_variants"],
-                       "also_correct": it["assessment"].get("also_correct", [])} for it in les["items"]})
-    for c in clips:
+                       "also_correct": it["assessment"].get("also_correct", []),
+                       "langs": it["assessment"].get("langs", {})} for it in les["items"]})
+    for c in clips:  # item_key: <lang>:<kind>:<display>
         les = out.setdefault(c["template_id"], Lesson(c["template_id"]))
-        les.items.setdefault(c["item_id"], {k: c[k] for k in ("display", "expected", "accepted_variants")})
+        les.items.setdefault(c["item_id"], {"target_lang": c.get("item_key", "").split(":")[0] or None,
+                                            **{k: c[k] for k in ("display", "expected", "accepted_variants")}})
     return out
 
 
@@ -92,7 +97,7 @@ def run_provider(prov, clips, folder, lessons, cache):
     for n, c in enumerate(clips, 1):
         src = folder / c["file"]
         row = {"clip": c["id"], "child": c["child"], "item": c["item_id"], "kind": c["kind"], "label": c["label"],
-               "provider": prov.name, "output": "", "verdict": "", "latency_ms": "", "error": "",
+               "provider": prov.name, "output": "", "verdict": "", "heard": "", "latency_ms": "", "error": "",
                "normalised": "", "cost": "", "note": "", "transcript": "", "scores": "", "_dur": duration_s(c, src)}
         try:
             audio = converted(src, prov.audio, cache)
@@ -105,7 +110,12 @@ def run_provider(prov, clips, folder, lessons, cache):
                 row["scores"] = json.dumps({k: round(v, 3) for k, v in ranked}, ensure_ascii=False)
             row["normalised"] = evaluator.normalise(out.text) if not out.closed else out.text
             item = lessons[c["template_id"]].items[c["item_id"]]  # judged by the current lesson's rules
-            row["verdict"] = evaluator.evaluate_choice(item, out.text, out.unsure) if out.closed else evaluator.evaluate(item, out.text)
+            if out.closed:  # scorers that report no candidate text: the choice itself stands for it
+                text = out.matched or (None if out.text in (evaluator.OTHER, evaluator.NOTHING) else out.text)
+                heard = evaluator.classify(item, out.text, text, out.unsure)
+            else:  # a transcript: only an answer said as itself counts (no judge choice credits a sound swap)
+                heard = evaluator.classify(item, evaluator.OTHER if row["normalised"] else evaluator.NOTHING, out.text)
+            row["heard"], row["verdict"] = heard["kind"], evaluator.VERDICT[heard["kind"]]
             cost = out.cost if out.cost is not None else pricing.by_duration(prov.pricing or prov.name, row["_dur"])
             row["cost"] = "" if cost is None else f"{cost:.8f}"
         except Exception as e:  # one failed clip must not stop the run
@@ -174,6 +184,19 @@ def judge_labelled(clips):
     return sum(c.get("label_by") == "judge" for c in clips)
 
 
+def word_test(rows, word_clips):
+    """(accepted, false praise) as (k, n) over the given clips without a provider error: labelled correct
+    and judged correct (a meaning included), labelled wrong or silent and judged correct."""
+    ok = [r for r in rows if r["clip"] in word_clips and not r["error"]]
+    right = [r for r in ok if r["label"] == "correct"]
+    rest = [r for r in ok if r["label"] != "correct"]
+    return (sum(r["verdict"] == "correct" for r in right), len(right)), (sum(r["verdict"] == "correct" for r in rest), len(rest))
+
+
+def gate(k, n, met):
+    return f"{frac(k, n)} {'pass' if met else 'fail'}" if n else "n/a"
+
+
 def summary(manifest, src, by_prov, skipped, provs, lessons):
     clips = manifest["clips"]
     labels = defaultdict(int)
@@ -205,7 +228,19 @@ def summary(manifest, src, by_prov, skipped, provs, lessons):
                  f"{frac(*m['इ/ई']['agree'])} | {frac(*m['उ/ऊ']['agree'])} | {lat} | "
                  f"{money(m['session_cost'], cur)} | {m['errors']}/{m['n']} |")
     L += ["", "False accepts are the worst error: the child hears praise for a wrong answer.", "",
-          "## Length pairs", "", "| Provider | इ/ई false accept | इ/ई false reject | उ/ऊ false accept | उ/ऊ false reject |",
+          "## Word-item judge test", "",
+          f"Word items stay practice-only (`WORD_ITEMS_GATED`, D-GURU-12-word-items-practice-only) until at least "
+          f"{WORD_ACCEPT_MIN}% of correct answers are accepted and at most {WORD_FALSE_PRAISE_MAX}% of wrong or silent "
+          "answers are judged correct (PRD Language design 9). Counted over tap-labelled clips of word items "
+          "(no `label_by`) without a provider error; a meaning counts as accepted.", "",
+          f"| Provider | Correct answers accepted (at least {WORD_ACCEPT_MIN}%) | "
+          f"False praise (said wrong or nothing, judged correct; at most {WORD_FALSE_PRAISE_MAX}%) |", "|---|---|---|"]
+    words = {c["id"] for c in clips if not c.get("label_by") and c.get("item_key", "").split(":")[1:2] == ["word"]}
+    for name in ms:
+        (ak, an), (fk, fn) = word_test(by_prov[name], words)
+        L.append(f"| {name} | {gate(ak, an, 100 * ak >= WORD_ACCEPT_MIN * an)} | "
+                 f"{gate(fk, fn, 100 * fk <= WORD_FALSE_PRAISE_MAX * fn)} |")
+    L += ["", "## Length pairs", "", "| Provider | इ/ई false accept | इ/ई false reject | उ/ऊ false accept | उ/ऊ false reject |",
           "|---|---|---|---|---|"]
     for name, m in ms.items():
         L.append(f"| {name} | {frac(*m['इ/ई']['fa'])} | {frac(*m['इ/ई']['fr'])} | "

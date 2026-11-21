@@ -23,7 +23,7 @@ python tools/stt_bench/bench.py export/ --providers gemini_closed,whisper_local_
 | `--out DIR` | results root (default `tools/stt_bench/results/`) |
 
 Output goes to `results/<YYYYMMDD-HHMMSS>/`:
-- `clips.csv`: one row per clip and provider: `clip, child, item, kind, label, provider, output` (transcript or closed-set choice), `verdict, latency_ms, error`, then `normalised` (the transcript after the rules below), `cost` (in the provider's pricing currency), `note` (provider detail, such as Whisper's scores or Gemini's token counts), and for closed-set scorers `transcript` (their free decode, if any) and `scores` (every candidate answer's score as JSON, best first).
+- `clips.csv`: one row per clip and provider: `clip, child, item, kind, label, provider, output` (transcript or closed-set choice), `verdict, heard` (the app's classification, see [How verdicts are computed](#how-verdicts-are-computed)), `latency_ms, error`, then `normalised` (the transcript after the rules below), `cost` (in the provider's pricing currency), `note` (provider detail, such as Whisper's scores or Gemini's token counts), and for closed-set scorers `transcript` (their free decode, if any) and `scores` (every candidate answer's score as JSON, best first).
 - `summary.md`: the tables described under [Reading the summary](#reading-the-summary).
 
 Extracted and converted audio lives in a temporary folder that is deleted when the run ends. Nothing is cached between runs.
@@ -71,7 +71,7 @@ NeMo is not installed. `providers/indicconformer.py` rebuilds the CTC path in pl
 3. **Free decode as a lesson answer**: if the greedy CTC decode, normalised (`evaluator.normalise`), equals a candidate, or a candidate said 2 or 3 times in a row, that candidate is chosen.
 4. **Something else**: otherwise, if the greedy decode's log-likelihood beats the best candidate's by more than 3.0 nats per token of that candidate (`OTHER_MARGIN_PER_TOKEN`, [D-STT-other-margin](../../docs/decisions/D-STT-other-margin.md)), the choice is `other`, or `nothing` when the greedy decode is empty (the model heard no tokens). The best candidate is also scored said 2 and 3 times in a row (`REPEATS`, `STT_BENCH_IC_REPEATS=1` turns it off), and the smallest margin per token of the three counts; repeats never change which candidate is best ([D-STT-repeated-answers](../../docs/decisions/D-STT-repeated-answers.md)).
 5. **Letter for any word**: when step 4 says `other` and the greedy decode holds "फॉर", "फोर" or "फर" after its first word, each letter name with a "<name> फॉर <word>" answer is scored followed by the decode's own tail from "for" on; the best wins if its margin per token of the name is within 3.0 (`STT_BENCH_IC_ANY_WORD=0` turns it off, [D-STT-letter-for-any-word](../../docs/decisions/D-STT-letter-for-any-word.md)).
-6. **Unsure**: if the greedy decode scores below -10 nats per token (`UNSURE_PER_TOKEN`, `STT_BENCH_IC_UNSURE=-inf` turns it off), the judgement is marked unsure and `evaluate_choice` turns a wrong verdict into unclear; a correct one stays correct ([D-STT-unsure-not-wrong](../../docs/decisions/D-STT-unsure-not-wrong.md)).
+6. **Unsure**: if the greedy decode scores below -10 nats per token (`UNSURE_PER_TOKEN`, `STT_BENCH_IC_UNSURE=-inf` turns it off), the judgement is marked unsure and `evaluator.classify` turns anything but correct into silent (verdict unclear); a correct one stays correct ([D-STT-unsure-not-wrong](../../docs/decisions/D-STT-unsure-not-wrong.md)).
 7. **Vowel length** (opt-in, `STT_BENCH_IC_LENGTH=1`): when the choice is a bare इ/ई or उ/ऊ and its pair partner scores within 2 nats, the time the clip sounds within 25 dB of its loudest frame decides: 0.40 s or more is the long vowel. On the synthetic fixture it changed no choice, and the adult voice's durations did not separate the pairs, so it stays off until real children's clips can set the threshold.
 
 `indicconformer` (open) has no sound check: it shows what the model alone does, including on silence.
@@ -93,7 +93,8 @@ A closed-set scorer judges a clip against the lesson's known answers instead of 
 1. Create `providers/<name>.py` with a subclass of `ClosedScorer` (`providers/base.py`). Set `name`, `external` (`False` if audio stays on this machine; external ones need `--allow-external`), `audio` (`"wav16k"` or `"original"`) and `pricing` (a key in `pricing.py`; add one if needed). Implement `missing()` (why it can't run, or `None`), `prepare()` (load the model before timing starts) and:
    ```python
    def judge(self, path, item, candidates) -> Judgement:
-       # candidates: every Candidate(item_id, display, text) of the lesson: each letter, letter + word, word
+       # candidates: every Candidate(item_id, display, text) of the lesson: each letter, letter + word, word;
+       #   on a quiz clip without the answers that are whole words of its prompt (see How verdicts are computed)
        # return Judgement(choice, scores, transcript, note)
        #   choice: one of the candidates, evaluator.OTHER or evaluator.NOTHING
        #   scores: {candidate.text: score}, higher is more likely (written to the CSV)
@@ -102,11 +103,11 @@ A closed-set scorer judges a clip against the lesson's known answers instead of 
    `item` is the asked item, for diagnostics only. The choice must not lean towards it: the scorer always weighs the whole lesson (see Providers above).
 2. Add the class to `ALL` in `providers/__init__.py`. It can then be named in `--providers` next to any other adapter, and the summary lists it as one more row.
 
-`ClosedScorer.run()` turns the choice into the item's letter, so the existing evaluator and summary need no change. `whisper_local_closed` and `indicconformer_closed` are examples; `gemini_closed` predates the interface and returns its choice directly from `run()`.
+`ClosedScorer.run()` turns the choice into the item's letter and keeps the chosen candidate's text (`Output.matched`) for the classification, so the existing evaluator and summary need no change. `whisper_local_closed` and `indicconformer_closed` are examples; `gemini_closed` predates the interface and returns its choice directly from `run()`.
 
 ## How verdicts are computed
 
-`evaluator.py` is the single place for this. It ports `app/src/lesson/evaluator.ts` (exact match against `expected` + `accepted_variants` + `also_correct`, case by case) and adds normalisation. Clips are judged against the item in the current `content/lessons/*.json` (the manifest's copy only when the lesson file has no such template), so a rule change applies to old exports too. Closed-set candidates come from `expected` + `accepted_variants` only, so a judge's choice still names the letter it heard; with `also_correct` (इ↔ई, उ↔ऊ) a pair confusion is then judged correct, and the length-pair tables count it as a false accept. The same rules apply to the transcript and to every accepted answer before comparing.
+`evaluator.py` is the single place for this. It ports `app/src/lesson/evaluator.ts` (exact match against `expected` + `accepted_variants` + `also_correct`, case by case) and adds normalisation. Clips are judged against the item in the current `content/lessons/*.json` (the manifest's copy only when the lesson file has no such template), so a rule change applies to old exports too. Closed-set candidates come from `expected` + `accepted_variants` only, so a judge's choice still names the letter it heard; with `also_correct` (इ↔ई, उ↔ऊ) a bare pair confusion (`इ` chosen for ई) is then judged correct, and the length-pair tables count it as a false accept. The same rules apply to the transcript and to every accepted answer before comparing.
 
 | Rule | What | Example |
 |---|---|---|
@@ -127,7 +128,18 @@ Verdict:
 - equal to a normalised expected answer or variant → `correct`
 - anything else → `wrong`. There is no substring or fuzzy match, so `अ आ इ` does not pass for अ.
 
-Closed-set choices map as: the item's own letter → `correct`, another letter or `other` → `wrong`, `nothing` → `unclear`.
+Each clip is classified as the app does (`classify()` in `app/src/asr/lessonJudge.ts`, ported as `evaluator.classify`), into the `heard` column, and the verdict follows from it:
+
+| Heard | When | Verdict |
+|---|---|---|
+| `silent` | closed-set `nothing` or an empty transcript; also anything but `correct` when the scorer is unsure | `unclear` |
+| `correct` | one of the asked item's answers in its `target_lang`, an `also_correct` text, or the item's own letter | `correct` |
+| `meaning` | one of the asked item's answers in another language (`assessment.langs`, D-GURU-2-answer-language-tags), with that language | `correct` |
+| `wrong` | anything else: another item's answer, `other`, a transcript that is no answer | `wrong` |
+
+A closed-set choice is classified by the chosen candidate's text (closed scorers that report none, such as `gemini_closed`, by the choice itself). A child sound swap (D-GURU-3-child-sound-swaps) counts for the asked item only when the judge chose that item; a transcript has no choice, so it counts only as an answer said as itself.
+
+Prompt exclusion, as the app's quiz listen: on a `quiz` clip with a `prompt` field, every answer whose normalised text is a whole word (or run of words) of the normalised prompt is dropped from the candidates before the scorer runs, and `indicconformer_closed` drops such texts again after adding the sound swaps. Teach clips and clips without `prompt` keep every candidate. For the app side of `prompt`, see bug.md (2026-11-21).
 
 The benchmark records the raw verdict. The app then maps it with `toAnswer`: in a teach turn any verdict except `unclear` counts as correct, because teach turns only check that the child spoke.
 
@@ -144,6 +156,8 @@ Labels come from the tester: `correct`, `wrong` or `silent`. Each rate shows `k/
 | इ/ई, उ/ऊ agreement | agreement on items `i`, `ii` and `u`, `uu` only. The "Length pairs" table splits them into false accept and false reject |
 | Latency p50 / p90 | wall time of the provider call, after audio conversion and model loading. Local Whisper latency is this machine's CPU time, not a phone's. API latency includes the network from here |
 | Cost per session | the run's cost per second of audio × 240 s (about 4 minutes of child audio per session, from the blueprint). Per-request rounding is included in proportion to clip length. Gemini is priced from the token counts each response reported. Currency is the provider's own (Sarvam publishes INR only) |
+
+**Word-item judge test.** Word items stay practice-only until a tap-mode test shows at least 80% of correct answers accepted and at most 5% false praise (PRD Language design 9, D-GURU-12-word-items-practice-only). This section counts only tap-labelled clips (no `label_by`) of word items (`item_key` kind `word`) without a provider error. *Correct answers accepted*: labelled `correct`, verdict `correct` (a `meaning` included). *False praise*: labelled `wrong` or `silent`, verdict `correct`. Each shows `k/n (pct)` and pass or fail; exactly 80% and exactly 5% pass, and no word clips shows `n/a` (D-GURU-27-word-test-meaning-counts).
 
 The summary also has agreement per item, the price table with source URL and the date each price was read (`pricing.py`), and skipped providers.
 

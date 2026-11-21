@@ -82,4 +82,5 @@ class IndicConformerShadow(Provider):
             raise LookupError("clip has no judge field")
         if j.get("error"):
             raise RuntimeError(j["error"])
-        return Output(j["choice"], closed=True, transcript=j["free"], note=j["note"], latency_ms=j["ms"])
+        return Output(j["choice"], closed=True, transcript=j["free"], note=j["note"], latency_ms=j["ms"],
+                      matched=clip.get("matched_text", ""))
