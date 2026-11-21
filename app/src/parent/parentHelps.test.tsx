@@ -181,7 +181,7 @@ jest.mock('../screens/useLinePlayer', () => {
 });
 
 // See the header: 'mic' marks a listen turn handed to the mic and judge.
-const mockRec = { judge: true, tap: false, log: [] as string[] };
+const mockRec = { judge: true, tap: false, log: [] as string[], prepared: 0 };
 jest.mock('../screens/useRecording', () => ({
   useRecording: (_templateId: string, _items: unknown[], inner?: { listen(l: unknown): Promise<unknown>; cancel(): void }) =>
     // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -200,7 +200,7 @@ jest.mock('../screens/useRecording', () => ({
       return {
         on: false, settings: { child: '', age: '' }, update: () => undefined, setOn: async () => undefined,
         tap: mockRec.tap, setTap: () => undefined, mic: 'granted', active: false, count: 0, error: null,
-        source, prepare: async () => undefined, exportAll: async () => undefined, deleteAll: () => undefined, judged: null,
+        source, prepare: async () => void mockRec.prepared++, exportAll: async () => undefined, deleteAll: () => undefined, judged: null,
       };
     }, [inner]),
 }));
@@ -391,6 +391,7 @@ beforeEach(() => {
   mockRec.judge = true;
   mockRec.tap = false;
   mockRec.log.length = 0;
+  mockRec.prepared = 0;
   mockQueue.value = null;
   const child = createChild(db, { nickname: 'Chinu', picture: 'peacock', class: 'UKG', medium: 'en' });
   childId = child.id;
@@ -454,6 +455,21 @@ describe('GURU-34 "parent helps" in the lesson', () => {
     await until(() => mockRec.log.length === 1, 'the next session listening through the mic');
     await settle();
     expect(buttons()).toBeNull();
+  });
+
+  // Level 5 integration: a lesson opened with the switch on skips the mic prompt, so turning it off
+  // mid-lesson must ask for the mic before Shekru listens again.
+  test('turned off mid-lesson it asks for the mic before the next listen turn', async () => {
+    store().set(childId, true);
+    await openLesson(fakeLines().player);
+    await until(() => buttons() !== null, 'the answer buttons');
+    expect(mockRec.prepared).toBe(0);
+
+    fireEvent.press(screen.getByTestId('pause'));
+    await act(async () => store().set(childId, false));
+    fireEvent.press(screen.getByTestId('continue'));
+    await until(() => mockRec.log.length === 1, 'the listen turn through the mic');
+    expect(mockRec.prepared).toBe(1);
   });
 
   test('the buttons show only in the answer turn, hide while Shekru speaks, and the tap decides with decided_by tap', async () => {

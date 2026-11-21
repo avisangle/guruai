@@ -19,7 +19,7 @@ import { askForMic, readMic } from '../../parent/mic';
 import { useParentMode } from '../../parent/ParentModeProvider';
 import { isValidPin, PIN_LENGTH, pinDigits } from '../../parent/pin';
 import { PinSetup } from '../../parent/PinSetup';
-import { classLabel, STYLE_LABEL } from '../../parent/ProfileForm';
+import { classLabel, STYLE_LABEL } from '../../parent/profile';
 import { StatusRow } from '../../parent/rows';
 import { consentChanged, requestDeletion } from '../../upload/uploadQueue';
 import { Button } from '../../ui/components/Button';

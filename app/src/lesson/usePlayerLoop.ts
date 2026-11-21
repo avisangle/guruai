@@ -48,7 +48,10 @@ type Options = {
   source: AnswerSource;
   lines: LinePlayer;
   tutor: { setState(state: string): void };
-  /** Runs alongside the first lines and finishes before the first listen turn: the mic permission prompt. */
+  /**
+   * Runs alongside the first lines and finishes before the first listen turn: the mic permission prompt.
+   * Absent at mount ("parent helps" on), it runs once when it first arrives.
+   */
   prepare?: () => Promise<void>;
   onAnswer(event: AnswerEvent, position: Position): void;
   /** Tutor speech, a listen turn or an answer. */
@@ -181,14 +184,27 @@ export function usePlayerLoop(opts: Options) {
     run(engine.current.position());
   }, [run, show]);
 
-  useEffect(() => {
+  const startPrepare = useCallback(() => {
     preparing.current = true;
     prepared.current = Promise.resolve(o.current.prepare?.()).finally(() => {
       preparing.current = false;
     });
+  }, []);
+
+  useEffect(() => {
+    startPrepare();
     run(o.current.start);
     return halt;
-  }, [run, halt]);
+  }, [startPrepare, run, halt]);
+
+  // A lesson opened without prepare ("parent helps" on) runs it once one arrives (switch turned off).
+  const hasPrepare = !!opts.prepare;
+  const hadPrepare = useRef(hasPrepare);
+  useEffect(() => {
+    if (!hasPrepare || hadPrepare.current) return;
+    hadPrepare.current = true;
+    startPrepare();
+  }, [hasPrepare, startPrepare]);
 
   // Leaving the app pauses exactly like the pause button.
   useEffect(() => {

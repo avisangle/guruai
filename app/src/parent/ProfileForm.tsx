@@ -2,7 +2,7 @@
 // language style, lessons per day and the active-time cap. With no child it adds one.
 import { useAudioPlayer } from 'expo-audio';
 import { useState, type ReactNode } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 
 import { LINE_AUDIO } from '../content/generated/audio';
 import { liveDb } from '../data/liveDb';
@@ -12,11 +12,12 @@ import { Button } from '../ui/components/Button';
 import { Choice } from '../ui/components/Choice';
 import { Field } from '../ui/components/Field';
 import { Text } from '../ui/components/Text';
+import { TickBox } from '../ui/components/TickBox';
 import { useT } from '../ui/i18n';
 import { PicturePicker } from '../ui/PicturePicker';
 import type { StringKey } from '../ui/strings/mr';
 import { theme } from '../ui/theme';
-import { CLASSES, DEFAULT_GOALS, saveProfile } from './profile';
+import { CLASSES, classLabel, DEFAULT_GOALS, saveProfile, STYLE_LABEL } from './profile';
 
 const BOARDS = [
   ['msb', 'boardMsb'],
@@ -28,15 +29,12 @@ const GOALS: [id: string, label: StringKey, help?: StringKey][] = [
   ['en_words', 'goalEnWords'],
   ['numbers', 'goalNumbers', 'goalNumbersHelp'],
 ];
-export const STYLE_LABEL: Record<StyleLevel, StringKey> = { mr_led: 'styleMrLed', en_led: 'styleEnLed' };
 const STYLE_HELP: Record<StyleLevel, StringKey> = { mr_led: 'styleMrLedHelp', en_led: 'styleEnLedHelp' };
 const LESSONS = [1, 2, 3, 4, 5];
 const CAPS = [20, 30, 45, null];
 // Column defaults in migrations.ts, for a child not yet saved.
 const DEFAULT_LESSONS = 3;
 const DEFAULT_CAP = 30;
-
-export const classLabel = (cls: string) => `class${cls}` as StringKey;
 
 type Props = {
   /** null: add a child. */
@@ -188,62 +186,11 @@ function Group({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
-type TickProps = { label: string; help?: string; checked: boolean; onPress: () => void; testID: string };
-
-/** A tick box: the tick and a thicker edge show the choice, not colour alone. */
-export function TickBox({ label, help, checked, onPress, testID }: TickProps) {
-  return (
-    <Pressable
-      testID={testID}
-      accessibilityRole="checkbox"
-      accessibilityState={{ checked }}
-      onPress={onPress}
-      style={[styles.tick, checked && styles.tickOn]}
-    >
-      <View style={[styles.box, checked && styles.boxOn]}>
-        {checked && (
-          <Text variant="label" style={styles.mark}>
-            ✓
-          </Text>
-        )}
-      </View>
-      <View style={styles.tickText}>
-        <Text variant="label">{label}</Text>
-        {help ? <Text variant="helper">{help}</Text> : null}
-      </View>
-    </Pressable>
-  );
-}
-
-const { color, radius, space, touch } = theme;
+const { space, touch } = theme;
 
 const styles = StyleSheet.create({
   body: { gap: space[3], paddingVertical: space[4] },
   group: { gap: space[2] },
   row: { flexDirection: 'row', flexWrap: 'wrap', gap: touch.parent.gap },
   style: { gap: space[1] },
-  tick: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: space[3],
-    minHeight: touch.parent.min,
-    padding: space[3],
-    borderRadius: radius.parent.control,
-    borderWidth: 1,
-    borderColor: color.parent.border,
-    backgroundColor: color.parent.surface,
-  },
-  tickOn: { borderWidth: 2, borderColor: color.parent.accent },
-  box: {
-    width: space[5],
-    height: space[5],
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: radius.parent.control,
-    borderWidth: 2,
-    borderColor: color.parent.borderStrong,
-  },
-  boxOn: { borderColor: color.parent.accent, backgroundColor: color.parent.accent },
-  mark: { color: color.parent.onAccent },
-  tickText: { flex: 1 },
 });
