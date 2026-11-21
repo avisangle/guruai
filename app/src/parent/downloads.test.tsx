@@ -362,6 +362,10 @@ describe('GURU-31 contract: route, StoragePrompt export, mobile-data switch', ()
     expect(typeof prompt.StoragePrompt).toBe('function');
 
     await openDownloads();
-    expect(typeof screen.getByTestId('downloads-mobile-data').props.onValueChange).toBe('function');
+    // The host element of a Switch carries no onValueChange, so prove the wiring by toggling it.
+    const before = isChosen('downloads-mobile-data');
+    fireEvent(screen.getByTestId('downloads-mobile-data'), 'valueChange', !before);
+    await waitFor(() => expect(allowMobileData()).toBe(!before));
+    expect(isChosen('downloads-mobile-data')).toBe(!before);
   });
 });
