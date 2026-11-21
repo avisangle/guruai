@@ -10,6 +10,15 @@ import { useParentMode } from '../../parent/ParentModeProvider';
 const UNLOCK = '/parent/unlock';
 const CONSENT = '/parent/consent';
 
+/** False when SQLite is missing (component tests without it), so the visit is not redirected. */
+function consentUnanswered(): boolean {
+  try {
+    return getDevice(liveDb()).consent_answered_at === null;
+  } catch {
+    return false;
+  }
+}
+
 export default function ParentLayout() {
   const { unlocked } = useParentMode();
   const pathname = usePathname();
@@ -23,7 +32,7 @@ export default function ParentLayout() {
     }
     if (asked.current || pathname === UNLOCK) return;
     asked.current = true;
-    if (pathname !== CONSENT && getDevice(liveDb()).consent_answered_at === null) router.replace(CONSENT);
+    if (pathname !== CONSENT && consentUnanswered()) router.replace(CONSENT);
   }, [unlocked, pathname]);
 
   return (
