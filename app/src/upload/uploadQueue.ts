@@ -228,7 +228,11 @@ let live: UploadQueue | null | undefined;
 function liveQueue(): UploadQueue | null {
   if (live === undefined) {
     const config = uploadConfig();
-    live = config && createUploadQueue(liveUploadDeps(config));
+    try {
+      live = config && createUploadQueue(liveUploadDeps(config));
+    } catch {
+      return null; // a failed setup (native module, DB open) never reaches the caller; the next call retries
+    }
   }
   return live;
 }

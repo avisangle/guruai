@@ -92,7 +92,8 @@ export function buildSessionSummary(db: Db, sessionId: string, opts: { appVersio
     started_at: session.started_at,
     ended_at: session.ended_at,
     end_reason: session.end_reason,
-    parent_helps: session.parent_helps === 1,
+    // Only goodbye and Stop write the column; a sitting closed at app start keeps 0, so a tap also counts.
+    parent_helps: session.parent_helps === 1 || answers.some((a) => a.decided_by === 'tap'),
     judge_check: device.judge_check,
     judge_p90_ms: device.judge_p90_ms,
     class: child.class,
