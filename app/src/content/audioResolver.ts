@@ -1,6 +1,6 @@
 // Where a tutor line's audio and viseme clip come from: the app bundle, else an installed pack (D-GURU-14).
 import type { Db } from '../data/db';
-import type { FsPort } from '../downloads/install';
+import { CLIPS_FILE, readPackJson, type FsPort } from '../downloads/install';
 import type { VisemeEvent } from '../shekru/useShekruRig';
 
 import { LINE_AUDIO } from './generated/audio';
@@ -24,21 +24,11 @@ export function createAudioResolver({ db, fs, bundled }: AudioResolverDeps): Aud
   const logged = new Set<string>();
 
   const clipsIn = (dir: string): Record<string, LineClip> => {
-    let clips = packClips.get(dir);
-    if (!clips) {
-      clips = {};
-      const path = `${dir}/clips.json`;
-      const size = fs.size(path);
-      if (size) {
-        try {
-          const parsed: unknown = JSON.parse(new TextDecoder().decode(fs.read(path, 0, size)));
-          if (parsed && typeof parsed === 'object') clips = parsed as Record<string, LineClip>;
-        } catch {
-          // a broken clips.json contributes no lines
-        }
-      }
-      packClips.set(dir, clips);
-    }
+    const hit = packClips.get(dir);
+    if (hit) return hit;
+    const parsed = readPackJson(fs, dir, CLIPS_FILE);
+    const clips = parsed && typeof parsed === 'object' ? (parsed as Record<string, LineClip>) : {};
+    packClips.set(dir, clips);
     return clips;
   };
 
@@ -74,16 +64,12 @@ let live: AudioResolver | null = null;
 /** The app's resolver over the bundled lines and the device's installed packs. */
 export function resolveLine(id: string): ResolvedLine | null {
   // Lazy, so importing this module never touches native modules.
-  if (!live) {
+  live ??= createAudioResolver({
     // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { liveDb } = require('../data/liveDb') as typeof import('../data/liveDb');
+    db: (require('../data/liveDb') as typeof import('../data/liveDb')).liveDb(),
     // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { fsPort } = require('../downloads/live') as typeof import('../downloads/live');
-    live = createAudioResolver({
-      db: liveDb(),
-      fs: fsPort,
-      bundled: { audio: LINE_AUDIO, clips: clipsJson as unknown as Record<string, LineClip> },
-    });
-  }
+    fs: (require('../downloads/live') as typeof import('../downloads/live')).fsPort,
+    bundled: { audio: LINE_AUDIO, clips: clipsJson as unknown as Record<string, LineClip> },
+  });
   return live.resolveLine(id);
 }
