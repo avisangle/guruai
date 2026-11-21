@@ -1,10 +1,10 @@
 // Shapes of content/lessons/<template>.json and content/prompts/<lang>.json.
-import type { StyleLevel } from '../data/types';
+import type { AppLang, StyleLevel } from '../data/types';
 import type { SURPRISE_STATES } from '../shekru/contract';
 
 export type Anchor = { word: string; picture: string };
 
-export type Lang = 'mr' | 'en' | 'hi';
+export type Lang = AppLang | 'hi';
 export type DecidedBy = 'shekru' | 'tap';
 export type ItemKind = 'letter' | 'word';
 
@@ -23,7 +23,7 @@ type ItemBase = {
   id: string;
   item_key: string;
   display: string;
-  target_lang: 'mr' | 'en';
+  target_lang: AppLang;
   anchor: Anchor;
   assessment: {
     mode: string;

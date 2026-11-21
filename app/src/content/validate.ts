@@ -2,13 +2,15 @@
 // Node's type stripping, so only erasable syntax and .ts import paths.
 import { normalise } from '../asr/normalise.ts';
 import { FAMILIES } from '../lesson/lines.ts';
+import type { AppLang } from '../data/types.ts';
 import type { Item, Lang, Lesson, Prompts } from '../lesson/types.ts';
+import { TUTOR_STATES } from '../shekru/contract.ts';
 
 const REQUIRED_LINES: Record<Item['kind'], string[]> = {
   letter: ['teach', 'hint', 'correct'],
   word: ['teach_mr_led', 'teach_en_led', 'ask', 'hint', 'correct', 'ack_meaning', 'model_mr'],
 };
-const TARGET_LANGS = ['mr', 'en'];
+const TARGET_LANGS: AppLang[] = ['mr', 'en'];
 
 function editDistance(a: number[], b: number[]): number {
   let prev = Array.from({ length: b.length + 1 }, (_, j) => j);
@@ -73,6 +75,10 @@ export function validateContent(lessons: Lesson[], prompts: Prompts, tokens: Rec
     const displays = new Set(lesson.items.map((i) => i.display));
     for (const display of lesson.flow.flatMap((entry) => ('order' in entry ? entry.order : []))) {
       if (!displays.has(display)) errors.push(`${lesson.template_id}: flow order names "${display}", which is no item's display`);
+    }
+    for (const entry of lesson.flow) {
+      if ('state' in entry && !(TUTOR_STATES as readonly string[]).includes(entry.state))
+        errors.push(`${lesson.template_id}: flow plays "${entry.play}" in state "${entry.state}", which is not a tutor state`);
     }
     for (const item of lesson.items) {
       const where = `${lesson.template_id}.${item.id}`;
