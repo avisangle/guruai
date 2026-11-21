@@ -28,6 +28,7 @@ import {
   lessonLeft,
   lessonStarted,
   lessonsDoneToday,
+  openSession,
   shouldEndAfterLesson,
   startSession,
 } from './session';
@@ -363,6 +364,17 @@ describe('ensureSession, and assignments completed at lesson end', () => {
     expect(ensureSession(db, child, local(21, 9, 5))).toBe(first);
     endSession(db, first, 'goodbye', { at: local(21, 9, 20), activeMs: MIN, parentHelps: false });
     expect(ensureSession(db, child, local(21, 10))).not.toBe(first);
+  });
+
+  it('ensureSession closes an open session from an earlier local day and starts a new one', () => {
+    const db = freshDb();
+    const child = addChild(db);
+    const yesterday = ensureSession(db, child, local(20, 18));
+    lessonStarted(db, { childId: child, sessionId: yesterday, at: local(20, 18, 10) }, 'tpl_a');
+    const today = ensureSession(db, child, local(21, 9));
+    expect(today).not.toBe(yesterday);
+    expect(sessionRow(db, yesterday)).toMatchObject({ ended_at: local(20, 18, 10), end_reason: 'closed' });
+    expect(openSession(db, child)).toBe(today);
   });
 
   it('lessonEnded marks the lesson\'s open assignments done', () => {

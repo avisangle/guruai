@@ -13,6 +13,7 @@ import { ensureSession } from '../../learning/session';
 import { LessonPlayer, type LessonPlayerProps } from '../../lesson/LessonPlayer';
 import { revisionFor } from '../../lesson/revision';
 import type { Lesson } from '../../lesson/types';
+import { sessionEnded } from '../../upload/uploadQueue';
 
 const LESSONS = lessonsJson as unknown as Lesson[];
 
@@ -31,7 +32,7 @@ function load(template: string, childId: string, stop: string | undefined): Less
   const child = childId ? getChild(db, childId) : null;
   if (!lesson || !child) return null;
   const start = resumePosition(db, child.id, lesson);
-  const sessionId = ensureSession(db, child.id, now());
+  const sessionId = ensureSession(db, child.id, now(), sessionEnded);
   return {
     lesson,
     childId: child.id,

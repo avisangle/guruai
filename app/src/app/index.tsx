@@ -14,6 +14,7 @@ import { Screen } from '../ui/components/Screen';
 import { Text } from '../ui/components/Text';
 import { CHILD_PICTURES } from '../ui/PicturePicker';
 import { theme } from '../ui/theme';
+import { sessionEnded } from '../upload/uploadQueue';
 
 export default function ChildPicker() {
   const [children, setChildren] = useState<ChildProfile[]>([]);
@@ -26,7 +27,7 @@ export default function ChildPicker() {
   );
 
   const choose = (child: ChildProfile) => {
-    ensureSession(liveDb(), child.id, new Date().toISOString());
+    ensureSession(liveDb(), child.id, new Date().toISOString(), sessionEnded);
     router.push(`/child/${child.id}`);
   };
 
