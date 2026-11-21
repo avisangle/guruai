@@ -273,10 +273,17 @@ function ParentLockSection() {
   );
 }
 
-/** Its own component: download progress re-renders this row only. */
+/** Its own component: download progress re-renders this row only. Opens the downloads screen. */
 function DownloadsRow() {
   const { t } = useT();
-  return <StatusRow testID="settings-downloads" label={t('downloadsLabel')} value={t(...downloadsText(useDownloads()))} />;
+  return (
+    <Pressable testID="settings-downloads" accessibilityRole="link" onPress={() => router.push('/parent/downloads')} style={styles.line}>
+      <View style={styles.grow}>
+        <Text variant="label">{t('downloadsLabel')}</Text>
+        <Text variant="helper">{t(...downloadsText(useDownloads()))}</Text>
+      </View>
+    </Pressable>
+  );
 }
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
