@@ -2,26 +2,11 @@
 import { randomUUID } from 'expo-crypto';
 
 import { now, type Db } from '../data/db';
-import type { StyleLevel } from '../data/types';
-import type { DecidedBy, Heard, Item, ItemKind, Lang } from '../lesson/types';
+import type { AnswerEvent } from '../lesson/types';
 import { applyAnswer, getMastery, localDay, saveMastery } from './mastery';
 
-/** One listening turn, as the lesson engine emits it (TDD 2.3). */
-export type AnswerEvent = {
-  template_id: string;
-  item_key: string;
-  item_kind: ItemKind;
-  target_lang: Item['target_lang'];
-  phase: 'teach' | 'quiz' | 'retry' | 'revision' | 'followup';
-  heard_kind: Heard['kind'];
-  matched_text?: string;
-  matched_lang?: Lang;
-  decided_by: DecidedBy;
-  attempt: number;
-  unsure: boolean;
-  style_level: StyleLevel;
-  counts: boolean;
-};
+// The engine's event shape is the one recorded; re-exported for the learning layer.
+export type { AnswerEvent };
 
 /** Where and when an event happened. `at` is an ISO timestamp. */
 export type EventContext = { childId: string; sessionId: string; at: string };

@@ -1,6 +1,6 @@
 /// <reference types="node" />
 // GURU-23: pack build and publish tool; only shared lines and the starter pack ship inside the app.
-// TDD 2.7 (manifest), D-GURU-14 (immutable versioned files, one manifest, starter + shared lines bundled),
+// TDD 2.7 (manifest), D-GURU-14-downloads-starter-pack (immutable versioned files, one manifest, starter + shared lines bundled),
 // D-GURU-16 (a lesson sits in one pack; build skips empty packs).
 //
 // Real shapes this file relies on (read, not assumed):
@@ -362,7 +362,7 @@ describe('scripts', () => {
       expect(z).toMatch(/^[A-Za-z0-9][A-Za-z0-9._-]*\.v\d+\.zip$/);
       const entries = unzipSync(new Uint8Array(fs.readFileSync(dist('packs', TUTOR, z))));
       for (const name of Object.keys(entries)) expect(name === 'clips.json' || /^[^/]+\.mp3$/.test(name)).toBe(true);
-      expect(Object.keys(entries)).not.toContain('lessons.json'); // reserved in the install folder (D-GURU-14)
+      expect(Object.keys(entries)).not.toContain('lessons.json'); // reserved in the install folder (D-GURU-14-pack-install-per-version)
       const clips = JSON.parse(Buffer.from(entries['clips.json']).toString()) as Record<string, Clip>;
       for (const c of Object.values(clips)) {
         expect(typeof c.duration).toBe('number');

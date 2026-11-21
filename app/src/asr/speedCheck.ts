@@ -46,6 +46,19 @@ export function judgeReadiness(deps: Pick<SpeedCheckDeps, 'db' | 'modelAvailable
   return check ? READINESS[check] : 'ready';
 }
 
+// Screens that already read judgeReadiness() re-read when a result is stored.
+const listeners = new Set<() => void>();
+
+export function subscribeJudgeCheck(listener: () => void): () => void {
+  listeners.add(listener);
+  return () => listeners.delete(listener);
+}
+
+function store(db: Db, check: JudgeCheck, p90: number | null): void {
+  setJudgeCheck(db, check, p90);
+  listeners.forEach((l) => l());
+}
+
 /**
  * One untimed warm-up (it includes the model load), then RUNS timed runs. Out of memory stores oom; any
  * other failure stores nothing, so the next start measures again (D-GURU-15-speed-check-failures).
@@ -58,14 +71,14 @@ async function measure(deps: SpeedCheckDeps): Promise<JudgeReadiness> {
     const { error } = await deps.judge();
     if (error) {
       if (!OOM.test(error)) return 'ready'; // unchecked
-      setJudgeCheck(deps.db, 'oom', null);
+      store(deps.db, 'oom', null);
       return 'oom';
     }
     times.push(deps.now() - t0);
   }
   const p90 = Math.max(...times.slice(1)); // nearest-rank p90 of 5 runs is the slowest; run 0 is the warm-up
   const check = p90 > SLOW_P90_MS ? 'slow' : 'ok';
-  setJudgeCheck(deps.db, check, p90);
+  store(deps.db, check, p90);
   return READINESS[check];
 }
 

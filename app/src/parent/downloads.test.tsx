@@ -104,6 +104,7 @@ jest.mock('../asr/speedCheck', () => ({
   judgeReadiness: jest.fn(() => 'ready'),
   runSpeedCheck: jest.fn(async () => 'ready'),
   rerunSpeedCheck: jest.fn(async () => 'ready'),
+  subscribeJudgeCheck: jest.fn(() => () => undefined),
 }));
 
 // One object, mutated per test: useSyncExternalStore needs a stable snapshot.

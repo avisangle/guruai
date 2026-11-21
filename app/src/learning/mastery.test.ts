@@ -11,7 +11,7 @@ import type { Db } from '../data/db';
 import { migrate } from '../data/migrations';
 import { createTestDb } from '../data/testDb';
 import { WORD_ITEMS_GATED } from './config';
-import { recordAnswer } from './events';
+import { recordAnswer, type AnswerEvent } from './events';
 import { applyAnswer, dueRevision, rebuildMastery } from './mastery';
 
 // Row ids may come from expo-crypto; keep them deterministic and native-free.
@@ -19,23 +19,6 @@ jest.mock('expo-crypto', () => {
   let calls = 0;
   return { randomUUID: jest.fn(() => `uuid-${++calls}`) };
 });
-
-// TDD 2.3. Declared here so this story does not wait on GURU-10's engine types.
-type AnswerEvent = {
-  template_id: string;
-  item_key: string;
-  item_kind: 'letter' | 'word';
-  target_lang: 'mr' | 'en';
-  phase: 'teach' | 'quiz' | 'retry' | 'revision' | 'followup';
-  heard_kind: 'correct' | 'meaning' | 'wrong' | 'silent';
-  matched_text?: string;
-  matched_lang?: 'mr' | 'en' | 'hi';
-  decided_by: 'shekru' | 'tap';
-  attempt: number;
-  unsure: boolean;
-  style_level: 'mr_led' | 'en_led';
-  counts: boolean;
-};
 
 type MasteryRow = {
   child_id: string;

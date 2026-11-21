@@ -4,7 +4,7 @@
 **Issue:** GURU-16
 **Confluence:** none
 
-**Decision:** A lesson sits in exactly one pack (`content/paths/packs.json`), while any number of paths may list it. The 8 KG lessons are listed by the Nursery, Junior KG and Senior KG class paths of both boards (their own `classes` field) and by the Marathi or English letters skill path. Packs follow class bands: `starter` (`tpl_kg_mr_swar_1`, `tpl_kg_en_letters_1`), `kg` (the other six), then `class1`, `class2`, `en-words` and `numbers`, empty until their lessons exist. A path's `pack` names the pack that holds the lessons first added for it; `lessonPack` in `generated/paths.json` is the authority for which pack a lesson needs.
+**Decision:** A lesson sits in exactly one pack (`content/paths/packs.json`), while any number of paths may list it. The 8 KG lessons are listed by the Nursery, Junior KG and Senior KG class paths of both boards (their own `class` field: `Nursery`, `LKG`, `UKG`) and by the Marathi or English letters skill path. Packs follow class bands: `starter` (`tpl_kg_mr_swar_1`, `tpl_kg_en_letters_1`), `kg` (the other six), then `class1`, `class2`, `en-words` and `numbers`, empty until their lessons exist. A path's `pack` names the pack that holds the lessons first added for it; `lessonPack` in `generated/paths.json` is the authority for which pack a lesson needs.
 
 This refines the PRD's "packs are split by learning path" (Technical Constraints) and "per-path audio packs" (Downloads): packs are split by class band, and a path names the pack its lessons start in.
 

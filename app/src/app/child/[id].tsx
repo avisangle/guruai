@@ -4,7 +4,7 @@ import { Redirect, router, useFocusEffect, useLocalSearchParams } from 'expo-rou
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { StyleSheet, useWindowDimensions, View } from 'react-native';
 
-import { judgeReadiness, type JudgeReadiness } from '../../asr/speedCheck';
+import { judgeReadiness, subscribeJudgeCheck, type JudgeReadiness } from '../../asr/speedCheck';
 import { readiness, type Readiness } from '../../child/readiness';
 import { ParentStrip } from '../../child/ParentStrip';
 import { Trail } from '../../child/Trail';
@@ -95,6 +95,9 @@ export default function TodayQueueScreen() {
       setToday(readToday(id));
     });
   }, [id]);
+
+  // The first speed check ends after these reads; a slow or out-of-memory result turns the queue into ask_weak.
+  useEffect(() => subscribeJudgeCheck(() => setToday((t) => t && { ...t, judge: judgeReadiness() })), []);
 
   const state = today && mic ? readiness({ model: today.model, mic, judge: today.judge, parentHelps: helps }) : null;
 

@@ -1,4 +1,4 @@
-// Audio packs (TDD 2.7, D-GURU-14, D-GURU-16). Pure: build-content.mjs and build-packs.mjs
+// Audio packs (TDD 2.7, D-GURU-14-downloads-starter-pack, D-GURU-16). Pure: build-content.mjs and build-packs.mjs
 // run it under Node's type stripping, so only erasable syntax and .ts import paths.
 import type { Manifest, ManifestFile } from '../downloads/manifest.ts';
 import type { Lesson, Prompts } from '../lesson/types.ts';

@@ -133,6 +133,7 @@ jest.mock('../asr/speedCheck', () => ({
   judgeReadiness: jest.fn(() => 'ready'),
   runSpeedCheck: jest.fn(async () => 'ready'),
   rerunSpeedCheck: jest.fn(async () => 'ready'),
+  subscribeJudgeCheck: jest.fn(() => () => undefined),
 }));
 
 const mockDownloadStatus = {
