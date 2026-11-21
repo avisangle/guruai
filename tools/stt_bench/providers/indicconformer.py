@@ -292,20 +292,20 @@ def any_word(logp, free_ids, free_ll, candidates, tokens, piece):
 
 def child_swaps(candidates):
     """candidates plus their child-speech forms (CHILD_SWAPS), each text once, same item."""
-    import re
+    from evaluator import swaps
     out = {c.text: c for c in candidates}
     for c in candidates:
-        cha = re.sub(r"चा(?=\s|$)", "सा", c.text)
-        for t in (cha, c.text.replace("र", "ल"), cha.replace("र", "ल")):  # fixed order, as the app's childSwaps
+        for t in swaps(c.text):  # fixed order, as the app's childSwaps
             out.setdefault(t, Candidate(c.item_id, c.display, t))
     return list(out.values())
 
 
-def decide(logp, wav, candidates, sp, length_feature=LENGTH_FEATURE):
-    """Closed-set choice from CTC log-probs. Shared by the bench adapter and the ONNX check."""
+def decide(logp, wav, candidates, sp, length_feature=LENGTH_FEATURE, keep=lambda text: True):
+    """Closed-set choice from CTC log-probs. Shared by the bench adapter and the ONNX check. keep also
+    filters the child sound swaps (evaluator.listen_keep: a swap that is a prompt word is dropped too)."""
     from evaluator import NOTHING, OTHER, normalise
     if CHILD_SWAPS:
-        candidates = child_swaps(candidates)
+        candidates = [c for c in child_swaps(candidates) if keep(c.text)]
     db = frame_db(wav)
     sounding = float((db > SPEECH_DBFS).sum()) * 0.01  # 10 ms hop
     if sounding < MIN_SPEECH_S:
@@ -382,8 +382,9 @@ class IndicConformerClosed(ClosedScorer, _Base):
     name = "indicconformer_closed"
 
     def judge(self, path, item, candidates):
+        from evaluator import listen_keep
         wav = load_wav(path)
-        return decide(log_probs(wav, self.weights), wav, candidates, model()[2])
+        return decide(log_probs(wav, self.weights), wav, candidates, model()[2], keep=listen_keep(item))
 
 
 class IndicConformerClosedFT(IndicConformerClosed):

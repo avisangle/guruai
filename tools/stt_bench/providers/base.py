@@ -7,6 +7,8 @@ import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from evaluator import listen_keep
+
 
 @dataclass
 class Lesson:
@@ -28,13 +30,13 @@ class Lesson:
         return "\n".join(f"- {it['display']} (also counts: {' / '.join(it['accepted_variants'])})"
                          for it in self.items.values())
 
-    def candidates(self):
-        """Every accepted answer of every item, in lesson order, each text once."""
+    def candidates(self, keep=lambda text: True):
+        """Every accepted answer of every item, in lesson order, each text once; keep filters the texts."""
         out = {}
         for iid, it in self.items.items():
             for text in it["expected"] + it["accepted_variants"]:
                 out.setdefault(text, Candidate(iid, it["display"], text))
-        return list(out.values())
+        return [c for c in out.values() if keep(c.text)]
 
 
 @dataclass(frozen=True)
@@ -54,6 +56,7 @@ class Output:
     scores: dict | None = None  # closed scorers: candidate text -> score (higher is more likely)
     latency_ms: int | None = None  # set when the work ran elsewhere (e.g. on the phone); else bench times run()
     unsure: bool = False    # closed scorers: the model is unsure what it heard (a wrong verdict becomes unclear)
+    matched: str = ""       # closed scorers: the chosen candidate's text ("" for other and nothing)
 
 
 class Provider:
@@ -91,9 +94,10 @@ class ClosedScorer(Provider):
         raise NotImplementedError
 
     def run(self, path, clip, lesson):
-        j = self.judge(path, clip, lesson.candidates())
+        j = self.judge(path, clip, lesson.candidates(listen_keep(clip)))  # a quiz drops its prompt's words
         choice = j.choice.display if isinstance(j.choice, Candidate) else j.choice
-        return Output(choice, closed=True, note=j.note, transcript=j.transcript, scores=j.scores, unsure=j.unsure)
+        return Output(choice, closed=True, note=j.note, transcript=j.transcript, scores=j.scores, unsure=j.unsure,
+                      matched=getattr(j.choice, "text", ""))
 
 
 def _open(req, timeout, retries=4):

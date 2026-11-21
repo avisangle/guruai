@@ -21,11 +21,16 @@ Verdicts:
  - transcript empty after normalisation -> unclear (the app treats this as silence and asks again)
  - equal to a normalised expected answer or accepted variant -> correct
  - anything else -> wrong (no partial or substring match: "अ आ इ" must not pass for अ)
+
+classify() ports the app's Heard classification (classify() in app/src/asr/lessonJudge.ts) and
+listen_keep() its quiz prompt exclusion; the bench's verdict is VERDICT of the Heard kind.
 """
 import re
 import unicodedata
 
 CORRECT, WRONG, UNCLEAR = "correct", "wrong", "unclear"
+# Heard kind -> verdict, as lessonJudge.ts: a meaning is one of the item's accepted answers, so correct.
+VERDICT = {"correct": CORRECT, "meaning": CORRECT, "wrong": WRONG, "silent": UNCLEAR}
 # Closed-set choices besides the item answers.
 OTHER, NOTHING = "other", "nothing"
 
@@ -71,3 +76,53 @@ def evaluate_choice(item: dict, choice: str, unsure: bool = False) -> str:
         return CORRECT
     verdict = WRONG if choice == OTHER else evaluate(item, choice)
     return UNCLEAR if unsure and verdict == WRONG else verdict
+
+
+def swaps(text: str) -> list:
+    """A 4-year-old's forms of an answer, in the app's order: word-final चा said सा, र said ल, both
+    (childSwaps in app/src/asr/judge.ts, D-GURU-3-child-sound-swaps)."""
+    cha = re.sub(r"चा(?=\s|$)", "सा", text)
+    return [cha, text.replace("र", "ल"), cha.replace("र", "ल")]
+
+
+def listen_keep(clip: dict):
+    """Candidate filter for the clip's listen, as listenCandidates() in the app: a quiz drops answers that
+    are whole words of its prompt (the clip's `prompt`), so a child echoing the hint word is not praised.
+    Teach clips and clips without a prompt keep all."""
+    if clip.get("kind") != "quiz" or not clip.get("prompt"):
+        return lambda text: True
+    prompt = f" {normalise(clip['prompt'])} "
+    return lambda text: f" {normalise(text)} " not in prompt
+
+
+def classify(item: dict, choice: str, text: str | None = None, unsure: bool = False) -> dict:
+    """The judge's choice against the asked item, as the app's Heard: kind correct, meaning (the item's
+    answer in another language, with its lang), wrong or silent. item: flat lesson item with display,
+    target_lang, expected, accepted_variants, also_correct, langs. text: the chosen candidate's text (None
+    for OTHER and NOTHING). unsure: anything but correct is silent (D-STT-unsure-not-wrong)."""
+    if choice == NOTHING:
+        return {"kind": "silent", "by": "shekru"}
+    heard = _match(item, choice, text)
+    return {"kind": "silent", "by": "shekru", "unsure": True} if unsure and heard["kind"] != "correct" else heard
+
+
+def _match(item, choice, text):
+    if not text:  # English: the card shows "B", the answers are "बी", "बी फॉर बॉल"
+        return {"kind": "correct" if choice == item["display"] else "wrong", "by": "shekru"}
+    target = item.get("target_lang")
+    correct = {"kind": "correct", "by": "shekru", "text": text, "lang": target}
+    said = normalise(text)
+    # An answer said as itself, else with a child sound swap the judge credited to this item: "ल" chosen
+    # as the ल item is not र said with a swap. Originals first, each form once (as childSwaps).
+    answers = list(dict.fromkeys(item["expected"] + item["accepted_variants"]))
+    forms = {a: a for a in answers}
+    for a in answers:
+        for s in swaps(a):
+            forms.setdefault(s, a)
+    own = next((o for s, o in forms.items() if normalise(s) == said and (s == o or choice == item["display"])), None)
+    if own:
+        langs = item.get("langs", {}).get(own, [target])  # D-GURU-2-answer-language-tags
+        return correct if target in langs else {"kind": "meaning", "by": "shekru", "text": text, "lang": langs[0]}
+    if choice == item["display"] or any(normalise(a) == said for a in item.get("also_correct", [])):
+        return correct  # D-STT-lenient-vowel-length
+    return {"kind": "wrong", "by": "shekru", "text": text}
