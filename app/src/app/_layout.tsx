@@ -9,23 +9,24 @@ import { getDevice, updateDevice } from '../data/device';
 import { liveDb } from '../data/liveDb';
 import { listChildren } from '../data/profiles';
 import { startInitialDownloads } from '../downloads/downloader';
-import { closeOpenSessions } from '../learning/session';
+import { closeLeftOpenSessions } from '../learning/session';
 import { FirstRunContext } from '../onboarding/firstRun';
 import { ParentModeProvider } from '../parent/ParentModeProvider';
 import { fontFiles } from '../ui/fonts';
 import { LanguageProvider, type UiLang } from '../ui/i18n';
+import { runUploads, sessionEnded } from '../upload/uploadQueue';
 
 // Keep the splash up until Baloo 2 and Mukta are ready.
 SplashScreen.preventAutoHideAsync();
 
-function readStart(): { lang: UiLang; hasChild: boolean } {
+function readStart(): { lang: UiLang; hasChild: boolean; closed: string[] } {
   try {
     const db = liveDb();
-    closeOpenSessions(db); // sessions an earlier run left open: their sitting ended with that run
-    return { lang: getDevice(db).parent_lang, hasChild: listChildren(db).length > 0 };
+    const closed = closeLeftOpenSessions(db); // sessions an earlier run left open: their sitting ended with that run
+    return { lang: getDevice(db).parent_lang, hasChild: listChildren(db).length > 0, closed };
   } catch {
     // No SQLite (component tests without a database): plain stack, never forced into onboarding.
-    return { lang: 'mr', hasChild: true };
+    return { lang: 'mr', hasChild: true, closed: [] };
   }
 }
 
@@ -45,6 +46,12 @@ export default function RootLayout() {
     // Runs in the background; a missing CDN base or a bad manifest leaves the bundled content only.
     startInitialDownloads().catch(() => undefined).then(speedCheck);
   }, []);
+
+  useEffect(() => {
+    // Closed sittings' summaries (consent as of now), then the queue (D-GURU-38-queue-at-app-start).
+    for (const id of start.closed) void sessionEnded(id);
+    void runUploads();
+  }, [start]);
 
   useEffect(() => {
     if (ready) SplashScreen.hideAsync();

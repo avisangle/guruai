@@ -221,7 +221,7 @@ export function createUploadQueue(deps: UploadDeps): UploadQueue {
   };
 }
 
-// ---- the app's queue: created on first use, so app start touches no native module ----
+// ---- the app's queue: created on first use (the root layout's start effect), so importing this touches no native module ----
 
 let live: UploadQueue | null | undefined;
 
@@ -261,4 +261,5 @@ export const keepClip = (sessionId: string, audioUri: string, recordedAt: Date) 
 const quiet = (p: Promise<void> | undefined) => (p ?? Promise.resolve()).catch(() => undefined);
 export const sessionEnded = (sessionId: string) => quiet(liveQueue()?.sessionEnded(sessionId));
 export const requestDeletion = () => quiet(liveQueue()?.requestDeletion());
+export const runUploads = () => quiet(liveQueue()?.run());
 export const consentChanged = () => liveQueue()?.consentChanged();

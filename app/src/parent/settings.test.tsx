@@ -197,7 +197,12 @@ jest.mock('../downloads/downloader', () => ({
 // GURU-38: the live upload queue. virtual: the module does not exist until /implement.
 jest.mock(
   '../upload/uploadQueue',
-  () => ({ requestDeletion: jest.fn(async () => undefined), consentChanged: jest.fn() }),
+  () => ({
+    requestDeletion: jest.fn(async () => undefined),
+    consentChanged: jest.fn(),
+    sessionEnded: jest.fn(async () => undefined), // the root layout's start effect
+    runUploads: jest.fn(async () => undefined),
+  }),
   { virtual: true },
 );
 
