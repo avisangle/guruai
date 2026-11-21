@@ -16,7 +16,7 @@ export type PinResult = { ok: boolean; waitUntil?: number };
 export type GateDeps = {
   db: Db;
   auth: Pick<typeof LocalAuthentication, 'getEnrolledLevelAsync' | 'authenticateAsync'>;
-  secureStore: Pick<typeof SecureStore, 'getItemAsync' | 'setItemAsync'>;
+  secureStore: Pick<typeof SecureStore, 'getItemAsync' | 'setItemAsync' | 'deleteItemAsync'>;
   crypto: PinCrypto;
   /** Epoch ms. */
   now: () => number;
@@ -29,6 +29,20 @@ type GateRow = { mode: GateMode; failed: number; lockout_until: string | null };
 /** Whether recoverWithBiometrics can work on this phone. */
 export async function strongBiometricsAvailable(auth: Pick<GateDeps['auth'], 'getEnrolledLevelAsync'>) {
   return (await auth.getEnrolledLevelAsync()) >= SecurityLevel.BIOMETRIC_STRONG;
+}
+
+/**
+ * Back to the phone's screen lock: removes the PIN record. False, changing nothing, when the phone has no
+ * screen lock. The mode changes first, so a failed delete never leaves pin mode without a PIN. Kept off the
+ * gate object (D-GURU-36-switch-back-outside-gate).
+ */
+export async function switchToDeviceLock({ db, auth, secureStore, now }: Omit<GateDeps, 'crypto'>): Promise<boolean> {
+  if ((await auth.getEnrolledLevelAsync()) < SecurityLevel.SECRET) return false;
+  db.run("UPDATE parent_gate SET mode = 'device', failed = 0, lockout_until = NULL, updated_at = ?", [
+    new Date(now()).toISOString(),
+  ]);
+  await secureStore.deleteItemAsync(PIN_KEY);
+  return true;
 }
 
 export function createGate({ db, auth, secureStore, crypto, now }: GateDeps) {
