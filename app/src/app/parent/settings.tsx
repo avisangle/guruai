@@ -74,7 +74,7 @@ export default function SettingsScreen() {
 
   // Allowed with both consents off: it covers what was sent before (wireframe decision 15).
   const askDeletion = () => {
-    requestDeletion().catch(() => undefined);
+    void requestDeletion();
     setDeletionAsked(true);
   };
 

@@ -61,7 +61,7 @@ export default function GoodbyeScreen() {
     const session = openSession(db, child);
     if (session) {
       endSessionNow(db, session, 'goodbye', false); // "parent helps" (GURU-34) is not wired yet
-      sessionEnded(session).catch(() => undefined);
+      void sessionEnded(session);
     }
 
     rig.setState('bye');

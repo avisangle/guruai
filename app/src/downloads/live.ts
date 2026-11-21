@@ -13,7 +13,9 @@ import { pathsFor } from '../learning/enrol';
 import type { DownloaderDeps } from './downloader';
 import type { FsPort } from './install';
 
-const noSlash = (uri: string) => uri.replace(/\/$/, '');
+export const noSlash = (uri: string) => uri.replace(/\/$/, '');
+
+export const liveClock: DownloaderDeps['clock'] = { now: () => new Date(), sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)) };
 
 function ensureParent(file: File) {
   file.parentDirectory.create({ intermediates: true, idempotent: true });
@@ -89,7 +91,7 @@ export function liveDeps(): DownloaderDeps {
     fs: fsPort,
     network: Network,
     sha256: () => sha256.create(),
-    clock: { now: () => new Date(), sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)) },
+    clock: liveClock,
     cdnBase: process.env.EXPO_PUBLIC_CDN_BASE ?? '',
     paths: { model: modelFile().uri, packs: noSlash(new Directory(Paths.document, 'packs').uri) },
     content: { bundledLessons, packsForChild: (child) => packsForChild(child) },

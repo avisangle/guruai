@@ -35,10 +35,10 @@ export function getDevice(db: Db, ids: Ids = {}): Device {
   return toDevice(db.get<DeviceRow>('SELECT * FROM device LIMIT 1')!);
 }
 
-export type DeviceUpdate = Partial<Pick<Device, 'parent_lang' | 'mic_last_granted_at'>>;
+export type DeviceUpdate = Partial<Pick<Device, 'parent_lang' | 'mic_last_granted_at' | 'deletion_requested_at'>>;
 
 // Whitelist: column names are interpolated into SQL.
-const DEVICE_UPDATABLE = ['parent_lang', 'mic_last_granted_at'] as const satisfies readonly (keyof DeviceUpdate)[];
+const DEVICE_UPDATABLE = ['parent_lang', 'mic_last_granted_at', 'deletion_requested_at'] as const satisfies readonly (keyof DeviceUpdate)[];
 
 /** Updates the given fields of the device row (created first if missing). */
 export function updateDevice(db: Db, patch: DeviceUpdate): void {
@@ -64,10 +64,4 @@ export function answerConsent(db: Db, consent: { clips: boolean; summaries: bool
     at,
     at,
   ]);
-}
-
-/** Marks a deletion request as waiting to be sent (`at`), or as sent (null). */
-export function setDeletionRequested(db: Db, at: string | null): void {
-  getDevice(db);
-  db.run('UPDATE device SET deletion_requested_at = ?, updated_at = ?', [at, now()]);
 }

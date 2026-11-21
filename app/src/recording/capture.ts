@@ -8,7 +8,7 @@ import { createEndpointer, MAX_MS, type EndReason, type Endpointer } from '../as
 import type { ClipJudge } from '../asr/lessonJudge';
 import type { AnswerSource } from '../lesson/answerSource';
 import type { Answer, Heard, Listen } from '../lesson/types';
-import { clipId, clipMeta, compactStamp, type ClipMeta } from './clips';
+import { clipMeta, clipNamer, type ClipMeta } from './clips';
 
 export type Mic = {
   prepare(): Promise<void>; // opens the microphone; nothing is captured yet
@@ -48,7 +48,7 @@ export function createMicSource(mic: Mic, sink: ClipSink, opts: {
   let endNow: (() => void) | null = null;
   // One recorder: turns run strictly one after another.
   let chain: Promise<void> = Promise.resolve();
-  let last = { stamp: '', seq: 0 };
+  const nextClipId = clipNamer();
 
   const discard = (uri: string | null) => {
     if (uri) sink.discard(uri);
@@ -118,11 +118,9 @@ export function createMicSource(mic: Mic, sink: ClipSink, opts: {
             const ctx = opts.context();
             let meta: ClipMeta | null = null;
             if (ctx) {
-              const stamp = compactStamp(started);
-              last = { stamp, seq: stamp === last.stamp ? last.seq + 1 : 1 };
               meta = {
                 ...clipMeta({
-                  id: clipId(stamp, last.seq),
+                  id: nextClipId(started),
                   ext: take.uri.split('.').pop() || 'wav',
                   child: ctx.child,
                   age: ctx.age,

@@ -4,15 +4,14 @@ import lessonsJson from '../content/generated/lessons.json';
 import type { Db } from '../data/db';
 import { getDevice } from '../data/device';
 import { getChild } from '../data/profiles';
-import type { AnswerEvent } from '../learning/events';
+import type { AnswerPayload, EventRow } from '../learning/events';
 import type { Lesson } from '../lesson/types';
+import { fileName } from './client';
 
 const LESSONS = lessonsJson as unknown as Lesson[];
 const BY_ID = new Map(LESSONS.map((l) => [l.template_id, l]));
 
 type SessionRow = { child_id: string; started_at: string; ended_at: string | null; end_reason: string | null; parent_helps: number | null };
-type EventRow = { at: string; type: string; payload: string };
-type StoredAnswer = AnswerEvent & { clip?: string; revision_interval_days?: number };
 
 export type LessonSummary = {
   template_id: string;
@@ -41,13 +40,13 @@ export function buildSessionSummary(db: Db, sessionId: string, opts: { appVersio
   const clips = new Set(
     db
       .all<{ path: string }>("SELECT path FROM upload_item WHERE kind = 'clip' AND session_id = ?", [sessionId])
-      .map((r) => r.path.split('/').pop()),
+      .map((r) => fileName(r.path)),
   );
 
   const lessons: LessonSummary[] = [];
   const answers: Record<string, unknown>[] = [];
-  const open = (templateId: string) => [...lessons].reverse().find((l) => l.template_id === templateId && l.ended_at === null);
-  const events = db.all<EventRow>('SELECT at, type, payload FROM event WHERE session_id = ? ORDER BY at, rowid', [sessionId]);
+  const open = (templateId: string) => lessons.findLast((l) => l.template_id === templateId && l.ended_at === null);
+  const events = db.all<Pick<EventRow, 'at' | 'type' | 'payload'>>('SELECT at, type, payload FROM event WHERE session_id = ? ORDER BY at, rowid', [sessionId]);
   for (const e of events) {
     const p = JSON.parse(e.payload);
     if (e.type === 'lesson_start') {
@@ -60,7 +59,7 @@ export function buildSessionSummary(db: Db, sessionId: string, opts: { appVersio
       const l = open(p.template_id);
       if (l) Object.assign(l, { ended_at: e.at, items_total: p.items_total, items_resolved: p.items_done });
     } else if (e.type === 'answer') {
-      const a = p as StoredAnswer;
+      const a = p as AnswerPayload;
       answers.push({
         at: e.at,
         template_id: a.template_id,
@@ -76,7 +75,7 @@ export function buildSessionSummary(db: Db, sessionId: string, opts: { appVersio
         attempt: a.attempt,
         unsure: a.unsure,
         counts: a.counts,
-        ...(a.phase === 'revision' && a.revision_interval_days != null && { revision_interval_days: a.revision_interval_days }),
+        ...(a.revision_interval_days !== undefined && { revision_interval_days: a.revision_interval_days }),
         ...(a.clip && clips.has(a.clip) && { clip: a.clip }),
       });
     }

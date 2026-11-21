@@ -20,10 +20,12 @@ export function uploadConfig(): UploadConfig | null {
   return url && key ? { url: url.replace(/\/$/, ''), key } : null;
 }
 
-class HttpError extends Error {
-  constructor(readonly status: number) {
-    super(`upload request failed: HTTP ${status}`);
-  }
+/** The last path segment: the name a file is uploaded and listed under. */
+export const fileName = (path: string) => path.slice(path.lastIndexOf('/') + 1);
+
+function ok<R extends { ok: boolean; status: number }>(res: R): R {
+  if (!res.ok) throw new Error(`upload request failed: HTTP ${res.status}`);
+  return res;
 }
 
 export function createUploadClient(config: UploadConfig, fetch: FetchPort) {
@@ -37,19 +39,15 @@ export function createUploadClient(config: UploadConfig, fetch: FetchPort) {
   return {
     /** Presigned PUT links for one session's files. */
     async links(req: LinkRequest): Promise<Links> {
-      const res = await post('/v1/upload-links', req);
-      if (!res.ok) throw new HttpError(res.status);
-      return (await res.json()) as Links;
+      return (await ok(await post('/v1/upload-links', req)).json()) as Links;
     },
     /** Uploads one file to its presigned link; the signal aborts it. */
     async put(url: string, bytes: Uint8Array, type: string, signal: AbortSignal): Promise<void> {
-      const res = await fetch(url, { method: 'PUT', headers: { 'content-type': type }, body: bytes, signal });
-      if (!res.ok) throw new HttpError(res.status);
+      ok(await fetch(url, { method: 'PUT', headers: { 'content-type': type }, body: bytes, signal }));
     },
     /** Asks the admin to delete everything this device sent. */
     async deletionRequest(deviceId: string): Promise<void> {
-      const res = await post('/v1/deletion-request', { device_id: deviceId });
-      if (!res.ok) throw new HttpError(res.status);
+      ok(await post('/v1/deletion-request', { device_id: deviceId }));
     },
   };
 }

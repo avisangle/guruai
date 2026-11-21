@@ -43,6 +43,16 @@ export const compactStamp = (date: Date) =>
 // c-20261115-104201-001; seq counts clips started within the same second
 export const clipId = (stamp: string, seq: number) => `c-${stamp}-${pad(seq, 3)}`;
 
+/** Names clips in recording order: each call returns the clip id for a take started at `date`. */
+export function clipNamer() {
+  let last = { stamp: '', seq: 0 };
+  return (date: Date) => {
+    const stamp = compactStamp(date);
+    last = { stamp, seq: stamp === last.stamp ? last.seq + 1 : 1 };
+    return clipId(stamp, last.seq);
+  };
+}
+
 export const exportFileName = (date: Date) => `guruai-clips-${compactStamp(date)}.zip`;
 
 // Tester-typed child code: 1-2 letters then 1-3 digits (C1, C12, AB3). Never a name.

@@ -109,7 +109,7 @@ export function LessonPlayer({ lesson, childId, sessionId, styleLevel, revision,
   const stop = () => {
     lessonLeft(db, ctx(), lesson.template_id, { done: answered.current.size, total: items.length });
     endSessionNow(db, sessionId, 'stop', false); // "parent helps" (GURU-34) is not wired yet
-    sessionEnded(sessionId).catch(() => undefined);
+    void sessionEnded(sessionId);
     back();
   };
 
