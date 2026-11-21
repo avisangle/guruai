@@ -203,7 +203,7 @@ function AttentionBanner({ banner, onAction }: { banner: Banner; onAction: () =>
   );
 }
 
-/** The "मी उत्तरं तपासेन" switch for one child (D-GURU-34-parent-helps). */
+/** The "parent helps" switch for one child (D-GURU-34-parent-helps). */
 function ParentHelpsCard({ childId }: { childId: string }) {
   const { t } = useT();
   const on = useParentHelps(childId);
