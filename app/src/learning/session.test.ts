@@ -15,11 +15,13 @@ import { createChild, updateChild } from '../data/profiles';
 import { createTestDb } from '../data/testDb';
 import type { Position } from '../lesson/types';
 import { createActiveClock } from './activeClock';
+import { assignLesson } from './assignments';
 import { recordAnswer, type AnswerEvent } from './events';
 import { loadPosition, savePosition } from './positions';
 import {
   closeOpenSessions,
   endSession,
+  ensureSession,
   goalMetToday,
   lessonEnded,
   lessonLeft,
@@ -348,5 +350,33 @@ describe('contract for dependents (GURU-28, GURU-29, GURU-37, GURU-38)', () => {
     clock.start(0);
     expect(typeof clock.activeMs(1)).toBe('number');
     expect(typeof shouldEndAfterLesson({ done: 0, goal: 3, activeMs: 0, capMin: 30 })).toBe('boolean');
+  });
+});
+
+describe('ensureSession, and assignments completed at lesson end', () => {
+  it('ensureSession reuses the open session and starts one once it has ended', () => {
+    const db = freshDb();
+    const child = addChild(db);
+    const first = ensureSession(db, child, local(21, 9));
+    expect(ensureSession(db, child, local(21, 9, 5))).toBe(first);
+    endSession(db, first, 'goodbye', { at: local(21, 9, 20), activeMs: MIN, parentHelps: false });
+    expect(ensureSession(db, child, local(21, 10))).not.toBe(first);
+  });
+
+  it('lessonEnded marks the lesson\'s open assignments done', () => {
+    const db = freshDb();
+    const child = addChild(db);
+    assignLesson(db, child, 'tpl_a', '2026-11-21');
+    assignLesson(db, child, 'tpl_b', '2026-11-21');
+    const ctx = { childId: child, sessionId: startSession(db, child, local(21, 9)), at: local(21, 9, 10) };
+    lessonEnded(db, ctx, 'tpl_a');
+    const rows = db.all<{ template_id: string; done_at: string | null }>(
+      'SELECT template_id, done_at FROM assignment WHERE child_id = ? ORDER BY template_id',
+      [child],
+    );
+    expect(rows).toEqual([
+      { template_id: 'tpl_a', done_at: ctx.at },
+      { template_id: 'tpl_b', done_at: null },
+    ]);
   });
 });
