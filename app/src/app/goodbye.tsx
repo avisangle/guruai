@@ -21,6 +21,7 @@ import { endSessionNow } from '../learning/sessionClock';
 import { familyLines, pickLine } from '../lesson/lines';
 import type { Prompts } from '../lesson/types';
 import { ParentLock } from '../parent/ParentLock';
+import { parentHelps } from '../parent/parentHelps';
 import { useLinePlayer } from '../screens/useLinePlayer';
 import { Shekru } from '../shekru/Shekru';
 import { useShekruRig } from '../shekru/useShekruRig';
@@ -60,7 +61,7 @@ export default function GoodbyeScreen() {
     const db = liveDb();
     const session = openSession(db, child);
     if (session) {
-      endSessionNow(db, session, 'goodbye', false); // "parent helps" (GURU-34) is not wired yet
+      endSessionNow(db, session, 'goodbye', parentHelps.end(child));
       void sessionEnded(session);
     }
 

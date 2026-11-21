@@ -6,7 +6,7 @@ import * as Network from 'expo-network';
 
 import { modelFile } from '../asr/model';
 import catalogue from '../content/generated/paths.json';
-import { STARTER_PACK } from '../content/packs';
+import { packId, STARTER_PACK } from '../content/packs';
 import { liveDb } from '../data/liveDb';
 import type { ChildProfile } from '../data/types';
 import { pathsFor } from '../learning/enrol';
@@ -72,7 +72,7 @@ const lessonPack: Record<string, string | undefined> = catalogue.lessonPack;
 // Lessons whose audio build-content bundles: the starter pack's (D-GURU-14); the rest come in packs.
 const bundledLessons = Object.keys(lessonPack).filter((id) => lessonPack[id] === STARTER_PACK);
 
-/** Packs holding the not-bundled lessons of the child's paths, by `lessonPack` (D-GURU-16). */
+/** Manifest ids (`packId`) of the packs holding the not-bundled lessons of the child's paths, by `lessonPack` (D-GURU-16). */
 export function packsForChild(child: ChildProfile, bundled: string[] = bundledLessons): string[] {
   const wanted = new Set(pathsFor(child).map(([id]) => id));
   const skip = new Set(bundled);
@@ -81,7 +81,7 @@ export function packsForChild(child: ChildProfile, bundled: string[] = bundledLe
     .flatMap((p) => p.units.flatMap((u) => u.lessons))
     .filter((l) => !skip.has(l))
     .map((l) => lessonPack[l]);
-  return [...new Set(ids.filter((id) => id != null))];
+  return [...new Set(ids.filter((id) => id != null))].map((pack) => packId(child.tutor, pack));
 }
 
 export function liveDeps(): DownloaderDeps {

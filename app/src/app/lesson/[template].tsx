@@ -7,10 +7,9 @@ import lessonsJson from '../../content/generated/lessons.json';
 import { now } from '../../data/db';
 import { liveDb } from '../../data/liveDb';
 import { getChild } from '../../data/profiles';
-import { loadPosition } from '../../learning/positions';
+import { resumePosition } from '../../learning/positions';
 import type { DueItem, LessonStop } from '../../learning/queue';
-import { openSession, startSession } from '../../learning/session';
-import { isFinished } from '../../lesson/engine';
+import { ensureSession } from '../../learning/session';
 import { LessonPlayer, type LessonPlayerProps } from '../../lesson/LessonPlayer';
 import { revisionFor } from '../../lesson/revision';
 import type { Lesson } from '../../lesson/types';
@@ -31,15 +30,14 @@ function load(template: string, childId: string, stop: string | undefined): Less
   const db = liveDb();
   const child = childId ? getChild(db, childId) : null;
   if (!lesson || !child) return null;
-  const saved = loadPosition(db, child.id, lesson.template_id, lesson.version);
-  const start = saved && !isFinished(lesson, saved) ? saved : null;
-  // GURU-29 opens the session when the child taps their face; a lesson opened another way gets one
-  const sessionId = openSession(db, child.id) ?? startSession(db, child.id, now());
+  const start = resumePosition(db, child.id, lesson);
+  const sessionId = ensureSession(db, child.id, now());
   return {
     lesson,
     childId: child.id,
     sessionId,
-    styleLevel: child.style_level,
+    // Re-read: a session started just now settles the style level first (D-GURU-22).
+    styleLevel: getChild(db, child.id)!.style_level,
     revision: revisionFor(LESSONS, lesson, parseStop(stop), start),
     start,
   };

@@ -1,28 +1,28 @@
-// AnswerSource backed by the tester buttons.
-import { useMemo, useRef, useState } from 'react';
+// AnswerSource backed by the tester buttons: the tap source, plus whether a turn is waiting.
+import { useMemo, useState } from 'react';
 
 import type { AnswerSource } from '../lesson/answerSource';
-import type { Answer, Heard } from '../lesson/types';
+import { createTapSource } from '../lesson/tapSource';
+import type { Answer } from '../lesson/types';
 
 export function useTesterAnswers() {
-  const pending = useRef<((heard: Heard) => void) | null>(null);
   const [waiting, setWaiting] = useState(false);
 
   const api = useMemo(() => {
+    const tap = createTapSource();
     const source: AnswerSource = {
-      listen: () => new Promise((resolve) => {
-        pending.current = resolve;
+      listen: (step) => {
         setWaiting(true);
-      }),
+        return tap.source.listen(step);
+      },
       cancel: () => {
-        pending.current = null;
+        tap.source.cancel();
         setWaiting(false);
       },
     };
     const give = (answer: Answer) => {
-      const resolve = pending.current;
-      source.cancel();
-      resolve?.({ kind: answer, by: 'tap' });
+      setWaiting(false);
+      tap.give(answer);
     };
     return { source, give };
   }, []);

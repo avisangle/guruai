@@ -11,7 +11,7 @@ export type QueueInput = {
   today: string; // 'YYYY-MM-DD'
   goal: number; // child.lessons_per_day
   doneToday: number; // lesson_end events today, repeats included
-  inProgress: string[]; // template ids with a saved lesson_position
+  inProgress: string[]; // template ids with a resumable lesson_position (current version, not finished)
   assignments: { template_id: string; for_date: string; done_at: string | null }[];
   paths: { path_id: string; units: { unit_id: string; lessons: string[] }[] }[]; // active, enrolment order
   finished: string[]; // template ids with any lesson_end

@@ -23,6 +23,7 @@ import type { MicState } from '../../parent/attention';
 import { ADULT, Icon, MIC, STAR } from '../../parent/icons';
 import { readMic } from '../../parent/mic';
 import { ParentLock } from '../../parent/ParentLock';
+import { useParentHelps } from '../../parent/parentHelps';
 import { useLinePlayer } from '../../screens/useLinePlayer';
 import { Shekru } from '../../shekru/Shekru';
 import { useShekruRig } from '../../shekru/useShekruRig';
@@ -72,6 +73,7 @@ export default function TodayQueueScreen() {
   const [caption, setCaption] = useState<string | null>(null);
   const shown = useRef<Readiness | null>(null);
   const firstFocus = useRef(true);
+  const helps = useParentHelps(id);
 
   // Reread on every return (a finished lesson changes the trail and the stars) and the mic, which the
   // parent may have allowed meanwhile.
@@ -94,7 +96,7 @@ export default function TodayQueueScreen() {
     });
   }, [id]);
 
-  const state = today && mic ? readiness({ model: today.model, mic, judge: today.judge, parentHelps: false }) : null;
+  const state = today && mic ? readiness({ model: today.model, mic, judge: today.judge, parentHelps: helps }) : null;
 
   // Shekru asks for a grown-up on each waiting screen, and says he is ready when one turns into the queue.
   useEffect(() => {
