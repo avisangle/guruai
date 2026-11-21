@@ -45,8 +45,7 @@ export function updateDevice(db: Db, patch: DeviceUpdate): void {
   getDevice(db);
   const columns = DEVICE_UPDATABLE.filter((c) => patch[c] !== undefined);
   const sets = [...columns.map((c) => `${c} = ?`), 'updated_at = ?'].join(', ');
-  const value = (v: DeviceUpdate[keyof DeviceUpdate]) => (typeof v === 'boolean' ? Number(v) : (v ?? null));
-  db.run(`UPDATE device SET ${sets}`, [...columns.map((c) => value(patch[c])), now()]);
+  db.run(`UPDATE device SET ${sets}`, [...columns.map((c) => patch[c] ?? null), now()]);
 }
 
 /** Stores the judge speed check (GURU-15); null clears it. */

@@ -5,15 +5,12 @@ import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { queuePacks } from '../downloads/downloader';
-import type { StoragePlan } from '../downloads/plan';
+import { toMb, type StoragePlan } from '../downloads/plan';
 import { Button } from '../ui/components/Button';
 import { Text } from '../ui/components/Text';
 import { useT } from '../ui/i18n';
 import { theme } from '../ui/theme';
 import { TickBox } from './ProfileForm';
-
-/** Decimal megabytes, like the manifest sizes. */
-export const toMb = (bytes: number) => Math.round(bytes / 1_000_000);
 
 type Props = {
   plan: Extract<StoragePlan, { kind: 'needs_choice' }>;

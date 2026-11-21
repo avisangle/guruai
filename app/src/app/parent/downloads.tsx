@@ -1,14 +1,16 @@
 // Downloads (wireframes pm-downloads, pm-downloads-resume), opened from Settings: overall progress, a
 // row per file, resume for a failed file, the mobile-data switch, and the storage prompt when space is short.
 import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 
 import { getDevice, updateDevice } from '../../data/device';
 import { liveDb } from '../../data/liveDb';
 import { queuePacks, startInitialDownloads, type DownloadItem } from '../../downloads/downloader';
+import { toMb } from '../../downloads/plan';
 import { useDownloads } from '../../downloads/useDownloads';
 import { useParentMode } from '../../parent/ParentModeProvider';
-import { StoragePrompt, toMb } from '../../parent/StoragePrompt';
+import { SwitchRow } from '../../parent/rows';
+import { StoragePrompt } from '../../parent/StoragePrompt';
 import { Button } from '../../ui/components/Button';
 import { Screen } from '../../ui/components/Screen';
 import { Text } from '../../ui/components/Text';
@@ -16,6 +18,7 @@ import { useT } from '../../ui/i18n';
 import { theme } from '../../ui/theme';
 
 const percent = (done: number, total: number) => (total ? Math.round((done / total) * 100) : 0);
+const bytesText = (t: ReturnType<typeof useT>['t'], done: number, total: number) => t('downloadsBytes', { done: toMb(done), total: toMb(total) });
 
 export default function DownloadsScreen() {
   const { t } = useT();
@@ -51,7 +54,7 @@ export default function DownloadsScreen() {
 
         <View testID="downloads-overall" style={styles.card}>
           <Text variant="section">{overall}</Text>
-          {!allDone && <Text variant="helper">{t('downloadsBytes', { done: toMb(done), total: toMb(total) })}</Text>}
+          {!allDone && <Text variant="helper">{bytesText(t, done, total)}</Text>}
           {status.waitingForWifi && <Text variant="helper">{t('downloadsWifiNote')}</Text>}
         </View>
 
@@ -62,19 +65,9 @@ export default function DownloadsScreen() {
           <Text variant="helper">{t('downloadsResumeNote')}</Text>
         </View>
 
-        <Pressable accessible={false} onPress={() => changeMobileData(!mobileData)} style={[styles.card, styles.line]}>
-          <Text variant="label" style={styles.grow}>
-            {t('downloadsMobileData')}
-          </Text>
-          <Switch
-            testID="downloads-mobile-data"
-            accessibilityLabel={t('downloadsMobileData')}
-            value={mobileData}
-            onValueChange={changeMobileData}
-            trackColor={{ false: color.parent.border, true: color.parent.accent }}
-            thumbColor={color.parent.surface}
-          />
-        </Pressable>
+        <View style={styles.card}>
+          <SwitchRow testID="downloads-mobile-data" label={t('downloadsMobileData')} value={mobileData} onChange={changeMobileData} />
+        </View>
       </ScrollView>
       <Button variant="parentGhost" label={t('backToChildren')} onPress={exit} />
     </Screen>
@@ -88,7 +81,7 @@ function ItemRow({ item, label }: { item: DownloadItem; label: string }) {
   // While downloading, the percent follows the bytes on the size line.
   const size =
     item.status === 'downloading'
-      ? `${t('downloadsBytes', { done: toMb(item.bytesDone), total: toMb(item.bytesTotal) })} · ${percent(item.bytesDone, item.bytesTotal)}%`
+      ? `${bytesText(t, item.bytesDone, item.bytesTotal)} · ${percent(item.bytesDone, item.bytesTotal)}%`
       : t('downloadsSize', { mb: toMb(item.bytesTotal) });
   const state = {
     downloading: null,
