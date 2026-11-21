@@ -45,12 +45,16 @@ export function openSession(db: Db, childId: string): string | null {
 
 /**
  * The child's open session, or a new one: one sitting spans the picker, parent visits and lessons.
- * An open session from an earlier local day is closed first (D-GURU-21-one-open-session).
+ * An open session from an earlier local day is closed first and passed to `onClosed`
+ * (D-GURU-21-one-open-session, D-GURU-38-queue-at-app-start).
  */
-export function ensureSession(db: Db, childId: string, at: string): string {
+export function ensureSession(db: Db, childId: string, at: string, onClosed?: (sessionId: string) => void): string {
   const open = latestOpen(db, childId);
   if (open && localDay(open.started_at) === localDay(at)) return open.id;
-  if (open) closeSessions(db, 'id = ?', [open.id]);
+  if (open) {
+    closeSessions(db, 'id = ?', [open.id]);
+    onClosed?.(open.id);
+  }
   return startSession(db, childId, at);
 }
 
