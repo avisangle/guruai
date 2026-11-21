@@ -158,6 +158,15 @@ export default function ParentHome() {
 
         {child && rows.length > 0 && <SetupCard child={child} rows={rows} />}
 
+        {child && (
+          <Button
+            testID="home-assign"
+            variant="parent"
+            label={t('assignTitle')}
+            onPress={() => router.push(`/parent/assign/${child.id}`)}
+          />
+        )}
+
         {data?.sections.map((section) => (
           <Section
             key={section.id}
