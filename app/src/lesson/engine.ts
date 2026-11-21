@@ -36,6 +36,23 @@ export function isFinished(lesson: Lesson, position: Position) {
   return position.flow >= lesson.flow.length;
 }
 
+/**
+ * The items a flow entry asks, as Position.quiz refs: lesson item ids, revision items as
+ * `<template_id>.<id>`. Retry and quiz lists come from the position.
+ */
+export function itemRefsOf(lesson: Lesson, revision: RevisionItem[], pos: Position, entry: FlowEntry): string[] {
+  const idOf = (display: string) => {
+    const item = lesson.items.find((i) => i.display === display);
+    if (!item) throw new Error(`Flow names "${display}" but no item displays it`);
+    return item.id;
+  };
+  if (!('phase' in entry)) return [];
+  if (entry.phase === 'retry') return pos.retry;
+  if (entry.phase === 'teach') return entry.order.map(idOf);
+  // before the run's order is drawn, and in saves from before GURU-19
+  return pos.quiz ?? [...entry.order.map(idOf), ...revision.map(revisionRef)];
+}
+
 export type LessonEngine = {
   // Next step to perform. After a `listen` step, call answer() first.
   next(): Step;
@@ -113,13 +130,7 @@ export function createLesson(
   const hint = (item: Item) => ask(itemLine(item, 'hint', 'hint', true), 'quiz');
   const gated = (item: Item) => wordItemsGated && item.kind === 'word';
 
-  const itemsOf = (entry: FlowEntry): Item[] => {
-    if (!('phase' in entry)) return [];
-    if (entry.phase === 'retry') return pos.retry.map(byId);
-    if (entry.phase === 'teach') return entry.order.map(byDisplay);
-    // before the run's order is drawn, and in saves from before GURU-19
-    return pos.quiz ? pos.quiz.map(byRef) : [...entry.order.map(byDisplay), ...revision.map((r) => r.item)];
-  };
+  const itemsOf = (entry: FlowEntry): Item[] => itemRefsOf(lesson, revision, pos, entry).map(byRef);
   const nextItem = () => {
     pos.index++;
     pos.attempts = 0;

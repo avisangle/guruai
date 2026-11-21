@@ -14,8 +14,9 @@ import { lessonEnded, lessonsDoneToday, shouldEndAfterLesson } from '../learning
 import type { useLinePlayer } from '../screens/useLinePlayer';
 import anim from '../shekru/generated/shekru.anim.json';
 import type { AnswerSource } from './answerSource';
-import { createLesson, type LessonEngine } from './engine';
-import type { AnswerEvent, Item, Lesson, Position, Prompts, RevisionItem, StyleLevel } from './types';
+import { familyOf } from './lines';
+import { createLesson, isFinished, newPosition, type LessonEngine } from './engine';
+import type { AnswerEvent, Item, Lesson, Listen, Position, Prompts, RevisionItem, StyleLevel } from './types';
 
 const prompts = promptsJson as Prompts;
 const STATE_DEFS = anim.states as Record<string, { loop?: boolean; duration: number }>;
@@ -28,7 +29,15 @@ export type PlayerView = {
   caption: string;
   card: { item: Item; showAnchor: boolean } | null;
   listening: boolean;
+  /** The listen turn reopened after "didn't hear". */
+  again: boolean;
+  /** A right answer's reward, until the next item, turn or moment: a star, or three ticks for streak praise. */
+  correct: 'star' | 'ticks' | null;
+  /** surprise: Shekru centre stage for the step. finished: from the closing line on. */
+  moment: 'surprise' | 'finished' | null;
   paused: boolean;
+  /** Engine position at the current step, for the item dots. */
+  position: Position;
 };
 
 type Options = {
@@ -56,7 +65,10 @@ const oneShotMs = (state: string) => {
 };
 
 export function usePlayerLoop(opts: Options) {
-  const [view, setView] = useState<PlayerView>({ caption: '', card: null, listening: false, paused: false });
+  const [view, setView] = useState<PlayerView>(() => ({
+    caption: '', card: null, listening: false, again: false, correct: null, moment: null, paused: false,
+    position: opts.start ?? newPosition(opts.lesson),
+  }));
   const show = useCallback((change: Partial<PlayerView>) => setView((v) => ({ ...v, ...change })), []);
   const o = useRef(opts);
   o.current = opts;
@@ -97,14 +109,18 @@ export function usePlayerLoop(opts: Options) {
       pause();
       return false;
     };
+    let lastListen: Listen | null = null; // the last listen turn; the engine queues it again after "didn't hear"
+    let praised: { item: Item; reward: 'star' | 'ticks' } | null = null;
     for (;;) {
       const { tutor, source, onActivity, onAnswer } = o.current;
       const step = eng.next();
       if (step.type === 'done') break;
+      const position = eng.position();
       if (step.type === 'surprise') {
+        praised = null;
         // a silent one-shot that hands back to idle, then its line over talking (D-GURU-7-tutor-state-contract)
         tutor.setState(step.state);
-        show({ caption: '' });
+        show({ caption: '', correct: null, moment: 'surprise', position });
         onActivity();
         await wait(oneShotMs(step.state));
         if (!alive()) return;
@@ -115,7 +131,17 @@ export function usePlayerLoop(opts: Options) {
         }
       } else if (step.type === 'say') {
         const started = Date.now();
-        show({ card: step.item && { item: step.item, showAnchor: step.showAnchor }, caption: step.caption ?? step.text });
+        const family = familyOf(step.line);
+        if (family?.startsWith('praise_')) praised = { item: step.item!, reward: family === 'praise_streak' ? 'ticks' : 'star' };
+        else if (step.item !== praised?.item) praised = null;
+        show({
+          card: step.item && { item: step.item, showAnchor: step.showAnchor },
+          caption: step.caption ?? step.text,
+          correct: praised?.reward ?? null,
+          // the closing lines are queued with the last answer, so the position is finished by then
+          moment: !step.item && isFinished(lesson, position) ? 'finished' : null,
+          position,
+        });
         tutor.setState(step.state);
         onActivity();
         if (!(await say(step.line, step.text))) return;
@@ -123,7 +149,12 @@ export function usePlayerLoop(opts: Options) {
       } else {
         await prepared.current;
         if (!alive()) return;
-        show({ card: { item: step.item, showAnchor: step.showAnchor }, caption: '', listening: true });
+        praised = null;
+        show({
+          card: { item: step.item, showAnchor: step.showAnchor }, caption: '', listening: true, again: step === lastListen,
+          correct: null, moment: null, position,
+        });
+        lastListen = step;
         o.current.lines.chime();
         tutor.setState('listening');
         onActivity();

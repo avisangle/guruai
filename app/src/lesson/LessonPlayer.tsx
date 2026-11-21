@@ -1,12 +1,12 @@
-// One lesson for one child inside their open session: Shekru, the item card, captions and the
-// listen turn (wireframes l-talking, l-listening, l-word-*, l-paused). Answers become events and
+// One lesson for one child inside their open session: Shekru, the item dots, the card, captions and
+// the listen turn, and the moments between (wireframes l-talking, l-listening, l-word-*, l-paused,
+// l-correct, l-streak, l-nohear, l-surprise, l-finished). Answers become events and
 // the position is saved after each one. Pause, the app leaving the foreground or an audio
 // interruption of a line (a call) pause the lesson; Stop ends the session.
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text as RNText, useWindowDimensions, View } from 'react-native';
-import Animated, { useAnimatedStyle, useSharedValue, withRepeat, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { PICTURES } from '../content/pictures';
@@ -16,6 +16,7 @@ import { recordAnswer } from '../learning/events';
 import { savePosition } from '../learning/positions';
 import { lessonLeft, lessonStarted } from '../learning/session';
 import { endSessionNow, sessionClock } from '../learning/sessionClock';
+import { ParentLock } from '../parent/ParentLock';
 import { useLinePlayer } from '../screens/useLinePlayer';
 import { useRecording, type JudgedClip } from '../screens/useRecording';
 import { useTesterAnswers } from '../screens/useTesterAnswers';
@@ -26,6 +27,9 @@ import { Screen } from '../ui/components/Screen';
 import { Text } from '../ui/components/Text';
 import { theme } from '../ui/theme';
 import type { AnswerSource } from './answerSource';
+import { dotStates, ItemDots } from './ItemDots';
+import { MicIndicator } from './MicIndicator';
+import { CorrectBadge, FinishedStar, RewardStar, StreakTicks } from './Moments';
 import { onLessonEnd, usePlayerLoop, type LinePlayer } from './usePlayerLoop';
 import type { Answer, Lesson, Position, RevisionItem, StyleLevel } from './types';
 
@@ -45,20 +49,6 @@ export type LessonPlayerProps = {
 
 // Tester buttons, shown only when the judge cannot answer (until "parent helps" replaces them).
 const ANSWERS: [Answer, string][] = [['correct', '✓ बरोबर'], ['wrong', '✗ चूक'], ['silent', '… शांत']];
-
-function Mic() {
-  const pulse = useSharedValue(0);
-  useEffect(() => {
-    pulse.value = withRepeat(withTiming(1, { duration: 700 }), -1, true);
-  }, [pulse]);
-  const ring = useAnimatedStyle(() => ({ transform: [{ scale: 1 + 0.45 * pulse.value }], opacity: 0.5 - 0.4 * pulse.value }));
-  return (
-    <View style={styles.mic} testID="mic" accessibilityLabel="ऐकत आहे">
-      <Animated.View style={[styles.micRing, ring]} />
-      <View style={styles.micDot}><RNText style={styles.micIcon}>🎤</RNText></View>
-    </View>
-  );
-}
 
 export function LessonPlayer({ lesson, childId, sessionId, styleLevel, revision, start }: LessonPlayerProps) {
   const { width, height } = useWindowDimensions();
@@ -118,21 +108,38 @@ export function LessonPlayer({ lesson, childId, sessionId, styleLevel, revision,
   };
 
   const bigSize = Math.min(width * 0.72, height * 0.3, 420);
+  const centreSize = Math.min(width * 0.9, height * 0.5, 560);
   const picture = view.card ? PICTURES[view.card.item.anchor.picture] : undefined;
   const word = view.card?.item.kind === 'word';
+  const dots = useMemo(() => dotStates(lesson, revision, view.position), [lesson, revision, view.position]);
+  const finished = view.moment === 'finished';
+  // surprise and finished: the card steps aside and Shekru takes the centre
+  const centre = view.moment !== null;
+  // the control zone: a reward in place of the mic
+  const control = finished ? <FinishedStar />
+    : view.correct === 'ticks' ? <StreakTicks />
+    : view.correct ? <RewardStar />
+    : <MicIndicator open={view.listening} again={view.again} />;
 
   return (
     <Screen variant="child" style={styles.screen}>
       <StatusBar style="dark" />
-      <View style={[styles.stage, { width: bigSize, height: bigSize }]}>
-        <Shekru values={rig.values} size={bigSize} hintLetter={picture} />
+      {/* one Shekru for every layout, so a moment never remounts the rig */}
+      <View
+        style={centre ? styles.centre : [styles.stage, { width: bigSize, height: bigSize }]}
+        testID={finished ? 'lesson-finished' : centre ? 'surprise' : undefined}>
+        <Shekru values={rig.values} size={centre ? centreSize : bigSize} hintLetter={centre ? undefined : picture} />
       </View>
-      <View style={styles.card} testID="card">
-        <Text mode="child" variant={word ? 'wordCard' : 'letterCard'} style={styles.cardText}>
-          {view.card?.item.display ?? ' '}
-        </Text>
-        <RNText style={[styles.anchor, !view.card?.showAnchor && styles.hidden]}>{picture ?? ' '}</RNText>
-      </View>
+      <ItemDots states={dots} />
+      {!centre && (
+        <View style={[styles.card, view.correct && styles.cardCorrect]} testID="card">
+          {view.correct && <CorrectBadge />}
+          <Text mode="child" variant={word ? 'wordCard' : 'letterCard'} style={styles.cardText}>
+            {view.card?.item.display ?? ' '}
+          </Text>
+          <RNText style={[styles.anchor, !view.card?.showAnchor && styles.hidden]}>{picture ?? ' '}</RNText>
+        </View>
+      )}
       <Text mode="child" variant="caption" style={styles.caption} numberOfLines={3} testID="caption">
         {view.caption || ' '}
       </Text>
@@ -153,7 +160,7 @@ export function LessonPlayer({ lesson, childId, sessionId, styleLevel, revision,
       ) : (
         <View style={styles.controls}>
           {rec.active && rec.judged && <JudgeNote judged={rec.judged} />}
-          {view.listening && <Mic />}
+          {control}
           {tester.waiting && (
             <View style={styles.testerRow}>
               {ANSWERS.map(([answer, label]) => (
@@ -170,7 +177,10 @@ export function LessonPlayer({ lesson, childId, sessionId, styleLevel, revision,
           )}
         </View>
       )}
-      {!view.paused && (
+      <View style={[styles.lock, { top: insets.top + space[2] }]}>
+        <ParentLock onOpen={pause} />
+      </View>
+      {!view.paused && !finished && (
         <Pressable
           testID="pause"
           accessibilityRole="button"
@@ -199,22 +209,17 @@ const styles = StyleSheet.create({
   screen: { alignItems: 'center', paddingBottom: space[3] },
   stage: { alignItems: 'center', paddingTop: space[1] },
   hidden: { opacity: 0 },
+  centre: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   card: {
     flex: 1, alignSelf: 'stretch', maxWidth: 560, width: '100%', marginTop: space[1], borderRadius: radius.child.card,
     borderWidth: 2, borderColor: color.child.border, backgroundColor: color.child.surface,
     alignItems: 'center', justifyContent: 'center',
   },
+  cardCorrect: { borderWidth: 5, borderColor: color.child.success, backgroundColor: color.child.successSurface },
   cardText: { textAlign: 'center' },
   anchor: { textAlign: 'center', fontSize: font.child.letterCard.size / 2 },
   caption: { color: color.child.textMuted, textAlign: 'center', minHeight: 40, marginTop: space[2], maxWidth: 560 },
   controls: { height: 132, alignSelf: 'stretch', alignItems: 'center', justifyContent: 'flex-end', gap: space[2] },
-  mic: { width: 56, height: 56, alignItems: 'center', justifyContent: 'center' },
-  micRing: { position: 'absolute', width: 56, height: 56, borderRadius: radius.child.round, backgroundColor: color.child.listeningRing },
-  micDot: {
-    width: 48, height: 48, borderRadius: radius.child.round, backgroundColor: color.child.listening,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  micIcon: { fontSize: 24 },
   testerNote: { fontSize: 11, color: color.child.textMuted },
   testerRow: { flexDirection: 'row', gap: touch.child.gap, alignSelf: 'stretch', justifyContent: 'center' },
   answer: {
@@ -222,6 +227,7 @@ const styles = StyleSheet.create({
     borderStyle: 'dashed', borderColor: color.child.borderStrong, backgroundColor: color.child.surface,
     alignItems: 'center', justifyContent: 'center',
   },
+  lock: { position: 'absolute', left: space[3] },
   pause: {
     position: 'absolute', right: space[3], width: touch.child.pause, height: touch.child.pause, borderRadius: radius.child.round,
     flexDirection: 'row', gap: 7, alignItems: 'center', justifyContent: 'center',
