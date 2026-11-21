@@ -166,6 +166,9 @@ LATIN.update(zip("apple ball cat dog elephant fish grapes hat icecream jeep kite
                  "tiger umbrella van watch x ray yoyo zebra".split(),
                  "ॲपल बॉल कॅट डॉग एलिफंट फिश ग्रेप्स हॅट आइस्क्रीम जीप काइट लायन मँगो नेस्ट ऑरेंज पॅरट क्वीन रॅबिट सन "
                  "टायगर अंब्रेला व्हॅन वॉच एक्स रे योयो झेब्रा".split()))
+# new English words go in tools/voice_latin.json (Latin -> Devanagari); it wins over the pairs above
+extra = json.loads((Path(__file__).resolve().parent / "voice_latin.json").read_text())
+LATIN.update({k.lower(): v for k, v in extra.items()})
 JOIN = [(r"\bice[\s-]*cream\b", "icecream"), (r"\byo[\s-]*yo\b", "yoyo"), (r"\bdouble[\s-]*(u|you)\b", "w"), (r"\b([A-Za-z]+)-(?=[A-Za-z])", r"\1 ")]  # "X-ray" -> "X ray"
 SPELLING = {"शाबाश": "शाब्बास", "शबाश": "शाब्बास"}  # Scribe's spelling -> the script's
 
