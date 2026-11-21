@@ -36,6 +36,10 @@ export type ChildHome = {
   assigned: string[];
 };
 
+/** Unfinished lessons assigned for `today` or carried over from earlier days. */
+export const assignedToday = (assignments: QueueInput['assignments'], today: string) =>
+  assignments.filter((a) => a.done_at === null && a.for_date <= today).map((a) => a.template_id);
+
 /** The child's home on the local day `today` ('YYYY-MM-DD'). */
 export function loadChildHome(db: Db, child: ChildProfile, today: string, isInstalled: (id: string) => boolean): ChildHome {
   const input = readQueueInput(db, child, today, isInstalled);
@@ -44,6 +48,6 @@ export function loadChildHome(db: Db, child: ChildProfile, today: string, isInst
     done: queue.done,
     goal: queue.goal,
     sections: homeSections({ ...input, queue }),
-    assigned: input.assignments.filter((a) => a.for_date <= today).map((a) => a.template_id),
+    assigned: assignedToday(input.assignments, today),
   };
 }

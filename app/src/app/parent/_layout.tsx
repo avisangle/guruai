@@ -43,6 +43,7 @@ export default function ParentLayout() {
         <Stack.Screen name="consent" />
         <Stack.Screen name="settings" />
         <Stack.Screen name="child/[id]" />
+        <Stack.Screen name="assign/[child]" />
       </Stack.Protected>
     </Stack>
   );
