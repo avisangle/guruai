@@ -6,6 +6,7 @@ export const FINGERPRINT =
   'M6 9a6.5 6.5 0 0 1 12.5 2c0 3 .2 5-.8 8M9 20c1-2.5 1-5.5 1-8.5a2.3 2.3 0 0 1 4.6 0c0 3.5 0 6-1 9M5 13c0 2-.2 3.5-1 5';
 export const BACKSPACE = 'M9 5h11v14H9l-6-7zM12 9.5l5 5M17 9.5l-5 5';
 export const LOOP = 'M20 11a8 8 0 0 0-14.5-4M4 4v4h4M4 13a8 8 0 0 0 14.5 4M20 20v-4h-4';
+export const CHECK = 'M4 12.5l5.5 5.5L20 6.5';
 export const STAR = 'M12 2.5l2.9 6.2 6.6.8-4.9 4.6 1.3 6.7-5.9-3.4-5.9 3.4 1.3-6.7-4.9-4.6 6.6-.8z';
 export const MIC = 'M9 6a3 3 0 0 1 6 0v5a3 3 0 0 1-6 0zM5 11a7 7 0 0 0 14 0M12 18v3';
 export const ADULT =

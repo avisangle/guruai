@@ -104,6 +104,18 @@ export const mr = {
   stopLesson: 'धडा',
   stopRevision: 'उजळणी',
   askGrownupStrip: 'पालकांसाठी: कोपऱ्यातलं कुलूप 2 सेकंद दाबून धरा',
+  // Goodbye and consent (wireframes l-goodbye, pm-consent). Consent wording is provisional until the pilot form.
+  stopTomorrow: 'उद्या',
+  consentStrip: 'पालकांसाठी: शेकरूला सुधारायला मदत कराल?',
+  consentTitle: 'शेकरूला सुधारायला मदत कराल?',
+  consentOnPhone: 'मुलाचं बोलणं फोनवरच तपासलं जातं. उत्तर तपासण्यासाठी आवाज फोनबाहेर जात नाही. खालचं काहीही चालू न करता धडे तसेच चालतील.',
+  consentClips: 'रेकॉर्डिंग शेअर करा',
+  consentClipsBody: 'मुलाच्या उत्तरांचे छोटे आवाज, शेकरूचं ऐकणं सुधारण्यासाठी.',
+  consentSummaries: 'सत्राचा सारांश शेअर करा',
+  consentSummariesBody: 'कोणता धडा, किती उत्तरं बरोबर, किती वेळ. यात आवाज नसतो.',
+  consentWhatIsSent:
+    'नाव कधीच पाठवलं जात नाही; फक्त या फोनचा एक सांकेतिक क्रमांक आणि मुलाचा कोड. फक्त Wi-Fi वर पाठवलं जातं. हे सेटिंग्जमध्ये कधीही बदलता येतं आणि पाठवलेलं रेकॉर्डिंग तुम्ही सांगितल्यावर पुसलं जाईल.',
 };
+
 
 export type StringKey = keyof typeof mr;

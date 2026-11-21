@@ -102,4 +102,16 @@ export const en: Record<StringKey, string> = {
   stopLesson: 'Lesson',
   stopRevision: 'Revision',
   askGrownupStrip: 'For parents: hold the lock in the corner for 2 seconds',
+  stopTomorrow: 'Tomorrow',
+  consentStrip: 'For parents: help improve Shekru?',
+  consentTitle: 'Help improve Shekru?',
+  consentOnPhone:
+    "Your child's speech is checked on the phone itself. No audio leaves the phone to check an answer. Lessons work the same with both of these off.",
+  consentClips: 'Share recordings',
+  consentClipsBody: "Short clips of your child's answers, to improve Shekru's listening.",
+  consentSummaries: 'Share session summaries',
+  consentSummariesBody: 'Which lesson, how many answers were right, how long. No audio.',
+  consentWhatIsSent:
+    "A name is never sent; only a code number for this phone and your child's code. Sent on Wi-Fi only. You can change this any time in Settings, and sent recordings are deleted when you ask.",
 };
+

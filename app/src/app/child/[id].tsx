@@ -111,7 +111,7 @@ export default function TodayQueueScreen() {
   }, [state, rig, lines]);
 
   if (!today) return <Redirect href="/" />;
-  if (today.queue.goalMet) return <Redirect href="/goodbye" />;
+  if (today.queue.goalMet) return <Redirect href={{ pathname: '/goodbye', params: { child: id } }} />;
 
   const { queue, stars, midDay } = today;
   const lesson = queue.stops.find((s) => s.kind === 'lesson');

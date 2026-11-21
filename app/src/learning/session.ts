@@ -95,6 +95,22 @@ export function lessonsFinished(db: Db, childId: string): number {
   return db.get<{ n: number }>(`SELECT COUNT(*) AS n FROM event WHERE child_id = ? AND type = 'lesson_end'`, [childId])!.n;
 }
 
+/** Template ids the child finished on a local calendar day, in finishing order, without repeats. */
+export function lessonsEndedOn(db: Db, childId: string, date: string): string[] {
+  const { from, to } = localDayBounds(date);
+  const rows = db.all<{ template_id: string }>(
+    `SELECT json_extract(payload, '$.template_id') AS template_id FROM event
+     WHERE child_id = ? AND type = 'lesson_end' AND at >= ? AND at < ? ORDER BY at, rowid`,
+    [childId, from, to],
+  );
+  return [...new Set(rows.map((r) => r.template_id))];
+}
+
+/** True once any child has finished a lesson on this phone. */
+export function anyLessonEnded(db: Db): boolean {
+  return !!db.get(`SELECT 1 FROM event WHERE type = 'lesson_end' LIMIT 1`);
+}
+
 /** True once the child has finished their lessons_per_day on that local day. */
 export function goalMetToday(db: Db, childId: string, date: string): boolean {
   const child = getChild(db, childId);
