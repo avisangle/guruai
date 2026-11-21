@@ -54,6 +54,8 @@ jest.mock('./useShekruRig', () => ({ useShekruRig: () => mockRig }));
 jest.mock('./Shekru', () => ({ Shekru: () => null }));
 jest.mock('expo-audio', () => ({ useAudioPlayer: () => mockPlayer }));
 jest.mock('react-native-safe-area-context', () => require('react-native-safe-area-context/jest/mock').default);
+// The demo route exists only in test builds (GURU-9); it redirects otherwise.
+jest.mock('../config/build', () => ({ IS_TEST_BUILD: true }));
 
 describe('GURU-7 tutor state contract', () => {
   test('the generated animation defines every TUTOR_STATES name', () => {

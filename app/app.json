@@ -10,7 +10,7 @@
       "supportsTablet": true,
       "infoPlist": {
         "NSSpeechRecognitionUsageDescription": "Allow $(PRODUCT_NAME) to use speech recognition.",
-        "NSMicrophoneUsageDescription": "GuruAI uses the microphone only when a tester turns on answer recording, to save the child's spoken answers on this device."
+        "NSMicrophoneUsageDescription": "GuruAI listens to your child's spoken answers through the microphone, on this device, to check how they said each word."
       }
     },
     "android": {
@@ -35,7 +35,7 @@
         "expo-audio",
         {
           "recordAudioAndroid": true,
-          "microphonePermission": "GuruAI uses the microphone only when a tester turns on answer recording, to save the child's spoken answers on this device.",
+          "microphonePermission": "GuruAI listens to your child's spoken answers through the microphone, on this device, to check how they said each word.",
           "enableBackgroundPlayback": false
         }
       ],
@@ -45,7 +45,7 @@
       [
         "expo-speech-recognition",
         {
-          "microphonePermission": "GuruAI uses the microphone only when a tester turns on answer recording, to save the child's spoken answers on this device.",
+          "microphonePermission": "GuruAI listens to your child's spoken answers through the microphone, on this device, to check how they said each word.",
           "androidSpeechServicePackages": [
             "com.google.android.as",
             "com.google.android.googlequicksearchbox",

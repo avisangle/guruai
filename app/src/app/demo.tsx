@@ -1,9 +1,11 @@
 import { useAudioPlayer } from 'expo-audio';
+import { Redirect } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { IS_TEST_BUILD } from '../config/build';
 import anim from '../shekru/generated/shekru.anim.json';
 import visemes from '../shekru/generated/visemes.json';
 import type { TutorState } from '../shekru/contract';
@@ -35,7 +37,11 @@ const AUDIO: Record<string, number> = {
 };
 
 // Shekru's states and the scripted demo lesson, for reviewing the character.
-export default function Demo() {
+export default function DemoRoute() {
+  return IS_TEST_BUILD ? <Demo /> : <Redirect href="/" />;
+}
+
+function Demo() {
   const { width, height } = useWindowDimensions();
   const size = Math.min(width, height * 0.5, 520);
   const [active, setActive] = useState('idle');

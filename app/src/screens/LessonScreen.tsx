@@ -8,6 +8,7 @@ import { Keyboard, Platform, Pressable, StyleSheet, Text, useWindowDimensions, V
 import Animated, { FadeIn, useAnimatedRef, useAnimatedScrollHandler, useAnimatedStyle, useSharedValue } from 'react-native-reanimated';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { TestOnly } from '../config/TestOnly';
 import lessonsJson from '../content/generated/lessons.json';
 import { liveDb } from '../data/liveDb';
 import { listChildren } from '../data/profiles';
@@ -116,10 +117,12 @@ export function LessonScreen() {
               </Pressable>
             </Link>
           )}
-          <View style={styles.links}>
-            <Link href="/demo" testID="demo-link" style={[styles.link, styles.linkLabel]}>Shekru demo ›</Link>
-          </View>
-          <RecordingPanel rec={rec} />
+          <TestOnly>
+            <View style={styles.links}>
+              <Link href="/demo" testID="demo-link" style={[styles.link, styles.linkLabel]}>Shekru demo ›</Link>
+            </View>
+            <RecordingPanel rec={rec} />
+          </TestOnly>
         </Animated.ScrollView>
       </View>
     </SafeAreaView>
