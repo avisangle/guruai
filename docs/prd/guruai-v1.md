@@ -351,7 +351,7 @@ Input for `/breakdown`. Bound by the decision records in `docs/decisions/`.
 **Tutor animation:** surprise moments need new animated states (for example sneeze, drop the nut, dance). They extend the shared tutor state contract in D-CHAR-swap-ready-tutor, so the change needs its own decision record.
 
 **Local data** (SQLite, replacing `app/src/progress/storage.ts`'s position-only store), mirroring the blueprint entities so M2 can sync them:
-- `child_profile` (nickname, picture, class, board, medium, goals, style level and limit, lessons per day, active-time cap, tutor), `parent_gate` (mode: device lock or app PIN, hash, salt, failed attempts, lockout until), `device` (random id, consents).
+- `child_profile` (nickname, picture, class, board, medium, goals, style level and limit, lessons per day, active-time cap, tutor), `parent_gate` (mode: device lock or app PIN, failed attempts, lockout until; the PIN hash and salt live in secure storage, D-GURU-13), `device` (random id, consents).
 - `learning_path`, `path_unit`, `path_enrollment`, `assignment`, `lesson_position`.
 - `event` (append-only: session start/end, answer with verdict, decided by (`shekru` or `tap`), matched text, language, scores summary, unsure flag, attempt number, style level), `item_mastery` (per child, item_key, language: state, streak, next revision date), derived from events.
 
