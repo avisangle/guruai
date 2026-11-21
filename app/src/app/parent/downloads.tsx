@@ -9,7 +9,7 @@ import { queuePacks, startInitialDownloads, type DownloadItem } from '../../down
 import { toMb } from '../../downloads/plan';
 import { useDownloads } from '../../downloads/useDownloads';
 import { useParentMode } from '../../parent/ParentModeProvider';
-import { SwitchRow } from '../../parent/rows';
+import { SwitchRow } from '../../ui/components/SwitchRow';
 import { StoragePrompt } from '../../parent/StoragePrompt';
 import { Button } from '../../ui/components/Button';
 import { Screen } from '../../ui/components/Screen';
