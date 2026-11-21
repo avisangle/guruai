@@ -8,19 +8,20 @@ import { ScrollView, StyleSheet, View } from 'react-native';
 import lessonsJson from '../../../content/generated/lessons.json';
 import pathsJson from '../../../content/generated/paths.json';
 import { liveDb } from '../../../data/liveDb';
-import { listChildren } from '../../../data/profiles';
+import { getChild } from '../../../data/profiles';
 import { isLessonInstalled, queuePacks } from '../../../downloads/downloader';
 import { assignLesson } from '../../../learning/assignments';
 import { localDay } from '../../../learning/mastery';
+import { buildTodayQueue } from '../../../learning/queue';
 import { lessonTitle, readQueueInput } from '../../../learning/queueInput';
 import type { Lesson } from '../../../lesson/types';
+import { assignedToday } from '../../../parent/home';
 import { searchLessons } from '../../../parent/searchLessons';
 import { Button } from '../../../ui/components/Button';
 import { Field } from '../../../ui/components/Field';
 import { Screen } from '../../../ui/components/Screen';
 import { Text } from '../../../ui/components/Text';
 import { useT } from '../../../ui/i18n';
-import type { StringKey } from '../../../ui/strings/mr';
 import { theme } from '../../../ui/theme';
 
 const LESSONS = lessonsJson as unknown as Lesson[];
@@ -28,16 +29,13 @@ const LESSON_PACK: Record<string, string | undefined> = pathsJson.lessonPack;
 // Skill paths only: class paths repeat the same lessons.
 const GROUPS = pathsJson.paths
   .filter((p) => p.kind === 'skill')
-  .map((p) => ({ id: p.path_id, title: p.title, lessons: p.units.flatMap((u) => u.lessons) }))
-  .filter((g) => g.lessons.length > 0);
-
-const STATE_WORD = { new: 'stateNew', pending: 'statePending', completed: 'stateCompleted' } satisfies Record<string, StringKey>;
+  .map((p) => ({ id: p.path_id, title: p.title, lessons: p.units.flatMap((u) => u.lessons) }));
 
 const today = () => localDay(new Date().toISOString());
 
 function readChild(childId: string) {
   const db = liveDb();
-  const child = listChildren(db).find((c) => c.id === childId) ?? null;
+  const child = getChild(db, childId);
   return { child, input: child && readQueueInput(db, child, today(), isLessonInstalled) };
 }
 
@@ -47,20 +45,23 @@ export default function AssignLesson() {
   const [{ child, input }, setData] = useState(() => readChild(childId));
   const [query, setQuery] = useState('');
 
-  const shown = useMemo(() => new Set(searchLessons(LESSONS, query)), [query]);
-  const groups = GROUPS.map((g) => ({ ...g, lessons: g.lessons.filter((id) => shown.has(id)) })).filter((g) => g.lessons.length > 0);
+  const groups = useMemo(() => {
+    const shown = new Set(searchLessons(LESSONS, query));
+    return GROUPS.map((g) => ({ ...g, lessons: g.lessons.filter((id) => shown.has(id)) })).filter((g) => g.lessons.length > 0);
+  }, [query]);
 
   if (!child || !input) return <Screen variant="parent" />;
 
-  // Unfinished assignments for today, carried ones included: they all come first in today's queue.
-  const assigned = new Set(input.assignments.filter((a) => a.for_date <= input.today).map((a) => a.template_id));
+  const assigned = new Set(assignedToday(input.assignments, input.today));
   const finished = new Set(input.finished);
   const started = new Set([...input.inProgress, ...input.assignments.map((a) => a.template_id)]);
-  const stateOf = (id: string) => (finished.has(id) ? 'completed' : started.has(id) ? 'pending' : 'new');
-  const left = Math.max(0, input.goal - input.doneToday);
+  const stateOf = (id: string) => (finished.has(id) ? 'stateCompleted' : started.has(id) ? 'statePending' : 'stateNew');
+  // An assigned lesson the queue neither shows nor holds for its download comes first tomorrow.
+  const queue = buildTodayQueue(input);
+  const queued = new Set([...queue.stops.flatMap((s) => (s.kind === 'lesson' ? [s.template_id] : [])), ...queue.waitingForDownload]);
+  const overflow = [...assigned].some((id) => !queued.has(id));
 
   const assign = (id: string) => {
-    if (assigned.has(id)) return;
     assignLesson(liveDb(), child.id, id, input.today);
     const pack = LESSON_PACK[id];
     if (pack && !isLessonInstalled(id)) queuePacks([pack]).catch(() => undefined);
@@ -92,7 +93,7 @@ export default function AssignLesson() {
                   <View style={styles.grow}>
                     <Text variant="label">{lessonTitle(id)}</Text>
                     <Text testID={`assign-state-${id}`} variant="helper">
-                      {t(STATE_WORD[stateOf(id)])}
+                      {t(stateOf(id))}
                     </Text>
                   </View>
                   <Button
@@ -109,8 +110,8 @@ export default function AssignLesson() {
         ))}
 
         <Text testID="assign-note" variant="helper">
-          {t('assignNote', { n: assigned.size, left, goal: input.goal })}
-          {assigned.size > left ? ` ${t('assignNoteOverflow')}` : ''}
+          {t('assignNote', { n: assigned.size, left: Math.max(0, queue.goal - queue.done), goal: queue.goal })}
+          {overflow ? ` ${t('assignNoteOverflow')}` : ''}
         </Text>
       </ScrollView>
       <Button variant="parent" label={t('assignDone')} onPress={done} />
