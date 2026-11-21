@@ -34,7 +34,7 @@ export function createMicSource(mic: Mic, sink: ClipSink, opts: {
   startDelayMs: number; // let the chime finish before the mic opens
   judge(uri: string, listen: Listen): Promise<ClipJudge>; // the prompt's words are not candidates
   context(): CaptureContext | null;
-  // Outside recording mode: takes the take for upload and returns its name, or null to discard it.
+  // Outside recording and tap mode: takes the take for upload and returns its name, or null to discard it.
   keep?: (audioUri: string, recordedAt: Date) => string | null;
   tapped?: () => AnswerSource | null; // the tester's buttons, in tap mode
   now?: () => Date;
@@ -138,7 +138,8 @@ export function createMicSource(mic: Mic, sink: ClipSink, opts: {
                 judge,
               };
               await sink.save(take.uri, meta);
-            } else if (!kept(take.uri, started)) {
+            } else if (tapped || !kept(take.uri, started)) {
+              // A tapped answer has already gone on, so its take could not be named in it.
               discard(take.uri);
             }
             opts.onJudged?.(judge, clipLabel, meta, tapped != null);
