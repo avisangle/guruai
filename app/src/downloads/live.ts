@@ -66,7 +66,7 @@ const fsPort: FsPort = {
   freeBytes: () => Paths.availableDiskSpace,
 };
 
-// Lessons whose audio build-content bundles (D-GURU-14).
+// Lessons whose audio build-content bundles (D-GURU-14-downloads-starter-pack).
 const bundledLessons = lessons.map((l) => l.template_id);
 const lessonPack: Record<string, string | undefined> = catalogue.lessonPack;
 

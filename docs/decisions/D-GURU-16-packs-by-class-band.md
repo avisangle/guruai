@@ -8,7 +8,7 @@
 
 This refines the PRD's "packs are split by learning path" (Technical Constraints) and "per-path audio packs" (Downloads): packs are split by class band, and a path names the pack its lessons start in.
 
-**Why:** The same lesson serves three classes, both boards and a skill path, so a pack per path would put one lesson's audio in several packs, which downloads it twice and lets copies drift. A class band is the unit a child's packs follow once the class is known (D-GURU-14), and the boards share the KG lessons.
+**Why:** The same lesson serves three classes, both boards and a skill path, so a pack per path would put one lesson's audio in several packs, which downloads it twice and lets copies drift. A class band is the unit a child's packs follow once the class is known (D-GURU-14-downloads-starter-pack), and the boards share the KG lessons.
 
 **Rejected:**
 - A pack per path: one lesson in many packs.
