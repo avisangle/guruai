@@ -95,12 +95,9 @@ class ClosedScorer(Provider):
 
     def run(self, path, clip, lesson):
         j = self.judge(path, clip, lesson.candidates(listen_keep(clip)))  # a quiz drops its prompt's words
-        if isinstance(j.choice, Candidate):
-            choice, matched = j.choice.display, j.choice.text
-        else:
-            choice, matched = j.choice, ""
+        choice = j.choice.display if isinstance(j.choice, Candidate) else j.choice
         return Output(choice, closed=True, note=j.note, transcript=j.transcript, scores=j.scores, unsure=j.unsure,
-                      matched=matched)
+                      matched=getattr(j.choice, "text", ""))
 
 
 def _open(req, timeout, retries=4):

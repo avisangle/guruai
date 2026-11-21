@@ -55,6 +55,12 @@ def load_manifest(folder: Path):
     return m
 
 
+def key_part(clip, i):
+    """Part i of the clip's item_key, <lang>:<kind>:<display> (docs/clip-export.md), or None."""
+    parts = clip.get("item_key", "").split(":")
+    return parts[i] if len(parts) > i and parts[i] else None
+
+
 def lessons_for(clips):
     """template_id -> Lesson, from content/lessons/*.json plus anything only the manifest knows."""
     out = {}
@@ -66,9 +72,9 @@ def lessons_for(clips):
                        "accepted_variants": it["assessment"]["accepted_variants"],
                        "also_correct": it["assessment"].get("also_correct", []),
                        "langs": it["assessment"].get("langs", {})} for it in les["items"]})
-    for c in clips:  # item_key: <lang>:<kind>:<display>
+    for c in clips:
         les = out.setdefault(c["template_id"], Lesson(c["template_id"]))
-        les.items.setdefault(c["item_id"], {"target_lang": c.get("item_key", "").split(":")[0] or None,
+        les.items.setdefault(c["item_id"], {"target_lang": key_part(c, 0),
                                             **{k: c[k] for k in ("display", "expected", "accepted_variants")}})
     return out
 
@@ -235,7 +241,7 @@ def summary(manifest, src, by_prov, skipped, provs, lessons):
           "(no `label_by`) without a provider error; a meaning counts as accepted.", "",
           f"| Provider | Correct answers accepted (at least {WORD_ACCEPT_MIN}%) | "
           f"False praise (said wrong or nothing, judged correct; at most {WORD_FALSE_PRAISE_MAX}%) |", "|---|---|---|"]
-    words = {c["id"] for c in clips if not c.get("label_by") and c.get("item_key", "").split(":")[1:2] == ["word"]}
+    words = {c["id"] for c in clips if not c.get("label_by") and key_part(c, 1) == "word"}
     for name in ms:
         (ak, an), (fk, fn) = word_test(by_prov[name], words)
         L.append(f"| {name} | {gate(ak, an, 100 * ak >= WORD_ACCEPT_MIN * an)} | "
