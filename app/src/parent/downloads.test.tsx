@@ -342,6 +342,21 @@ describe('GURU-31 Storage prompt', () => {
     expect(queuePacks()).not.toHaveBeenCalled();
   });
 
+  test('first run short of space (nothing queued yet): neither Downloads nor the Settings row says done', async () => {
+    db.run("UPDATE device SET parent_lang = 'en'");
+    setStatus({ plan: { kind: 'needs_choice', needed: 412 * MB, free: 380 * MB, fits: [MODEL] } });
+    const router = await openDownloads();
+    expect(screen.getByTestId('storage-prompt')).toBeTruthy();
+    expect(screen.queryByTestId('downloads-overall')).toBeNull();
+    expect(screen.queryByText(/Everything downloaded/)).toBeNull();
+    router.unmount();
+
+    await renderRouter(routes(), { initialUrl: '/parent/settings' });
+    const row = await screen.findByTestId('settings-downloads');
+    expect(row).toHaveTextContent(/low on space/);
+    expect(row).not.toHaveTextContent(/Everything downloaded/);
+  });
+
   test('no prompt when the plan is start or there is no plan yet', async () => {
     setStatus({ plan: { kind: 'start' }, items: [item('mr_letters', 'queued', 0, 38)] });
     await openDownloads();

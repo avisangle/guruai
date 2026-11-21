@@ -13,5 +13,5 @@
 - Closing stale sessions by age when the next one starts: needs a timeout the PRD does not define; app start is the moment the in-memory clock is lost anyway.
 
 **Impact:**
-- Do not call `startSession` from screens; use `ensureSession`. Only goodbye or Stop end a session (`endSession`), and app start closes leftovers as `closed`.
+- Do not call `startSession` from screens; use `ensureSession`. Only goodbye or Stop end a session, through `endSessionNow` (D-GURU-28-session-clock), and app start closes leftovers as `closed`.
 - The style level is settled when a session starts (D-GURU-22-style-level-rule), so read `style_level` after `ensureSession`.

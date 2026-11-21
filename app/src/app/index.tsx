@@ -1,9 +1,10 @@
 // Child picker (wireframe c-picker): the app opens here every time, even with one child (decision 3).
 // One tile per child; a tap starts the session and opens today's queue. No add, edit, delete or back.
-import { router, useFocusEffect } from 'expo-router';
+import { Link, router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
+import { TestOnly } from '../config/TestOnly';
 import { liveDb } from '../data/liveDb';
 import { listChildren } from '../data/profiles';
 import type { ChildProfile } from '../data/types';
@@ -51,6 +52,15 @@ export default function ChildPicker() {
           </Pressable>
         ))}
       </View>
+      <TestOnly>
+        <Link href="/tester" asChild>
+          <Pressable testID="tester-link" style={styles.tester}>
+            <Text mode="child" variant="caption" style={styles.testerLabel}>
+              Tester tools ›
+            </Text>
+          </Pressable>
+        </Link>
+      </TestOnly>
     </Screen>
   );
 }
@@ -69,4 +79,6 @@ const styles = StyleSheet.create({
     borderColor: color.child.borderStrong,
     backgroundColor: color.child.surface,
   },
+  tester: { alignSelf: 'center', justifyContent: 'center', minHeight: touch.child.min, paddingHorizontal: space[3] },
+  testerLabel: { color: color.child.textMuted },
 });

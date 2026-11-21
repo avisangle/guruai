@@ -7,7 +7,7 @@ import { getDevice, updateDevice } from '../../data/device';
 import { liveDb } from '../../data/liveDb';
 import { queuePacks, startInitialDownloads, type DownloadItem } from '../../downloads/downloader';
 import { toMb } from '../../downloads/plan';
-import { useDownloads } from '../../downloads/useDownloads';
+import { allInstalled, useDownloads } from '../../downloads/useDownloads';
 import { useParentMode } from '../../parent/ParentModeProvider';
 import { SwitchRow } from '../../ui/components/SwitchRow';
 import { StoragePrompt } from '../../parent/StoragePrompt';
@@ -29,7 +29,7 @@ export default function DownloadsScreen() {
   const done = status.items.reduce((sum, i) => sum + i.bytesDone, 0);
   const total = status.items.reduce((sum, i) => sum + i.bytesTotal, 0);
   const pct = percent(done, total);
-  const allDone = status.items.every((i) => i.status === 'installed');
+  const allDone = allInstalled(status);
   const overall = status.waitingForWifi
     ? t('downloadsOverallWifi', { pct })
     : allDone
@@ -52,11 +52,13 @@ export default function DownloadsScreen() {
 
         {status.plan?.kind === 'needs_choice' && <StoragePrompt key={status.plan.fits.join()} plan={status.plan} labelOf={labelOf} />}
 
-        <View testID="downloads-overall" style={styles.card}>
-          <Text variant="section">{overall}</Text>
-          {!allDone && <Text variant="helper">{bytesText(t, done, total)}</Text>}
-          {status.waitingForWifi && <Text variant="helper">{t('downloadsWifiNote')}</Text>}
-        </View>
+        {status.items.length > 0 && ( // nothing queued yet: the storage prompt above says why
+          <View testID="downloads-overall" style={styles.card}>
+            <Text variant="section">{overall}</Text>
+            {!allDone && <Text variant="helper">{bytesText(t, done, total)}</Text>}
+            {status.waitingForWifi && <Text variant="helper">{t('downloadsWifiNote')}</Text>}
+          </View>
+        )}
 
         <View style={styles.card}>
           {status.items.map((item) => (
@@ -85,7 +87,7 @@ function ItemRow({ item, label }: { item: DownloadItem; label: string }) {
       : t('downloadsSize', { mb: toMb(item.bytesTotal) });
   const state = {
     downloading: null,
-    installed: t('downloadsItemDone'),
+    installed: t('done'),
     queued: t('downloadsItemQueued'),
     failed: t('downloadsItemFailed'),
   }[item.status];

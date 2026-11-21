@@ -1,4 +1,4 @@
-// Where a tutor line's audio and viseme clip come from: the app bundle, else an installed pack (D-GURU-14).
+// Where a tutor line's audio and viseme clip come from: the app bundle, else an installed pack (D-GURU-14-downloads-starter-pack, D-GURU-14-pack-install-per-version).
 import type { Db } from '../data/db';
 import { CLIPS_FILE, readPackJson, type FsPort } from '../downloads/install';
 import type { VisemeEvent } from '../shekru/useShekruRig';

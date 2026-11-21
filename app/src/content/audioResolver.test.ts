@@ -1,4 +1,4 @@
-// GURU-26: line audio from installed packs. Install layout: TDD 2.7, D-GURU-14.
+// GURU-26: line audio from installed packs. Install layout: TDD 2.7, D-GURU-14-pack-install-per-version.
 //
 // Real schema (app/src/data/migrations.ts, migration 1):
 //   pack_install(id, pack_id, version, status, bytes_done, bytes_total, sha256, path, created_at, updated_at)

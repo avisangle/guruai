@@ -42,6 +42,7 @@ import { getDevice } from '../data/device';
 import { migrate } from '../data/migrations';
 import { createChild, updateChild } from '../data/profiles';
 import type { ChildProfile, Device } from '../data/types';
+import type { DownloadStatus } from '../downloads/downloader';
 import { lessonEnded, startSession } from '../learning/session';
 import { buildTodayQueue, type DueItem, type TodayQueue } from '../learning/queue';
 import { CHILD_PICTURES } from '../ui/PicturePicker';
@@ -108,7 +109,7 @@ jest.mock('../asr/speedCheck', () => ({
   rerunSpeedCheck: jest.fn(async () => mockReadiness.value),
 }));
 
-const mockStatus = { waitingForWifi: false, plan: null, items: [] }; // one object: useSyncExternalStore needs a stable snapshot
+const mockStatus: DownloadStatus = { waitingForWifi: false, plan: null, items: [] }; // one object: useSyncExternalStore needs a stable snapshot
 jest.mock('../downloads/downloader', () => ({
   startInitialDownloads: jest.fn(async () => undefined),
   queuePacks: jest.fn(async () => undefined),
@@ -164,6 +165,7 @@ function routes() {
     _layout: require('../app/_layout').default,
     index: ChildPickerStub,
     'parent/index': require('../app/parent/index').default,
+    'parent/downloads': () => h(Text, { testID: 'downloads-screen' }, 'downloads'),
   };
 }
 /* eslint-enable @typescript-eslint/no-require-imports */
@@ -216,6 +218,7 @@ beforeEach(() => {
   mockReadiness.value = 'ready';
   mockMic.granted = true;
   mockMic.canAskAgain = true;
+  mockStatus.plan = null;
   jest.clearAllMocks();
 });
 
@@ -392,6 +395,18 @@ describe('GURU-30 /parent home screen', () => {
     await openHome();
     await act(async () => undefined); // let the permission read settle
     expect(screen.queryByTestId('attention-banner')).toBeNull();
+  });
+
+  test('short of space, the model banner opens the downloads screen and its storage prompt', async () => {
+    addChild('Chinu', 'peacock');
+    mockReadiness.value = 'missing';
+    mockStatus.plan = { kind: 'needs_choice', needed: 200e6, free: 100e6, fits: [] };
+    const router = await openHome();
+    startDownloads().mockClear(); // the root layout starts downloads on mount
+    fireEvent.press(within(await screen.findByTestId('attention-banner')).getByTestId('attention-action'));
+    expect(await screen.findByTestId('downloads-screen')).toBeTruthy();
+    expect(router).toHavePathname('/parent/downloads');
+    expect(startDownloads()).not.toHaveBeenCalled(); // it would plan the same choice and queue nothing
   });
 
   test('the Finish setting up card shows its rows and hides when empty', async () => {
