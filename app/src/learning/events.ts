@@ -38,8 +38,14 @@ export type EventRow = {
   payload: string;
 };
 
-/** Appends one `event` row; `stamp` is the write time. */
-export function appendEvent(db: Db, ctx: EventContext, type: string, payload: object, stamp = now()): void {
+/** Appends one `event` row; `stamp` is the write time. A null session is an event outside any sitting. */
+export function appendEvent(
+  db: Db,
+  ctx: { childId: string; sessionId: string | null; at: string },
+  type: string,
+  payload: object,
+  stamp = now(),
+): void {
   db.run(
     'INSERT INTO event (id, child_id, session_id, at, type, payload, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
     [randomUUID(), ctx.childId, ctx.sessionId, ctx.at, type, JSON.stringify(payload), stamp, stamp],
