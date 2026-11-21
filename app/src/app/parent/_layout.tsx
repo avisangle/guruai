@@ -41,6 +41,8 @@ export default function ParentLayout() {
       <Stack.Protected guard={unlocked}>
         <Stack.Screen name="index" />
         <Stack.Screen name="consent" />
+        <Stack.Screen name="settings" />
+        <Stack.Screen name="child/[id]" />
       </Stack.Protected>
     </Stack>
   );

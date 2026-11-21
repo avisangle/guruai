@@ -3,7 +3,7 @@
 import { getRandomBytes, randomUUID } from 'expo-crypto';
 
 import { now, type Db, type SqlParam } from './db';
-import type { ChildProfile, ChildUpdate, Ids, NewChild } from './types';
+import type { ChildProfile, ChildUpdate, Ids, Medium, NewChild, StyleLevel } from './types';
 
 type ChildRow = Omit<ChildProfile, 'goals' | 'setup_done' | 'style_locked' | 'archived'> & {
   goals: string;
@@ -35,6 +35,9 @@ const UPDATABLE = [
   'setup_done',
   'archived',
 ] as const satisfies readonly (keyof ChildUpdate)[];
+
+/** The style a child starts with: from the school medium (D-GURU-22-style-level-rule). */
+export const startingStyle = (medium: Medium): StyleLevel => (medium === 'en' ? 'en_led' : 'mr_led');
 
 function toChild(row: ChildRow): ChildProfile {
   return {
@@ -78,7 +81,7 @@ export function createChild(db: Db, input: NewChild, ids: Ids = {}): ChildProfil
       input.picture,
       input.class,
       input.medium,
-      input.medium === 'en' ? 'en_led' : 'mr_led',
+      startingStyle(input.medium),
       code,
       at,
       at,

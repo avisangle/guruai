@@ -2,21 +2,16 @@
 // confirmed here, when chosen or when the phone has no screen lock (D-GURU-13-parent-gate).
 import { useRouter } from 'expo-router';
 import * as LocalAuthentication from 'expo-local-authentication';
-import { useEffect, useRef, useState } from 'react';
-import { StyleSheet } from 'react-native';
+import { useEffect, useState } from 'react';
 
 import { strongBiometricsAvailable, type GateMode } from '../../parent/gate';
 import { liveGate } from '../../parent/live';
-import { isValidPin } from '../../parent/pin';
+import { PinSetup } from '../../parent/PinSetup';
 import { Button } from '../../ui/components/Button';
 import { Choice } from '../../ui/components/Choice';
-import { Field } from '../../ui/components/Field';
 import { Text } from '../../ui/components/Text';
 import { useT } from '../../ui/i18n';
 import { OnboardingStep } from '../../ui/OnboardingStep';
-import { theme } from '../../ui/theme';
-
-const digits = (v: string) => v.replace(/\D/g, '').slice(0, 4);
 
 export default function Lock() {
   const router = useRouter();
@@ -24,10 +19,6 @@ export default function Lock() {
   const [deviceLock, setDeviceLock] = useState<boolean | null>(null); // null until known
   const [strongBiometrics, setStrongBiometrics] = useState(false);
   const [choice, setChoice] = useState<GateMode>('device');
-  const [pin, setPin] = useState('');
-  const [again, setAgain] = useState('');
-  const [mismatch, setMismatch] = useState(false);
-  const saving = useRef(false);
 
   useEffect(() => {
     let live = true;
@@ -45,27 +36,6 @@ export default function Lock() {
       live = false;
     };
   }, []);
-
-  // The screen moves on by itself once both entries are 4 digits and match.
-  function onPins(nextPin: string, nextAgain: string) {
-    setPin(nextPin);
-    setAgain(nextAgain);
-    if (nextAgain) setMismatch(false);
-    if (!isValidPin(nextPin) || !isValidPin(nextAgain)) return;
-    if (nextPin !== nextAgain) {
-      setMismatch(true);
-      setAgain('');
-      return;
-    }
-    if (saving.current) return;
-    saving.current = true;
-    liveGate()
-      .setPin(nextPin)
-      .then(() => router.push('/onboarding/who'))
-      .finally(() => {
-        saving.current = false;
-      });
-  }
 
   return (
     <OnboardingStep step={2}>
@@ -101,39 +71,11 @@ export default function Lock() {
           onPress={() => router.push('/onboarding/who')}
         />
       ) : (
-        <>
-          <Field
-            testID="pin-new"
-            label={t('pinFirst')}
-            value={pin}
-            onChangeText={(v) => onPins(digits(v), again)}
-            keyboardType="number-pad"
-            secureTextEntry
-            maxLength={4}
-          />
-          <Field
-            testID="pin-again"
-            label={t('pinAgain')}
-            value={again}
-            onChangeText={(v) => onPins(pin, digits(v))}
-            keyboardType="number-pad"
-            secureTextEntry
-            maxLength={4}
-          />
-          {mismatch ? (
-            <Text testID="pin-mismatch" style={styles.error}>
-              {t('pinMismatch')}
-            </Text>
-          ) : null}
-          <Text testID="pin-forgot-warning" variant="helper">
-            {t(strongBiometrics ? 'pinForgotBiometric' : 'pinForgotReinstall')}
-          </Text>
-        </>
+        <PinSetup
+          strongBiometrics={strongBiometrics}
+          onSet={(pin) => liveGate().setPin(pin).then(() => router.push('/onboarding/who'))}
+        />
       )}
     </OnboardingStep>
   );
 }
-
-const styles = StyleSheet.create({
-  error: { color: theme.color.parent.error },
-});
