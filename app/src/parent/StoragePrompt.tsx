@@ -8,9 +8,9 @@ import { queuePacks } from '../downloads/downloader';
 import { toMb, type StoragePlan } from '../downloads/plan';
 import { Button } from '../ui/components/Button';
 import { Text } from '../ui/components/Text';
+import { TickBox } from '../ui/components/TickBox';
 import { useT } from '../ui/i18n';
 import { theme } from '../ui/theme';
-import { TickBox } from './ProfileForm';
 
 type Props = {
   plan: Extract<StoragePlan, { kind: 'needs_choice' }>;

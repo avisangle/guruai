@@ -23,4 +23,5 @@ The item dots are a pure function of the engine `Position` (`dotStates`), using 
 - If the engine stops re-queuing the same `Listen` object after "didn't hear" (for example, it clones queued steps), the ear badge stops showing. Such a change must carry the reopened-turn signal some other way.
 - Closing lines must keep `item: null` and be queued only after the position is finished, or the finished moment starts at the wrong time.
 - The engine and the dots must share the "which items does a flow entry ask" rule through `itemRefsOf`. Do not copy that rule into the UI.
+- `lesson_left`'s `items_done` (Stop) is the number of done dots, so the report's "left early, 6 of 10" (D-GURU-37) and the summary's `items_resolved` count items finished before a resume too, using the same definition of done.
 - Opening parent mode from the lesson's lock pauses the lesson (`ParentLock`'s `onOpen`), so no audio or mic keeps running behind the unlock screen (the pause itself is D-GURU-28-lesson-pause).

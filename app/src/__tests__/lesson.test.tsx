@@ -334,6 +334,15 @@ const events = (type: string) =>
 
 const position = (template: Lesson) => loadPosition(db, childId, template.template_id, template.version);
 
+/** Answers the next listen turn correct by tap and waits for answer `n` to be recorded. */
+async function answer(src: ReturnType<typeof scriptedSource>, n: number) {
+  await until(() => src.state.pending !== null, `listen turn ${n}`);
+  const turn = src.state.pending!;
+  src.state.pending = null;
+  await act(async () => turn.resolve({ kind: 'correct', by: 'tap' }));
+  await until(() => events('answer').length === n, `answer ${n} recorded`);
+}
+
 const visibleText = (text: string) => screen.queryAllByText(text, { exact: false }).length > 0;
 
 beforeAll(() => {
@@ -480,13 +489,7 @@ describe('GURU-28 lesson player', () => {
     const firstLines = fakeLines();
     first.state.hold = true;
     await openLesson(lessonUrl(EN.template_id), { answerSource: first.source, linePlayer: firstLines.player });
-    for (let n = 1; n <= 3; n++) {
-      await until(() => first.state.pending !== null, `listen turn ${n}`);
-      const turn = first.state.pending!;
-      first.state.pending = null;
-      await act(async () => turn.resolve({ kind: 'correct', by: 'tap' }));
-      await until(() => events('answer').length === n, `answer ${n} recorded`);
-    }
+    for (let n = 1; n <= 3; n++) await answer(first, n);
     await until(() => first.state.pending !== null, 'listen turn for D');
     expect(first.state.pending!.listen.item.item_key).toBe('en:letter:D');
     screen.unmount(); // the process dies here
@@ -500,6 +503,28 @@ describe('GURU-28 lesson player', () => {
     expect(second.state.listens).toHaveLength(1);
     expect(secondLines.state.plays.map((p) => p.id)).not.toContain(`${EN.template_id}.intro`);
     expect(events('answer')).toHaveLength(3);
+  });
+
+  // Level 5 integration: lesson_left counts items done as the item dots do (no turn left), so a
+  // resumed run counts items finished before the resume too (the report's "6 of 10").
+  test('Stop after a resume counts items done before the resume in lesson_left', async () => {
+    const first = scriptedSource();
+    first.state.hold = true;
+    await openLesson(lessonUrl(EN.template_id), { answerSource: first.source, linePlayer: fakeLines().player });
+    for (let n = 1; n <= 7; n++) await answer(first, n); // teach A to E, quiz C and A
+    screen.unmount();
+
+    const second = scriptedSource();
+    second.state.hold = true;
+    await openLesson(lessonUrl(EN.template_id), { answerSource: second.source, linePlayer: fakeLines().player });
+    await answer(second, 8); // quiz D
+    await until(() => second.state.pending !== null, 'listen turn for E');
+
+    fireEvent.press(screen.getByTestId('pause'));
+    fireEvent.press(screen.getByTestId('stop'));
+    await until(() => events('lesson_left').length === 1, 'lesson_left');
+    const left = events('lesson_left')[0] as unknown as { items_done: number; items_total: number };
+    expect(left).toMatchObject({ items_done: 3, items_total: 5 }); // C, A, D
   });
 
   test('a surprise sets its tutor state and plays its line with the mic closed', async () => {
