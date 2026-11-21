@@ -59,17 +59,21 @@ export function endSession(db: Db, sessionId: string, reason: Exclude<EndReason,
   ]);
 }
 
+// When this JS run began.
+const RUN_STARTED = now();
+
 /**
  * On app start: closes sessions an earlier run left open, as `closed` at their last event.
- * Their active time lived in memory and is lost, so active_ms stays as stored.
+ * Their active time lived in memory and is lost, so active_ms stays as stored. Sessions this
+ * run started stay open, so a root remount in the same run does not end a live sitting.
  */
 export function closeOpenSessions(db: Db): void {
   db.run(
     `UPDATE session SET end_reason = 'closed', updated_at = ?,
        ended_at = COALESCE((SELECT MAX(at) FROM event WHERE event.child_id = session.child_id
          AND event.at >= session.started_at AND event.session_id = session.id), started_at)
-     WHERE ended_at IS NULL`,
-    [now()],
+     WHERE ended_at IS NULL AND started_at < ?`,
+    [now(), RUN_STARTED],
   );
 }
 
