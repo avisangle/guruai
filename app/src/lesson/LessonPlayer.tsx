@@ -114,20 +114,22 @@ export function LessonPlayer({ lesson, childId, sessionId, styleLevel, revision,
   const dots = useMemo(() => dotStates(lesson, revision, view.position), [lesson, revision, view.position]);
   const finished = view.moment === 'finished';
   // surprise and finished: the card steps aside and Shekru takes the centre
-  const centre = view.moment && (view.moment === 'surprise' ? 'surprise' : 'lesson-finished');
+  const centre = view.moment !== null;
+  // the control zone: a reward in place of the mic
+  const control = finished ? <FinishedStar />
+    : view.correct === 'ticks' ? <StreakTicks />
+    : view.correct ? <RewardStar />
+    : <MicIndicator open={view.listening} again={view.again} />;
 
   return (
     <Screen variant="child" style={styles.screen}>
       <StatusBar style="dark" />
-      {centre ? (
-        <View style={styles.centre} testID={centre}>
-          <Shekru values={rig.values} size={centreSize} />
-        </View>
-      ) : (
-        <View style={[styles.stage, { width: bigSize, height: bigSize }]}>
-          <Shekru values={rig.values} size={bigSize} hintLetter={picture} />
-        </View>
-      )}
+      {/* one Shekru for every layout, so a moment never remounts the rig */}
+      <View
+        style={centre ? styles.centre : [styles.stage, { width: bigSize, height: bigSize }]}
+        testID={finished ? 'lesson-finished' : centre ? 'surprise' : undefined}>
+        <Shekru values={rig.values} size={centre ? centreSize : bigSize} hintLetter={centre ? undefined : picture} />
+      </View>
       <ItemDots states={dots} />
       {!centre && (
         <View style={[styles.card, view.correct && styles.cardCorrect]} testID="card">
@@ -158,15 +160,7 @@ export function LessonPlayer({ lesson, childId, sessionId, styleLevel, revision,
       ) : (
         <View style={styles.controls}>
           {rec.active && rec.judged && <JudgeNote judged={rec.judged} />}
-          {finished ? (
-            <FinishedStar />
-          ) : view.correct === 'ticks' ? (
-            <StreakTicks />
-          ) : view.correct ? (
-            <RewardStar />
-          ) : (
-            <MicIndicator open={view.listening} again={view.again} />
-          )}
+          {control}
           {tester.waiting && (
             <View style={styles.testerRow}>
               {ANSWERS.map(([answer, label]) => (

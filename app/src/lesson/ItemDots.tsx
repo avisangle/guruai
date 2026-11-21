@@ -3,8 +3,9 @@
 import { StyleSheet, View } from 'react-native';
 
 import { theme } from '../ui/theme';
+import { itemRefsOf } from './engine';
 import { revisionRef } from './revision';
-import type { FlowEntry, Lesson, Position, RevisionItem } from './types';
+import type { Lesson, Position, RevisionItem } from './types';
 
 const { color, radius, space } = theme;
 
@@ -16,19 +17,11 @@ export type DotState = 'done' | 'current' | 'left';
  */
 export function dotStates(lesson: Lesson, revision: RevisionItem[], pos: Position): DotState[] {
   const refs = [...lesson.items.map((i) => i.id), ...revision.map(revisionRef)];
-  const idOf = (display: string) => lesson.items.find((i) => i.display === display)?.id ?? display;
-  // same item lists as the engine's itemsOf
-  const turns = (e: FlowEntry): string[] => {
-    if (!('phase' in e)) return [];
-    if (e.phase === 'retry') return pos.retry;
-    if (e.phase === 'teach') return e.order.map(idOf);
-    return pos.quiz ?? [...e.order.map(idOf), ...revision.map(revisionRef)];
-  };
   const left = new Set<string>();
   let current: string | undefined;
   lesson.flow.forEach((e, f) => {
     if (f < pos.flow) return;
-    const rest = turns(e).slice(f === pos.flow ? pos.index : 0);
+    const rest = itemRefsOf(lesson, revision, pos, e).slice(f === pos.flow ? pos.index : 0);
     current ??= rest[0];
     for (const ref of rest) left.add(ref);
   });

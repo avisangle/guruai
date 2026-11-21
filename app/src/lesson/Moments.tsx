@@ -1,7 +1,7 @@
 // Reward visuals of the lesson moments (wireframes l-correct, l-streak, l-finished). The
 // ticks and stars here are pictures only: the star count changes once per finished stop (Decisions 5).
 import { useEffect } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, View, type ViewStyle } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withDelay, withTiming } from 'react-native-reanimated';
 
 import { CHECK, Icon, STAR } from '../parent/icons';
@@ -9,20 +9,24 @@ import { theme } from '../ui/theme';
 
 const { color, radius, space, touch } = theme;
 
+const Star = ({ size }: { size: number }) => <Icon d={STAR} size={size} color={color.child.onPrimary} fill={color.child.primary} />;
+
+const TickDisc = ({ size, style, testID }: { size: number; style?: ViewStyle; testID?: string }) => (
+  <View style={[styles.disc, { width: size, height: size }, style]} testID={testID}>
+    <Icon d={CHECK} size={size / 2} color={color.child.onSuccess} />
+  </View>
+);
+
 /** Tick badge in the card's corner on a correct answer. */
 export function CorrectBadge() {
-  return (
-    <View style={styles.badge} testID="correct-tick">
-      <Icon d={CHECK} size={space[6]} color={color.child.onSuccess} />
-    </View>
-  );
+  return <TickDisc size={touch.child.min} style={styles.badge} testID="correct-tick" />;
 }
 
 /** The star in the control zone on a correct answer. */
 export function RewardStar() {
   return (
     <View testID="reward-star" accessibilityLabel="तारा">
-      <Icon d={STAR} size={space[7]} color={color.child.onPrimary} fill={color.child.primary} />
+      <Star size={space[7]} />
     </View>
   );
 }
@@ -31,11 +35,7 @@ export function RewardStar() {
 export function StreakTicks() {
   return (
     <View style={styles.ticks} testID="streak-ticks" accessibilityLabel="सलग तीन बरोबर">
-      {[0, 1, 2].map((i) => (
-        <View key={i} style={styles.tick}>
-          <Icon d={CHECK} size={space[5]} color={color.child.onSuccess} />
-        </View>
-      ))}
+      {[0, 1, 2].map((i) => <TickDisc key={i} size={space[7]} />)}
     </View>
   );
 }
@@ -54,19 +54,13 @@ export function FinishedStar() {
   }));
   return (
     <Animated.View style={fly} testID="finished-star" accessibilityLabel="तारा">
-      <Icon d={STAR} size={touch.child.pickerTile * 0.75} color={color.child.onPrimary} fill={color.child.primary} />
+      <Star size={touch.child.pickerTile * 0.75} />
     </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
-  badge: {
-    position: 'absolute', top: space[3], right: space[3], width: touch.child.min, height: touch.child.min,
-    borderRadius: radius.child.round, backgroundColor: color.child.success, alignItems: 'center', justifyContent: 'center',
-  },
+  disc: { borderRadius: radius.child.round, backgroundColor: color.child.success, alignItems: 'center', justifyContent: 'center' },
+  badge: { position: 'absolute', top: space[3], right: space[3] },
   ticks: { flexDirection: 'row', gap: space[3] },
-  tick: {
-    width: space[7], height: space[7], borderRadius: radius.child.round, backgroundColor: color.child.success,
-    alignItems: 'center', justifyContent: 'center',
-  },
 });

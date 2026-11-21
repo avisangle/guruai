@@ -36,6 +36,12 @@ export function familyLines(family: string, lines: Record<string, string>): stri
   return Object.keys(lines).filter((id) => re.test(id));
 }
 
+/** The family a shared line id belongs to (`praise_streak_3` -> `praise_streak`); null for other ids. */
+export function familyOf(id: string): Family | null {
+  const family = id.replace(/_\d+$/, '');
+  return family in FAMILIES ? (family as Family) : null;
+}
+
 // Uniform pick from `available` minus the family's last 5 picks (minus only the
 // last pick when the pool has 5 or fewer lines). `history` is oldest first;
 // the returned history keeps at most 5. `family` names the pool for callers that

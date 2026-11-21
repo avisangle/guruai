@@ -14,6 +14,7 @@ import { lessonEnded, lessonsDoneToday, shouldEndAfterLesson } from '../learning
 import type { useLinePlayer } from '../screens/useLinePlayer';
 import anim from '../shekru/generated/shekru.anim.json';
 import type { AnswerSource } from './answerSource';
+import { familyOf } from './lines';
 import { createLesson, isFinished, newPosition, type LessonEngine } from './engine';
 import type { AnswerEvent, Item, Lesson, Listen, Position, Prompts, RevisionItem, StyleLevel } from './types';
 
@@ -130,9 +131,8 @@ export function usePlayerLoop(opts: Options) {
         }
       } else if (step.type === 'say') {
         const started = Date.now();
-        // shared lines are `<family>_<n>` (D-GURU-19-tutor-variety)
-        const family = step.line.replace(/_\d+$/, '');
-        if (family.startsWith('praise_')) praised = { item: step.item!, reward: family === 'praise_streak' ? 'ticks' : 'star' };
+        const family = familyOf(step.line);
+        if (family?.startsWith('praise_')) praised = { item: step.item!, reward: family === 'praise_streak' ? 'ticks' : 'star' };
         else if (step.item !== praised?.item) praised = null;
         show({
           card: step.item && { item: step.item, showAnchor: step.showAnchor },
@@ -160,7 +160,7 @@ export function usePlayerLoop(opts: Options) {
         onActivity();
         const heard = await source.listen(step);
         if (!alive()) return;
-        show({ listening: false, again: false });
+        show({ listening: false });
         tutor.setState('thinking');
         onActivity();
         const thinking = wait(THINKING_MS); // the writes run inside the thinking pause
