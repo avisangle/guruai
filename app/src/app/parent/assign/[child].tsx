@@ -7,6 +7,7 @@ import { ScrollView, StyleSheet, View } from 'react-native';
 
 import lessonsJson from '../../../content/generated/lessons.json';
 import pathsJson from '../../../content/generated/paths.json';
+import { packId } from '../../../content/packs';
 import { liveDb } from '../../../data/liveDb';
 import { getChild } from '../../../data/profiles';
 import { isLessonInstalled, queuePacks } from '../../../downloads/downloader';
@@ -64,7 +65,7 @@ export default function AssignLesson() {
   const assign = (id: string) => {
     assignLesson(liveDb(), child.id, id, input.today);
     const pack = LESSON_PACK[id];
-    if (pack && !isLessonInstalled(id)) queuePacks([pack]).catch(() => undefined);
+    if (pack && !isLessonInstalled(id)) queuePacks([packId(child.tutor, pack)]).catch(() => undefined);
     setData(readChild(child.id));
   };
 
@@ -114,7 +115,7 @@ export default function AssignLesson() {
           {overflow ? ` ${t('assignNoteOverflow')}` : ''}
         </Text>
       </ScrollView>
-      <Button variant="parent" label={t('assignDone')} onPress={done} />
+      <Button variant="parent" label={t('done')} onPress={done} />
     </Screen>
   );
 }

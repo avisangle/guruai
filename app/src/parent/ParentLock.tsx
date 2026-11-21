@@ -4,7 +4,7 @@ import { router } from 'expo-router';
 import { Pressable, StyleSheet } from 'react-native';
 
 import { theme } from '../ui/theme';
-import { Icon, LOCK } from './icons';
+import { Icon, LOCK } from '../ui/icons';
 
 const { hitArea, visual, holdMs } = theme.touch.parentGate;
 

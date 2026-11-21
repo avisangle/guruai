@@ -2,7 +2,7 @@
 // the attention banner, the "parent helps" switch, the "Finish setting up" card and the lesson sections.
 import { router, useFocusEffect, type Href } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Linking, Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
+import { Linking, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { judgeReadiness, type JudgeReadiness } from '../../asr/speedCheck';
 import { getDevice } from '../../data/device';
@@ -15,13 +15,14 @@ import { localDay } from '../../learning/mastery';
 import { lessonTitle } from '../../learning/queueInput';
 import { attentionBanner, type Banner, type MicState } from '../../parent/attention';
 import { loadChildHome, type HomeSection } from '../../parent/home';
-import { ADULT, Icon } from '../../parent/icons';
+import { ADULT, Icon } from '../../ui/icons';
 import { askForMic, readMic } from '../../parent/mic';
 import { parentHelps, useParentHelps } from '../../parent/parentHelps';
 import { useParentMode } from '../../parent/ParentModeProvider';
 import { setupRows, type SetupRow, type SetupSection } from '../../parent/setup';
 import { Button } from '../../ui/components/Button';
 import { Screen } from '../../ui/components/Screen';
+import { SwitchRow } from '../../ui/components/SwitchRow';
 import { Text } from '../../ui/components/Text';
 import { useT } from '../../ui/i18n';
 import { CHILD_PICTURES } from '../../ui/PicturePicker';
@@ -158,23 +159,6 @@ export default function ParentHome() {
 
         {child && rows.length > 0 && <SetupCard child={child} rows={rows} />}
 
-        {child && (
-          <>
-            <Button
-              testID="home-assign"
-              variant="parent"
-              label={t('assignTitle')}
-              onPress={() => router.push(`/parent/assign/${child.id}`)}
-            />
-            <Button
-              testID="home-report"
-              variant="parentGhost"
-              label={t('reportTitle')}
-              onPress={() => router.push(`/parent/report/${child.id}`)}
-            />
-          </>
-        )}
-
         {data?.sections.map((section) => (
           <Section
             key={section.id}
@@ -185,7 +169,25 @@ export default function ParentHome() {
           />
         ))}
       </ScrollView>
-      <Button testID="home-settings" variant="parentGhost" label={t('settingsTitle')} onPress={() => router.push('/parent/settings')} />
+      {/* Pinned below the list (wireframe pm-home): assign above, then report and settings side by side. */}
+      {child && (
+        <Button testID="home-assign" variant="parent" label={t('assignTitle')} onPress={() => router.push(`/parent/assign/${child.id}`)} />
+      )}
+      <View style={styles.nav}>
+        {child && (
+          <View style={styles.navItem}>
+            <Button
+              testID="home-report"
+              variant="parentGhost"
+              label={t('reportTitle')}
+              onPress={() => router.push(`/parent/report/${child.id}`)}
+            />
+          </View>
+        )}
+        <View style={styles.navItem}>
+          <Button testID="home-settings" variant="parentGhost" label={t('settingsTitle')} onPress={() => router.push('/parent/settings')} />
+        </View>
+      </View>
       <Button variant="parentGhost" label={t('backToChildren')} onPress={exit} />
     </Screen>
   );
@@ -225,22 +227,14 @@ function ParentHelpsCard({ childId }: { childId: string }) {
   const { t } = useT();
   const on = useParentHelps(childId);
   return (
-    <View testID="parent-helps" style={[styles.card, styles.row]}>
-      <View style={styles.grow}>
+    <View testID="parent-helps" style={styles.card}>
+      <SwitchRow testID="parent-helps-switch" label={t('helpsTitle')} value={on} onChange={(value) => parentHelps.set(childId, value)}>
         <View style={styles.title}>
           <Icon d={ADULT} size={space[5]} color={color.parent.accent} />
           <Text variant="label">{t('helpsTitle')}</Text>
         </View>
         <Text variant="helper">{t(on ? 'helpsHelpOn' : 'helpsHelpOff')}</Text>
-      </View>
-      <Switch
-        testID="parent-helps-switch"
-        accessibilityLabel={t('helpsTitle')}
-        value={on}
-        onValueChange={(value) => parentHelps.set(childId, value)}
-        trackColor={{ false: color.parent.border, true: color.parent.accent }}
-        thumbColor={color.parent.surface}
-      />
+      </SwitchRow>
     </View>
   );
 }
@@ -359,7 +353,8 @@ const styles = StyleSheet.create({
   track: { height: space[2], borderRadius: radius.parent.round, backgroundColor: color.parent.border, overflow: 'hidden' },
   fill: { height: '100%', backgroundColor: color.parent.accent },
   row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  grow: { flex: 1, gap: space[1] },
+  nav: { flexDirection: 'row', gap: space[3] },
+  navItem: { flex: 1 },
   title: { flexDirection: 'row', alignItems: 'center', gap: space[2] },
   tapRow: { minHeight: touch.parent.min, justifyContent: 'center' },
   section: { gap: space[2] },

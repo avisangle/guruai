@@ -47,7 +47,7 @@ clips/<clip id>.<ext>      audio as recorded: 16 kHz mono 16-bit WAV (exports ma
 - `age`: years, typed by the tester; optional (`null`).
 - `kind`: `teach` (repeat after Shekru) or `quiz` (name the letter).
 - `label`: the answer the lesson acted on: `correct`, `wrong` or `silent`. For `wrong`, what the child actually said is unknown.
-- `label_by` (optional): `judge` when `label` is the judge's own verdict (`unclear` becomes `silent`), so it is not a check of the judge (D-STT-judge-drives-lesson). Absent: the tester's tap.
+- `label_by` (optional): `judge` when `label` is the judge's own verdict (`unclear` becomes `silent`), so it is not a check of the judge (D-GURU-34-parent-helps). Absent: the tester's tap.
 - `matched_text` (optional): the answer text the judge matched, absent when it heard `other` or `nothing`. On a quiz turn the words of the line that opened the mic are never candidates, so a child echoing the hint word is not matched.
 - `matched_lang` (optional): `mr`, `en` or `hi`, the language of `matched_text` when it is an answer of the clip's own item (absent when it is another item's answer).
 - `expected`, `accepted_variants`: copied from the lesson item at recording time.

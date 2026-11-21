@@ -14,5 +14,5 @@
 
 **Impact:**
 - Code that switches the gate back to the phone's lock calls `switchToDeviceLock`. It always goes through the live dependencies, even when a `ParentModeProvider` was given an injected gate.
-- The function must keep its two checks: refuse when the phone has no screen lock (decision 25), and change the mode before deleting the record.
+- The function must keep its two checks: refuse when the phone has no screen lock (wireframe decision 25, `design/wireframes/guruai-v1-wireframes.html#gap-25`), and change the mode before deleting the record.
 - If the fake gate in `parentShell.test.tsx` is ever rebuilt from `Gate`, this can move onto the gate. Mark this record Superseded when that happens.

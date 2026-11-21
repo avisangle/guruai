@@ -6,7 +6,7 @@ import { StyleSheet, View } from 'react-native';
 import lessonsJson from '../content/generated/lessons.json';
 import type { Stop } from '../learning/queue';
 import type { Lesson } from '../lesson/types';
-import { CHECK, Icon, LOOP } from '../parent/icons';
+import { CHECK, Icon, LOOP } from '../ui/icons';
 import { Text } from '../ui/components/Text';
 import { useT } from '../ui/i18n';
 import { theme } from '../ui/theme';

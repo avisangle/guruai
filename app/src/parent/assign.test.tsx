@@ -5,7 +5,7 @@
 //
 // Inputs from merged issues:
 //   GURU-14  queuePacks(packIds) and isLessonInstalled(templateId) (downloads/downloader.ts); pack ids
-//            are paths.json lessonPack values ('starter', 'kg').
+//            are manifest ids, packId(tutor, lessonPack value) ('shekru.kg').
 //   GURU-20  assignLesson(db, childId, templateId, date 'YYYY-MM-DD') (learning/assignments.ts);
 //            buildTodayQueue puts today's assignments first and carries the rest.
 //   GURU-30  parent home /parent: child-tab-<id>, home-section-<id>, lesson-row-<templateId>.
@@ -310,7 +310,7 @@ describe('GURU-35 /parent/assign/[child] screen', () => {
 
     const assign = await openAssign(chinu);
     fireEvent.press(screen.getByTestId('assign-button-tpl_kg_en_letters_2'));
-    await waitFor(() => expect(queuePacks()).toHaveBeenCalledWith(['kg']));
+    await waitFor(() => expect(queuePacks()).toHaveBeenCalledWith(['shekru.kg']));
     expect(assignments(chinu)).toEqual([{ template_id: 'tpl_kg_en_letters_2', for_date: today(), done_at: null }]);
     assign.unmount();
 

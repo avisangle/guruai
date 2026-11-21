@@ -110,7 +110,7 @@ export default function Report() {
           ))}
         </View>
       </ScrollView>
-      <Button variant="parent" label={t('assignDone')} onPress={done} />
+      <Button variant="parent" label={t('done')} onPress={done} />
     </Screen>
   );
 }

@@ -11,7 +11,7 @@ import { useT } from '../ui/i18n';
 import type { StringKey } from '../ui/strings/mr';
 import { theme } from '../ui/theme';
 import type { GateState } from './gate';
-import { BACKSPACE, FINGERPRINT, Icon, LOCK } from './icons';
+import { BACKSPACE, FINGERPRINT, Icon, LOCK } from '../ui/icons';
 import { lockoutFor } from './lockout';
 import { PIN_LENGTH } from './pin';
 import { useParentMode } from './ParentModeProvider';

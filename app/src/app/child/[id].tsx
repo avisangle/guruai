@@ -20,7 +20,7 @@ import { lessonsFinished } from '../../learning/session';
 import { familyLines, pickLine, type Family } from '../../lesson/lines';
 import type { Prompts } from '../../lesson/types';
 import type { MicState } from '../../parent/attention';
-import { ADULT, Icon, MIC, STAR } from '../../parent/icons';
+import { ADULT, Icon, MIC, STAR } from '../../ui/icons';
 import { readMic } from '../../parent/mic';
 import { ParentLock } from '../../parent/ParentLock';
 import { useParentHelps } from '../../parent/parentHelps';
