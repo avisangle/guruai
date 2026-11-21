@@ -8,12 +8,15 @@ import type { ChildProfile } from '../data/types';
 
 type Source = 'class' | 'skill';
 
+/** The child's path ids and their source: the class path, then one skill path per goal. */
+export const pathsFor = (child: ChildProfile): [string, Source][] => [
+  [`class_${child.board}_${child.class}`, 'class'],
+  ...child.goals.map((goal): [string, Source] => [`skill_${goal}`, 'skill']),
+];
+
 /** Makes the child's enrolments match their board, class and goals; safe to call repeatedly. */
 export function ensureEnrolment(db: Db, child: ChildProfile): void {
-  const wanted = new Map<string, Source>([
-    [`class_${child.board}_${child.class}`, 'class'],
-    ...child.goals.map((goal): [string, Source] => [`skill_${goal}`, 'skill']),
-  ]);
+  const wanted = new Map(pathsFor(child));
 
   db.transaction(() => {
     const current = db.all<{ id: string; path_id: string; source: string }>(

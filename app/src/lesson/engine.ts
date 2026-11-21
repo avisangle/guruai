@@ -5,7 +5,7 @@
 // (PRD Tutor variety, D-GURU-19-tutor-variety). It reports one event per
 // answer; mastery is derived from the events elsewhere.
 import { SURPRISE_STATES } from '../shekru/contract';
-import { pickLine } from './lines';
+import { familyLines, pickLine } from './lines';
 import { endFamily, praiseFamily } from './praise';
 import { interleaveRevision, shuffleQuiz } from './quizOrder';
 import { revisionRef } from './revision';
@@ -85,14 +85,9 @@ export function createLesson(
     if (!item) throw new Error(`Flow names "${display}" but no item displays it`);
     return item;
   };
-  // A family's lines: `<family>_<n>`, or the bare family id.
-  const variants = (family: string) => {
-    const re = new RegExp(`^${family}(_\\d+)?$`);
-    return Object.keys(prompts.lines).filter((id) => re.test(id));
-  };
   // Random line of the family, not among its last 5 picks (TDD 2.4).
   const pick = (family: string) => {
-    const { id, history } = pickLine(family, variants(family), pos.last[family] ?? [], rng);
+    const { id, history } = pickLine(family, familyLines(family, prompts.lines), pos.last[family] ?? [], rng);
     pos.last[family] = history;
     return id;
   };

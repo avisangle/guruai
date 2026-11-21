@@ -19,4 +19,4 @@
 - A file is installed only after its SHA-256 matches the manifest. A mismatch deletes it and downloads it again, at most 3 more times, then the row is `failed`; the next app start tries again.
 - Nothing downloads, the manifest included, on a metered connection unless `device.allow_mobile_data` is 1.
 - Downloads start by themselves only when free space covers them plus 200,000,000 bytes (`storagePlan`); otherwise the UI offers a choice.
-- Lessons whose audio ships in the app are passed as `content.bundledLessons`. Today that is every generated lesson; when GURU-16 moves lesson audio into packs it becomes the `starter` pack's lessons.
+- Lessons whose audio ships in the app are passed as `content.bundledLessons` (`app/src/downloads/live.ts`), which must list exactly the lessons `build-content.mjs` bundles. Today that is every generated lesson; the change that makes build-content bundle only the `starter` pack (GURU-23) narrows `bundledLessons` to the starter lessons in the same PR. `packsForChild` returns the `lessonPack` packs of the child's not-bundled path lessons, so it queues nothing until then.
