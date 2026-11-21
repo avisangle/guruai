@@ -2,12 +2,14 @@
 // them on. Save stores them as set; Not now stores both off. Either answer ends the question.
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { ScrollView, StyleSheet, Switch, View } from 'react-native';
+import { ScrollView, StyleSheet } from 'react-native';
 
 import { answerConsent, getDevice } from '../../data/device';
 import { liveDb } from '../../data/liveDb';
+import { consentChanged } from '../../upload/uploadQueue';
 import { Button } from '../../ui/components/Button';
 import { Screen } from '../../ui/components/Screen';
+import { SwitchRow } from '../../ui/components/SwitchRow';
 import { Text } from '../../ui/components/Text';
 import { useT } from '../../ui/i18n';
 import type { StringKey } from '../../ui/strings/mr';
@@ -21,6 +23,7 @@ export default function ConsentScreen() {
 
   const answer = (consent: { clips: boolean; summaries: boolean }) => {
     answerConsent(liveDb(), consent);
+    consentChanged(); // D-GURU-38-upload-queue: after any consent write
     router.dismissTo('/parent');
   };
 
@@ -52,20 +55,10 @@ type ChoiceProps = { testID: string; title: StringKey; body: StringKey; value: b
 function Choice({ testID, title, body, value, onChange }: ChoiceProps) {
   const { t } = useT();
   return (
-    <View style={styles.choice}>
-      <View style={styles.choiceText}>
-        <Text variant="section">{t(title)}</Text>
-        <Text variant="small">{t(body)}</Text>
-      </View>
-      <Switch
-        testID={testID}
-        accessibilityLabel={t(title)}
-        value={value}
-        onValueChange={onChange}
-        trackColor={{ false: color.parent.border, true: color.parent.accent }}
-        thumbColor={color.parent.surface}
-      />
-    </View>
+    <SwitchRow testID={testID} label={t(title)} value={value} onChange={onChange} style={styles.choice}>
+      <Text variant="section">{t(title)}</Text>
+      <Text variant="small">{t(body)}</Text>
+    </SwitchRow>
   );
 }
 
@@ -74,14 +67,10 @@ const { color, radius, space } = theme;
 const styles = StyleSheet.create({
   body: { gap: space[4], paddingVertical: space[5] },
   choice: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: space[3],
     padding: space[4],
     borderRadius: radius.parent.card,
     backgroundColor: color.parent.surface,
     borderWidth: 1,
     borderColor: color.parent.border,
   },
-  choiceText: { flex: 1, gap: space[1] },
 });

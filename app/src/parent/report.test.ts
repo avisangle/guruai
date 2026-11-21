@@ -16,7 +16,7 @@
 //                next_due, last_result); item_key is '<lang>:<kind>:<text>', e.g. 'mr:letter:अ'.
 //
 // Contract pinned for /implement:
-//   parent/report.ts  buildReport(events: EventRow[], sessions: ReportSession[], mastery: MasteryRow[],
+//   parent/report.ts  buildReport(events: EventRow[], mastery: MasteryRow[],
 //                                 profile: ChildProfile, today: 'YYYY-MM-DD') -> Report (pure)
 //     days             the 7 local days ending `today`, oldest first: { date, done, goal, met }.
 //                      done = lesson_end events that day (repeats count); goal = profile.lessons_per_day.
@@ -24,9 +24,9 @@
 //                      total, practiceOnly, parentChecked }. `at` is the lesson_end/lesson_left time.
 //                      A left lesson is listed until the same lesson is resumed and finished; then
 //                      only the finished entry remains. practiceOnly: a word lesson. parentChecked:
-//                      its session had parent_helps.
+//                      a parent's button (decided_by 'tap') answered in it.
 //     lettersMastered  mastered letter rows (word rows excluded).
-//     nextDayRevision  { correct, total } over counted revision answers given at a 1-day interval.
+//     nextDayRevision  { correct, total } over counted revision answers with revision_interval_days 1.
 //     needsPractice    item_keys of the newest counted misses (wrong or silent), distinct, at most 5.
 //   app/parent/report/[child].tsx  default export; testIDs report-week, report-lessons.
 import { createElement as h } from 'react';
@@ -119,15 +119,6 @@ jest.mock('react-native-safe-area-context', () => require('react-native-safe-are
 
 // ---- the module under test, loaded lazily so a missing one fails its own test ----
 
-type ReportSession = {
-  id: string;
-  child_id: string;
-  started_at: string;
-  ended_at: string | null;
-  end_reason: string | null;
-  parent_helps: boolean;
-  active_ms: number;
-};
 type ReportDay = { date: string; done: number; goal: number; met: boolean };
 type ReportLesson = {
   template_id: string;
@@ -147,7 +138,6 @@ type Report = {
 };
 type BuildReport = (
   events: EventRow[],
-  sessions: ReportSession[],
   mastery: MasteryRow[],
   profile: ChildProfile,
   today: string,
@@ -311,27 +301,20 @@ function inputs(childId: string, before?: string) {
     'SELECT child_id, session_id, at, type, payload FROM event WHERE child_id = ? ORDER BY rowid',
     [childId],
   );
-  let sessions = db
-    .all<Omit<ReportSession, 'parent_helps'> & { parent_helps: number }>(
-      'SELECT id, child_id, started_at, ended_at, end_reason, parent_helps, active_ms FROM session WHERE child_id = ? ORDER BY started_at',
-      [childId],
-    )
-    .map((s) => ({ ...s, parent_helps: s.parent_helps === 1 }));
   let mastery = db.all<MasteryRow>(
     'SELECT child_id, item_key, lang, state, streak, interval_days, next_due, last_result FROM item_mastery WHERE child_id = ?',
     [childId],
   );
   if (before) {
     events = events.filter((e) => e.at < before);
-    sessions = sessions.filter((s) => s.started_at < before);
     mastery = rebuildMastery(events);
   }
-  return { events, sessions, mastery, profile: getChild(db, childId)! };
+  return { events, mastery, profile: getChild(db, childId)! };
 }
 
 function report(childId: string, today = '2026-11-20', before?: string): Report {
-  const { events, sessions, mastery, profile } = inputs(childId, before);
-  return reportMod().buildReport(events, sessions, mastery, profile, today);
+  const { events, mastery, profile } = inputs(childId, before);
+  return reportMod().buildReport(events, mastery, profile, today);
 }
 
 beforeAll(() => {
@@ -402,6 +385,19 @@ describe('GURU-37 buildReport: recent lessons', () => {
     const times = lessons.map((l) => l.at);
     expect([...times].sort().reverse()).toEqual(times);
     for (const l of lessons.filter((x) => x.finished)) expect(l.done).toBe(l.total);
+  });
+
+  // The session row's parent_helps is written only at goodbye or Stop; the report reads the answers.
+  test('a lesson the parent answered is marked checked while its session is still open', () => {
+    const child = createChild(db, { nickname: 'Manu', picture: 'elephant', class: 'UKG', medium: 'mr' });
+    const s = startSession(db, child.id, local(20, 8, 59));
+    run(child.id, s, d(20, 9), VYANJAN_1, [ok('mr:letter:क')], 'end', 'tap');
+    run(child.id, s, d(20, 9, 10), SWAR_1, [ok('mr:letter:अ')]);
+    const flags = report(child.id).lessons.map((l) => [l.template_id, l.parentChecked]);
+    expect(flags).toEqual([
+      [SWAR_1, false],
+      [VYANJAN_1, true],
+    ]);
   });
 
   test('word lessons are practice only; lessons in a parent-helps session are marked checked by a parent', () => {
@@ -484,11 +480,11 @@ describe('GURU-37 /parent/report/[child] screen', () => {
 
 // No issue consumes this yet (Needed by: none); the shape below is what later report work and
 // /integrate rely on.
-describe('GURU-37 contract: buildReport(events, sessions, mastery, profile, today) and /parent/report/[child]', () => {
-  test('exports a pure five-argument buildReport returning the report shape, and the report route', () => {
+describe('GURU-37 contract: buildReport(events, mastery, profile, today) and /parent/report/[child]', () => {
+  test('exports a pure four-argument buildReport returning the report shape, and the report route', () => {
     const { buildReport } = reportMod();
     expect(typeof buildReport).toBe('function');
-    expect(buildReport.length).toBe(5);
+    expect(buildReport.length).toBe(4);
 
     const r = report(buildHistory());
     expect(r).toEqual({

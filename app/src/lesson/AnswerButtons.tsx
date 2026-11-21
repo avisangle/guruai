@@ -3,7 +3,7 @@
 // adult outline where the closed mic would be. Text follows the parent language.
 import { Pressable, StyleSheet, View, type ViewStyle } from 'react-native';
 
-import { ADULT, CHECK, CROSS, DOTS, Icon } from '../parent/icons';
+import { ADULT, CHECK, CROSS, DOTS, Icon } from '../ui/icons';
 import { Text } from '../ui/components/Text';
 import { useT } from '../ui/i18n';
 import type { StringKey } from '../ui/strings/mr';

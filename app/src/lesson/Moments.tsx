@@ -4,7 +4,7 @@ import { useEffect } from 'react';
 import { StyleSheet, View, type ViewStyle } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withDelay, withTiming } from 'react-native-reanimated';
 
-import { CHECK, Icon, STAR } from '../parent/icons';
+import { CHECK, Icon, STAR } from '../ui/icons';
 import { theme } from '../ui/theme';
 
 const { color, radius, space, touch } = theme;

@@ -5,7 +5,7 @@ import { useEffect } from 'react';
 import { StyleSheet, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withRepeat, withTiming } from 'react-native-reanimated';
 
-import { EAR, Icon, LOOP, MIC } from '../parent/icons';
+import { EAR, Icon, LOOP, MIC } from '../ui/icons';
 import { theme } from '../ui/theme';
 
 const { color, radius, space, touch } = theme;
