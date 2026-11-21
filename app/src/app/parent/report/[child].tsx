@@ -6,16 +6,15 @@ import { ScrollView, StyleSheet, View } from 'react-native';
 
 import { liveDb } from '../../../data/liveDb';
 import { getChild } from '../../../data/profiles';
-import { localDay } from '../../../learning/mastery';
+import { localDay, localDayBounds } from '../../../learning/mastery';
 import { lessonTitle } from '../../../learning/queueInput';
-import { loadReport, type ReportLesson } from '../../../parent/report';
+import { loadReport, parseItemKey, type ReportLesson } from '../../../parent/report';
 import { Button } from '../../../ui/components/Button';
 import { Screen } from '../../../ui/components/Screen';
 import { Text } from '../../../ui/components/Text';
 import { useT } from '../../../ui/i18n';
+import type { StringKey } from '../../../ui/strings/mr';
 import { theme } from '../../../ui/theme';
-
-const WEEK_MS = 6 * 86_400_000;
 
 function readReport(childId: string) {
   const db = liveDb();
@@ -24,13 +23,7 @@ function readReport(childId: string) {
   return { child, today, report: child && loadReport(db, child, today) };
 }
 
-const weekday = (date: string) => {
-  const [y, m, d] = date.split('-').map(Number);
-  return new Date(y, m - 1, d).getDay();
-};
-
-/** The item's text from its key '<lang>:<kind>:<text>'. */
-const itemText = (itemKey: string) => itemKey.split(':').slice(2).join(':');
+const weekday = (date: string) => new Date(localDayBounds(date).from).getDay();
 
 export default function Report() {
   const { t } = useT();
@@ -39,8 +32,6 @@ export default function Report() {
 
   if (!child || !report) return <Screen variant="parent" />;
 
-  const short = t('reportWeekdays').split(' ');
-  const long = t('reportWeekdaysLong').split(' ');
   const lessonsThisWeek = report.days.reduce((n, d) => n + d.done, 0);
   const activeDays = report.days.filter((d) => d.done > 0).length;
   const goal = child.lessons_per_day;
@@ -48,7 +39,7 @@ export default function Report() {
   const dayLabel = (at: string) => {
     const date = localDay(at);
     if (date === today) return t('reportToday');
-    return Date.now() - new Date(at).getTime() < WEEK_MS ? long[weekday(date)] : date;
+    return date >= report.days[0].date ? t(`reportDay${weekday(date)}` as StringKey) : date;
   };
   const lessonNote = (l: ReportLesson) =>
     [
@@ -79,7 +70,7 @@ export default function Report() {
                 <View style={styles.track}>
                   <View style={[styles.fill, { height: `${Math.min(1, d.done / Math.max(1, d.goal)) * 100}%` }]} />
                 </View>
-                <Text variant="small">{short[weekday(d.date)]}</Text>
+                <Text variant="small">{t(`reportDayShort${weekday(d.date)}` as StringKey)}</Text>
               </View>
             ))}
           </View>
@@ -104,7 +95,7 @@ export default function Report() {
           </View>
           <Text variant="label">{t('reportPractice')}</Text>
           <Text variant="body">
-            {report.needsPractice.length > 0 ? report.needsPractice.map(itemText).join('  ') : t('sectionEmpty')}
+            {report.needsPractice.length > 0 ? report.needsPractice.map((k) => parseItemKey(k).text).join('  ') : t('sectionEmpty')}
           </Text>
         </View>
 

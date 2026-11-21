@@ -3,7 +3,7 @@
 import type { Db } from '../data/db';
 import type { ChildProfile } from '../data/types';
 import type { AnswerEvent, EventRow } from '../learning/events';
-import { applyAnswer, localDay, localDayBounds, type ItemMastery, type MasteryRow } from '../learning/mastery';
+import { addDays, applyAnswer, isHit, localDay, masteryRows, type ItemMastery, type MasteryRow } from '../learning/mastery';
 
 export type ReportSession = {
   id: string;
@@ -41,57 +41,52 @@ const WEEK_DAYS = 7;
 const RECENT_LESSONS = 10;
 const NEEDS_PRACTICE = 5;
 
-const isHit = (a: AnswerEvent) => a.heard_kind === 'correct' || a.heard_kind === 'meaning';
 const isMiss = (a: AnswerEvent) => a.heard_kind === 'wrong' || a.heard_kind === 'silent';
-const itemKind = (itemKey: string) => itemKey.split(':')[1];
 
-/** The 7 local days ending `today`, oldest first. */
-function week(today: string): string[] {
-  const { from } = localDayBounds(today);
-  return Array.from({ length: WEEK_DAYS }, (_, i) => {
-    const d = new Date(from);
-    d.setDate(d.getDate() - (WEEK_DAYS - 1 - i));
-    return localDay(d.toISOString());
-  });
+/** The parts of an item_key, '<lang>:<kind>:<text>'. */
+export function parseItemKey(itemKey: string): { lang: string; kind: string; text: string } {
+  const [lang, kind, ...text] = itemKey.split(':');
+  return { lang, kind, text: text.join(':') };
 }
 
-type Run = { template_id: string; items: Set<string>; word: boolean; parentChecked: boolean };
+type Payload = Partial<AnswerEvent> & { items_done?: number; items_total?: number };
+type Parsed = EventRow & { p: Payload };
+type Run = { items: Set<string>; word: boolean; parentChecked: boolean };
 
 /**
  * Lesson runs, oldest first. Answers belong to the run open in their session, whatever template_id
  * they carry (revision items keep their source lesson's id). A left lesson stays listed until the
  * same lesson is left again or finished, which replaces it: the next run of it is its resume.
  */
-function lessonRuns(events: EventRow[], parentHelps: Map<string, boolean>): ReportLesson[] {
+function lessonRuns(events: Parsed[], parentHelps: Map<string, boolean>): ReportLesson[] {
   const open = new Map<string, Run>(); // by session
   const left = new Map<string, ReportLesson>(); // listed left entries, by template
   const out: ReportLesson[] = [];
-  for (const e of events) {
-    const session = e.session_id ?? '';
-    const p = JSON.parse(e.payload) as { template_id?: string } & Partial<AnswerEvent> & { items_done?: number; items_total?: number };
-    if (e.type === 'lesson_start') {
-      open.set(session, { template_id: p.template_id!, items: new Set(), word: false, parentChecked: parentHelps.get(session) ?? false });
-    } else if (e.type === 'answer') {
+  for (const { session_id, type, at, p } of events) {
+    const session = session_id ?? '';
+    if (type === 'lesson_start') {
+      open.set(session, { items: new Set(), word: false, parentChecked: parentHelps.get(session) ?? false });
+    } else if (type === 'answer') {
       const run = open.get(session);
       if (!run) continue;
       run.items.add(p.item_key!);
       if (p.phase !== 'revision' && p.item_kind === 'word') run.word = true;
-    } else if (e.type === 'lesson_end' || e.type === 'lesson_left') {
+    } else if (type === 'lesson_end' || type === 'lesson_left') {
       const templateId = p.template_id!;
       const run = open.get(session);
       open.delete(session);
       const prior = left.get(templateId);
       if (prior) out.splice(out.indexOf(prior), 1);
-      const finished = e.type === 'lesson_end';
+      const finished = type === 'lesson_end';
       const total = finished ? (prior?.total ?? run?.items.size ?? 0) : p.items_total!;
       const entry: ReportLesson = {
         template_id: templateId,
-        at: e.at,
+        at,
         finished,
         done: finished ? total : p.items_done!,
         total,
-        practiceOnly: (run?.word ?? false) || (prior?.practiceOnly ?? false),
-        parentChecked: (run?.parentChecked ?? false) || (prior?.parentChecked ?? false),
+        practiceOnly: !!(run?.word || prior?.practiceOnly),
+        parentChecked: !!(run?.parentChecked || prior?.parentChecked),
       };
       out.push(entry);
       if (finished) left.delete(templateId);
@@ -115,7 +110,7 @@ function nextDayRevision(answers: { a: AnswerEvent; at: string }[]): Report['nex
     const prev = rows.get(key);
     if (a.counts && a.phase === 'revision' && a.decided_by === 'shekru' && prev?.state === 'mastered' && prev.interval_days === 1) {
       total++;
-      if (isHit(a)) correct++;
+      if (isHit(a.heard_kind)) correct++;
     }
     const next = applyAnswer(prev, a, localDay(at));
     if (next) rows.set(key, next);
@@ -131,21 +126,28 @@ export function buildReport(
   profile: ChildProfile,
   today: string,
 ): Report {
+  const parsed: Parsed[] = events.map((e) => ({ ...e, p: JSON.parse(e.payload) as Payload }));
+
   const goal = profile.lessons_per_day;
   const ended = new Map<string, number>();
-  for (const e of events) if (e.type === 'lesson_end') ended.set(localDay(e.at), (ended.get(localDay(e.at)) ?? 0) + 1);
-  const days = week(today).map((date) => {
+  for (const e of parsed) {
+    if (e.type !== 'lesson_end') continue;
+    const day = localDay(e.at);
+    ended.set(day, (ended.get(day) ?? 0) + 1);
+  }
+  const days = Array.from({ length: WEEK_DAYS }, (_, i) => {
+    const date = addDays(today, i - (WEEK_DAYS - 1));
     const done = ended.get(date) ?? 0;
     return { date, done, goal, met: done >= goal };
   });
 
   const parentHelps = new Map(sessions.map((s) => [s.id, s.parent_helps]));
-  const lessons = lessonRuns(events, parentHelps)
-    .reverse()
+  const lessons = lessonRuns(parsed, parentHelps)
+    .reverse() // newest recorded first, so the stable sort keeps that order on equal times
     .sort((a, b) => (a.at < b.at ? 1 : a.at > b.at ? -1 : 0))
     .slice(0, RECENT_LESSONS);
 
-  const answers = events.filter((e) => e.type === 'answer').map((e) => ({ a: JSON.parse(e.payload) as AnswerEvent, at: e.at }));
+  const answers = parsed.filter((e) => e.type === 'answer').map((e) => ({ a: e.p as AnswerEvent, at: e.at }));
 
   const needsPractice: string[] = [];
   for (let i = answers.length - 1; i >= 0 && needsPractice.length < NEEDS_PRACTICE; i--) {
@@ -156,7 +158,7 @@ export function buildReport(
   return {
     days,
     lessons,
-    lettersMastered: mastery.filter((m) => m.state === 'mastered' && itemKind(m.item_key) === 'letter').length,
+    lettersMastered: mastery.filter((m) => m.state === 'mastered' && parseItemKey(m.item_key).kind === 'letter').length,
     nextDayRevision: nextDayRevision(answers),
     needsPractice,
   };
@@ -171,9 +173,5 @@ export function loadReport(db: Db, child: ChildProfile, today: string): Report {
       [child.id],
     )
     .map((s) => ({ ...s, parent_helps: s.parent_helps === 1 }));
-  const mastery = db.all<MasteryRow>(
-    'SELECT child_id, item_key, lang, state, streak, interval_days, next_due, last_result FROM item_mastery WHERE child_id = ?',
-    [child.id],
-  );
-  return buildReport(events, sessions, mastery, child, today);
+  return buildReport(events, sessions, masteryRows(db, child.id), child, today);
 }

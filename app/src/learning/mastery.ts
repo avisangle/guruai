@@ -39,11 +39,14 @@ export function localDayBounds(day: string): { from: string; to: string } {
 }
 
 // Calendar arithmetic in UTC so daylight-saving shifts cannot skip or repeat a day.
-function addDays(day: string, days: number): string {
+export function addDays(day: string, days: number): string {
   const d = new Date(`${day}T00:00:00Z`);
   d.setUTCDate(d.getUTCDate() + days);
   return d.toISOString().slice(0, 10);
 }
+
+/** A right answer: the item, in the target language or by meaning. */
+export const isHit = (heard: AnswerEvent['heard_kind']) => heard === 'correct' || heard === 'meaning';
 
 const nextInterval = (days: number) => INTERVALS.find((i) => i > days) ?? INTERVALS[INTERVALS.length - 1];
 
@@ -55,7 +58,7 @@ export function applyAnswer(row: ItemMastery | undefined, event: AnswerEvent, to
   if (!event.counts) return row;
   if (WORD_ITEMS_GATED && event.item_kind === 'word' && event.heard_kind === 'wrong') return row;
 
-  const hit = event.heard_kind === 'correct' || event.heard_kind === 'meaning';
+  const hit = isHit(event.heard_kind);
   const base: ItemMastery = row ?? {
     item_key: event.item_key,
     lang: event.target_lang,
@@ -106,6 +109,11 @@ export function saveMastery(db: Db, row: MasteryRow, stamp: string): void {
       stamp,
     ],
   );
+}
+
+/** All of the child's mastery rows. */
+export function masteryRows(db: Db, childId: string): MasteryRow[] {
+  return db.all<MasteryRow>(`SELECT ${COLUMNS} FROM item_mastery WHERE child_id = ?`, [childId]);
 }
 
 /** The child's mastered items due for revision on or before `date` ('YYYY-MM-DD'). */

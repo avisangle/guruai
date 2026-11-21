@@ -159,20 +159,20 @@ export default function ParentHome() {
         {child && rows.length > 0 && <SetupCard child={child} rows={rows} />}
 
         {child && (
-          <Button
-            testID="home-assign"
-            variant="parent"
-            label={t('assignTitle')}
-            onPress={() => router.push(`/parent/assign/${child.id}`)}
-          />
-        )}
-        {child && (
-          <Button
-            testID="home-report"
-            variant="parentGhost"
-            label={t('reportTitle')}
-            onPress={() => router.push(`/parent/report/${child.id}`)}
-          />
+          <>
+            <Button
+              testID="home-assign"
+              variant="parent"
+              label={t('assignTitle')}
+              onPress={() => router.push(`/parent/assign/${child.id}`)}
+            />
+            <Button
+              testID="home-report"
+              variant="parentGhost"
+              label={t('reportTitle')}
+              onPress={() => router.push(`/parent/report/${child.id}`)}
+            />
+          </>
         )}
 
         {data?.sections.map((section) => (
