@@ -9,7 +9,6 @@ holding ELEVENLABS_API_KEY), each clip is transcribed with ElevenLabs speech-to-
 drops or changes a script word is regenerated (Gemini's own additions, like a laugh, are kept;
 existing takes are only reported, never replaced),
 and alignment uses the words actually spoken.
-Extra English words the transcript may write in Latin letters are mapped back via tools/voice_latin.json.
 With --new, only lines that have no take yet are voiced (existing ones are not re-checked or re-aligned).
 With --batch, takes come from Gemini Batch API jobs (own limits, not the 100 requests/day cap; half price):
 one job per round for every line still needing a take, up to 3 rounds; the last round's take is kept.
@@ -168,7 +167,8 @@ LATIN.update(zip("apple ball cat dog elephant fish grapes hat icecream jeep kite
                  "ॲपल बॉल कॅट डॉग एलिफंट फिश ग्रेप्स हॅट आइस्क्रीम जीप काइट लायन मँगो नेस्ट ऑरेंज पॅरट क्वीन रॅबिट सन "
                  "टायगर अंब्रेला व्हॅन वॉच एक्स रे योयो झेब्रा".split()))
 # new English words go in tools/voice_latin.json (Latin -> Devanagari); it wins over the pairs above
-LATIN.update((k.lower(), v) for k, v in json.loads((Path(__file__).resolve().parent / "voice_latin.json").read_text()).items())
+extra = json.loads((Path(__file__).resolve().parent / "voice_latin.json").read_text())
+LATIN.update({k.lower(): v for k, v in extra.items()})
 JOIN = [(r"\bice[\s-]*cream\b", "icecream"), (r"\byo[\s-]*yo\b", "yoyo"), (r"\bdouble[\s-]*(u|you)\b", "w"), (r"\b([A-Za-z]+)-(?=[A-Za-z])", r"\1 ")]  # "X-ray" -> "X ray"
 SPELLING = {"शाबाश": "शाब्बास", "शबाश": "शाब्बास"}  # Scribe's spelling -> the script's
 
