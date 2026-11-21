@@ -69,7 +69,7 @@ export const fsPort: FsPort = {
 };
 
 const lessonPack: Record<string, string | undefined> = catalogue.lessonPack;
-// Lessons whose audio build-content bundles: the starter pack's (D-GURU-14); the rest come in packs.
+// Lessons whose audio build-content bundles: the starter pack's (D-GURU-14-downloads-starter-pack); the rest come in packs.
 const bundledLessons = Object.keys(lessonPack).filter((id) => lessonPack[id] === STARTER_PACK);
 
 /** Manifest ids (`packId`) of the packs holding the not-bundled lessons of the child's paths, by `lessonPack` (D-GURU-16). */
