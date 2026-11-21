@@ -23,6 +23,7 @@ import { parentHelps, useParentHelps } from '../parent/parentHelps';
 import { useLinePlayer } from '../screens/useLinePlayer';
 import { useRecording, type JudgedClip } from '../screens/useRecording';
 import { useTesterAnswers } from '../screens/useTesterAnswers';
+import { keepClip, sessionEnded } from '../upload/uploadQueue';
 import { Shekru } from '../shekru/Shekru';
 import { useShekruRig } from '../shekru/useShekruRig';
 import { Button } from '../ui/components/Button';
@@ -66,7 +67,11 @@ export function LessonPlayer({ lesson, childId, sessionId, styleLevel, revision,
   const lines = deps.linePlayer ?? defaultLines;
   const tester = useTesterAnswers();
   const items = useMemo(() => [...lesson.items, ...revision.map((r) => r.item)], [lesson, revision]);
-  const rec = useRecording(lesson.template_id, items, deps.answerSource ?? (IS_TEST_BUILD ? tester.source : undefined));
+  // The take the upload queue kept (consent_clips), named in the answer it belongs to, then cleared.
+  // With "parent helps" on the mic source is not used, so no take is kept.
+  const keptClip = useRef<string | null>(null);
+  const keep = useCallback((uri: string, recordedAt: Date) => (keptClip.current = keepClip(sessionId, uri, recordedAt)), [sessionId]);
+  const rec = useRecording(lesson.template_id, items, deps.answerSource ?? (IS_TEST_BUILD ? tester.source : undefined), keep);
   const helps = useParentHelps(childId);
   const [tap] = useState(createTapSource);
   const answers = helps ? { source: tap.source, prepare: undefined } : rec; // parent taps: no mic, no judge
@@ -89,7 +94,8 @@ export function LessonPlayer({ lesson, childId, sessionId, styleLevel, revision,
     tutor: rig,
     prepare: answers.prepare,
     onAnswer: (event, position) => {
-      recordAnswer(db, ctx(), event);
+      recordAnswer(db, { ...ctx(), clip: keptClip.current ?? undefined }, event);
+      keptClip.current = null;
       savePosition(db, childId, lesson.template_id, position);
       answered.current.add(event.item_key);
     },
@@ -112,6 +118,7 @@ export function LessonPlayer({ lesson, childId, sessionId, styleLevel, revision,
   const stop = () => {
     lessonLeft(db, ctx(), lesson.template_id, { done: answered.current.size, total: items.length });
     endSessionNow(db, sessionId, 'stop', parentHelps.end(childId));
+    void sessionEnded(sessionId);
     back();
   };
 

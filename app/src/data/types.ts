@@ -22,6 +22,7 @@ export type Device = {
   judge_check: JudgeCheck | null;
   judge_p90_ms: number | null;
   mic_last_granted_at: string | null;
+  deletion_requested_at: string | null; // set until the deletion request reaches the Worker
   created_at: string;
   updated_at: string;
 };
