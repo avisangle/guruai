@@ -45,7 +45,8 @@ const lessonPack = Object.fromEntries(lessons.map((l) => [l.template_id, packOf.
 
 const prompts = readJson(path.join(content, 'prompts/mr.json'));
 const { tokens } = readJson(path.join(here, '../src/asr/generated/mr-tokens.json'));
-const errors = [...validatePaths(paths, packs, [...allLessons.keys()]), ...validateContent(lessons, prompts, tokens)];
+// Every lesson file is checked, reachable or not; only reachable ones are written.
+const errors = [...validatePaths(paths, packs, [...allLessons.keys()]), ...validateContent([...allLessons.values()], prompts, tokens)];
 if (errors.length) {
   console.error(`content: ${errors.length} error(s), nothing written:\n${errors.map((e) => `  ${e}`).join('\n')}`);
   process.exit(1);

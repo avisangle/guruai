@@ -6,7 +6,10 @@ import * as Network from 'expo-network';
 
 import { modelFile } from '../asr/model';
 import lessons from '../content/generated/lessons.json';
+import catalogue from '../content/generated/paths.json';
 import { liveDb } from '../data/liveDb';
+import type { ChildProfile } from '../data/types';
+import { pathsFor } from '../learning/enrol';
 import type { DownloaderDeps } from './downloader';
 import type { FsPort } from './install';
 
@@ -63,6 +66,22 @@ const fsPort: FsPort = {
   freeBytes: () => Paths.availableDiskSpace,
 };
 
+// Lessons whose audio build-content bundles (D-GURU-14).
+const bundledLessons = lessons.map((l) => l.template_id);
+const lessonPack: Record<string, string | undefined> = catalogue.lessonPack;
+
+/** Packs holding the not-bundled lessons of the child's paths, by `lessonPack` (D-GURU-16). */
+export function packsForChild(child: ChildProfile, bundled: string[] = bundledLessons): string[] {
+  const wanted = new Set(pathsFor(child).map(([id]) => id));
+  const skip = new Set(bundled);
+  const ids = catalogue.paths
+    .filter((p) => wanted.has(p.path_id))
+    .flatMap((p) => p.units.flatMap((u) => u.lessons))
+    .filter((l) => !skip.has(l))
+    .map((l) => lessonPack[l]);
+  return [...new Set(ids.filter((id) => id != null))];
+}
+
 export function liveDeps(): DownloaderDeps {
   return {
     db: liveDb(),
@@ -73,10 +92,6 @@ export function liveDeps(): DownloaderDeps {
     clock: { now: () => new Date(), sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)) },
     cdnBase: process.env.EXPO_PUBLIC_CDN_BASE ?? '',
     paths: { model: modelFile().uri, packs: noSlash(new Directory(Paths.document, 'packs').uri) },
-    content: {
-      // Until GURU-16 moves lesson audio into packs, every generated lesson's audio ships in the app.
-      bundledLessons: lessons.map((l) => l.template_id),
-      packsForChild: () => [],
-    },
+    content: { bundledLessons, packsForChild: (child) => packsForChild(child) },
   };
 }

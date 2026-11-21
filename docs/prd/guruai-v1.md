@@ -222,7 +222,7 @@ Parent mode:
 - Play Store download under 100 MB including the first audio pack; the model and other packs download after install.
 - Fully offline once downloads finish.
 - Daily goal 3 lessons per child by default (1 to 5); active-time safety cap 30 minutes by default.
-- Audio size: about 500 items × about 5 lines × 2 styles is roughly 100 to 150 MB per tutor; packs are split by learning path.
+- Audio size: about 500 items × about 5 lines × 2 styles is roughly 100 to 150 MB per tutor; packs are split by class band, and each learning path names its pack (D-GURU-16).
 - Login: none in M1. Parent gate: Android's system unlock prompt (BiometricPrompt with device credential) by default; optional app PIN stored as a salted hash in Android encrypted storage, with lockout counters on the device and strong biometrics as the recovery route. M2: Google sign-in with email fallback; no SMS OTP (avoids India's DLT registration and SMS cost).
 - Parent mode text in Marathi and English, switchable, Marathi by default.
 - Privacy: Play Families policy; India's DPDP Act (parental consent for children's data). Uploads carry no names, only a random device id and the child's code. Tester recording and zip export exist only in test builds.
@@ -357,7 +357,7 @@ Input for `/breakdown`. Bound by the decision records in `docs/decisions/`.
 
 **Screens** (Expo Router, `app/src/app/`): parent welcome and language switch, parent lock (choice, app PIN set, unlock), who is learning, "Finish setting up" card, child profile form (in Settings), consent prompt after the first lesson, downloads (in Settings, and a storage prompt), child picker, today's queue, "Shekru is getting ready" and "ask a grown-up" (model missing, mic denied, phone too weak), lesson (existing) with three in a row, surprise and lesson finished moments, goodbye with the "For parents" strip, parent home per child, settings, report, "parent helps" switch (parent home) and answer buttons (lesson). Wireframes come before the breakdown.
 
-**Downloads:** a download manager (resumable, checksum, Wi-Fi rule, storage check) for the model and per-path audio packs; pack manifest with versions and checksums on R2.
+**Downloads:** a download manager (resumable, checksum, Wi-Fi rule, storage check) for the model and the audio packs (by class band, D-GURU-16); pack manifest with versions and checksums on R2.
 
 **Upload function:** a Cloudflare Worker issuing short-lived R2 upload links per device; app-side queue that uploads after sessions, on Wi-Fi, only with consent.
 

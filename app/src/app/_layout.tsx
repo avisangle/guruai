@@ -4,6 +4,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { useEffect, useMemo, useState } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import { runSpeedCheck } from '../asr/speedCheck';
 import { getDevice, updateDevice } from '../data/device';
 import { liveDb } from '../data/liveDb';
 import { listChildren } from '../data/profiles';
@@ -36,8 +37,11 @@ export default function RootLayout() {
   const firstRun = useMemo(() => ({ childAdded: () => setHasChild(true) }), []);
 
   useEffect(() => {
+    // Judge speed check (D-GURU-15): now for a model already here, again after downloads for a new one.
+    const speedCheck = () => Promise.resolve().then(() => runSpeedCheck()).catch(() => undefined);
+    speedCheck();
     // Runs in the background; a missing CDN base or a bad manifest leaves the bundled content only.
-    startInitialDownloads().catch(() => undefined);
+    startInitialDownloads().catch(() => undefined).then(speedCheck);
   }, []);
 
   useEffect(() => {

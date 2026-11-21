@@ -1,7 +1,7 @@
 // Build check for content/lessons (TDD 2.1). Pure: build-content.mjs runs it under
 // Node's type stripping, so only erasable syntax and .ts import paths.
 import { normalise } from '../asr/normalise.ts';
-import { FAMILIES } from '../lesson/lines.ts';
+import { FAMILIES, familyLines } from '../lesson/lines.ts';
 import type { AppLang } from '../data/types.ts';
 import type { Item, Lang, Lesson, Prompts } from '../lesson/types.ts';
 import { TUTOR_STATES } from '../shekru/contract.ts';
@@ -58,11 +58,10 @@ function checkItem(where: string, item: Item, tokens: Record<string, number[]>):
   return errors;
 }
 
-// TDD 2.4: a family's lines are `<family>_<n>` or the bare family id.
+// TDD 2.4: each family's pool size.
 function checkPools(prompts: Prompts): string[] {
-  const ids = Object.keys(prompts.lines);
   return Object.entries(FAMILIES).flatMap(([family, min]) => {
-    const n = ids.filter((id) => new RegExp(`^${family}(_\\d+)?$`).test(id)).length;
+    const n = familyLines(family, prompts.lines).length;
     return n < min ? [`prompts: family "${family}" has ${n} line(s), needs at least ${min}`] : [];
   });
 }
