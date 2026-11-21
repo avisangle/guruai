@@ -55,12 +55,13 @@ export function setJudgeCheck(db: Db, check: JudgeCheck | null, p90Ms: number | 
 }
 
 /** Stores the parent's consent answer (GURU-33); "Not now" passes both false. Either way it counts as answered. */
-export function answerConsent(db: Db, consent: { clips: boolean; summaries: boolean }, at: string = now()): void {
+export function answerConsent(db: Db, consent: { clips: boolean; summaries: boolean }): void {
   getDevice(db);
+  const at = now();
   db.run('UPDATE device SET consent_clips = ?, consent_summaries = ?, consent_answered_at = ?, updated_at = ?', [
     consent.clips ? 1 : 0,
     consent.summaries ? 1 : 0,
     at,
-    now(),
+    at,
   ]);
 }

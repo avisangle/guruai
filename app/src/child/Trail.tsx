@@ -20,46 +20,42 @@ const NEXT = Math.round(STOP * 1.25);
 
 type Props = {
   stops: Stop[];
-  /** Template ids finished today, shown ticked before the stops. */
+  /** Goodbye only: template ids finished today, shown ticked first; every stop left is for tomorrow. */
   done?: string[];
-  /** Goodbye: no next stop; every stop left is labelled for tomorrow. */
-  tomorrow?: boolean;
 };
 
-export function Trail({ stops, done = [], tomorrow = false }: Props) {
+type Entry = Stop | { kind: 'done'; template_id: string };
+
+export function Trail({ stops, done }: Props) {
   const { t } = useT();
+  const tomorrow = done !== undefined;
+  const entries: Entry[] = [...(done ?? []).map((id) => ({ kind: 'done' as const, template_id: id })), ...stops];
   return (
     <View style={styles.trail}>
-      {done.map((id) => (
-        <View key={`done-${id}`} testID={`stop-${id}`} style={styles.stop}>
-          <View style={[styles.circle, styles.done]}>
-            <Text mode="child" variant="button">
-              {FIRST_ITEM.get(id) ?? ''}
-            </Text>
-            <View testID="stop-tick" style={styles.tick}>
-              <Icon d={CHECK} size={space[4]} color={color.child.onSuccess} />
-            </View>
-          </View>
-          <Text variant="small">{t('stopLesson')}</Text>
-        </View>
-      ))}
-      {stops.map((stop, i) => {
-        const next = i === 0 && !tomorrow;
-        const id = stop.kind === 'lesson' ? stop.template_id : 'revision';
+      {entries.map((entry, i) => {
+        const next = !tomorrow && i === 0;
+        const id = entry.kind === 'revision' ? 'revision' : entry.template_id;
+        const label = entry.kind === 'done' ? 'stopLesson' : tomorrow ? 'stopTomorrow' : entry.kind === 'lesson' ? 'stopLesson' : 'stopRevision';
+        const ring = entry.kind === 'done' ? styles.done : next ? styles.next : styles.ahead;
         return (
-          <View key={id} testID={`stop-${id}`} style={styles.stop}>
-            <View testID={next ? 'next-ring' : undefined} style={[styles.circle, next ? styles.next : styles.ahead]}>
-              {stop.kind === 'revision' ? (
+          <View key={`${entry.kind}-${id}`} testID={`stop-${id}`} style={styles.stop}>
+            <View testID={next ? 'next-ring' : undefined} style={[styles.circle, ring]}>
+              {entry.kind === 'revision' ? (
                 <View testID="revision-icon">
                   <Icon d={LOOP} size={space[5]} color={color.child.text} />
                 </View>
               ) : (
                 <Text mode="child" variant="button">
-                  {FIRST_ITEM.get(stop.template_id) ?? ''}
+                  {FIRST_ITEM.get(entry.template_id) ?? ''}
                 </Text>
               )}
+              {entry.kind === 'done' && (
+                <View testID="stop-tick" style={styles.tick}>
+                  <Icon d={CHECK} size={space[4]} color={color.child.onSuccess} />
+                </View>
+              )}
             </View>
-            <Text variant="small">{t(tomorrow ? 'stopTomorrow' : stop.kind === 'lesson' ? 'stopLesson' : 'stopRevision')}</Text>
+            <Text variant="small">{t(label)}</Text>
           </View>
         );
       })}

@@ -6,6 +6,7 @@ import { StyleSheet, useWindowDimensions, View } from 'react-native';
 
 import { judgeReadiness, type JudgeReadiness } from '../../asr/speedCheck';
 import { readiness, type Readiness } from '../../child/readiness';
+import { ParentStrip } from '../../child/ParentStrip';
 import { Trail } from '../../child/Trail';
 import promptsJson from '../../content/generated/prompts.json';
 import { liveDb } from '../../data/liveDb';
@@ -28,7 +29,6 @@ import { useShekruRig } from '../../shekru/useShekruRig';
 import { Button } from '../../ui/components/Button';
 import { Screen } from '../../ui/components/Screen';
 import { Text } from '../../ui/components/Text';
-import { useT } from '../../ui/i18n';
 import { mr } from '../../ui/strings/mr';
 import { theme } from '../../ui/theme';
 
@@ -145,7 +145,7 @@ export default function TodayQueueScreen() {
       {state === 'ready' && lesson && (
         <Button testID="queue-start" variant="childPrimary" label={midDay ? mr.next : mr.letsStart} onPress={start} />
       )}
-      {icon && <GrownupStrip />}
+      {icon && <ParentStrip label="askGrownupStrip" />}
     </Screen>
   );
 }
@@ -174,15 +174,6 @@ function Progress() {
   );
 }
 
-function GrownupStrip() {
-  const { t } = useT();
-  return (
-    <View style={styles.strip}>
-      <Text variant="small">{t('askGrownupStrip')}</Text>
-    </View>
-  );
-}
-
 const { color, radius, space } = theme;
 
 const styles = StyleSheet.create({
@@ -192,12 +183,4 @@ const styles = StyleSheet.create({
   caption: { textAlign: 'center', color: color.child.textMuted },
   track: { width: '60%', height: space[2], borderRadius: radius.child.round, backgroundColor: color.child.border, overflow: 'hidden' },
   fill: { height: '100%', backgroundColor: color.child.primary },
-  strip: {
-    padding: space[3],
-    marginBottom: space[3],
-    borderRadius: radius.parent.card,
-    backgroundColor: color.parent.surface,
-    borderWidth: 1,
-    borderColor: color.parent.border,
-  },
 });

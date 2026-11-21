@@ -4,8 +4,9 @@
 // until the consent question is answered, the "For parents" strip (decision 12).
 import { Redirect, router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { StyleSheet, useWindowDimensions, View } from 'react-native';
 
+import { ParentStrip } from '../child/ParentStrip';
 import { Trail } from '../child/Trail';
 import promptsJson from '../content/generated/prompts.json';
 import { getDevice } from '../data/device';
@@ -25,7 +26,6 @@ import { Shekru } from '../shekru/Shekru';
 import { useShekruRig } from '../shekru/useShekruRig';
 import { Screen } from '../ui/components/Screen';
 import { Text } from '../ui/components/Text';
-import { useT } from '../ui/i18n';
 import { theme } from '../ui/theme';
 
 const prompts = promptsJson as Prompts;
@@ -42,7 +42,8 @@ function readDay(childId: string): Day | null {
   const left = buildTodayQueue(readQueueInput(db, child, today, isLessonInstalled)).stops.filter(
     (s) => s.kind !== 'lesson' || !done.includes(s.template_id),
   );
-  return { done, left, askConsent: getDevice(db).consent_answered_at === null && anyLessonEnded(db) };
+  // This child's finished lesson already proves one ended on the phone; else ask the whole device.
+  return { done, left, askConsent: getDevice(db).consent_answered_at === null && (done.length > 0 || anyLessonEnded(db)) };
 }
 
 export default function GoodbyeScreen() {
@@ -51,7 +52,7 @@ export default function GoodbyeScreen() {
   const rig = useShekruRig();
   const lines = useLinePlayer(rig);
   const [day] = useState(() => (child ? readDay(child) : null));
-  const [caption, setCaption] = useState<string | null>(null);
+  const [bye] = useState(() => pickLine('bye', familyLines('bye', prompts.lines), [], Math.random).id);
 
   useEffect(() => {
     if (!day) return;
@@ -60,12 +61,9 @@ export default function GoodbyeScreen() {
     if (session) endSessionNow(db, session, 'goodbye', false); // "parent helps" (GURU-34) is not wired yet
 
     rig.setState('bye');
-    const { id } = pickLine('bye', familyLines('bye', prompts.lines), [], Math.random);
-    const text = prompts.lines[id];
-    setCaption(prompts.captions?.[id] ?? text);
-    lines.play(id, text).then(() => rig.setState('idle'));
+    lines.play(bye, prompts.lines[bye]).then(() => rig.setState('idle'));
     return () => lines.stop();
-  }, [day, child, rig, lines]);
+  }, [day, child, bye, rig, lines]);
 
   if (!day) return <Redirect href="/" />;
 
@@ -76,42 +74,21 @@ export default function GoodbyeScreen() {
       </View>
       <View style={styles.middle}>
         <Shekru values={rig.values} size={Math.min(width * 0.6, height * 0.3)} />
-        {caption && (
-          <Text mode="child" style={styles.caption}>
-            {caption}
-          </Text>
-        )}
-        <Trail done={day.done} stops={day.left} tomorrow />
+        <Text mode="child" style={styles.caption}>
+          {prompts.captions?.[bye] ?? prompts.lines[bye]}
+        </Text>
+        <Trail done={day.done} stops={day.left} />
       </View>
-      {day.askConsent && <ConsentStrip />}
+      {/* For the adult; a child who taps it only reaches the parent lock. */}
+      {day.askConsent && <ParentStrip testID="consent-strip" label="consentStrip" onPress={() => router.push('/parent/unlock')} />}
     </Screen>
   );
 }
 
-/** For the adult; a child who taps it only reaches the parent lock. */
-function ConsentStrip() {
-  const { t } = useT();
-  return (
-    <Pressable testID="consent-strip" accessibilityRole="button" onPress={() => router.push('/parent/unlock')} style={styles.strip}>
-      <Text variant="small">{t('consentStrip')}</Text>
-    </Pressable>
-  );
-}
-
-const { color, radius, space, touch } = theme;
+const { color, space } = theme;
 
 const styles = StyleSheet.create({
   top: { flexDirection: 'row', alignItems: 'center' },
   middle: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: space[4] },
   caption: { textAlign: 'center', color: color.child.textMuted },
-  strip: {
-    minHeight: touch.parent.min,
-    justifyContent: 'center',
-    padding: space[3],
-    marginBottom: space[3],
-    borderRadius: radius.parent.card,
-    backgroundColor: color.parent.surface,
-    borderWidth: 1,
-    borderColor: color.parent.border,
-  },
 });

@@ -114,4 +114,3 @@ export const en: Record<StringKey, string> = {
   consentWhatIsSent:
     "A name is never sent; only a code number for this phone and your child's code. Sent on Wi-Fi only. You can change this any time in Settings, and sent recordings are deleted when you ask.",
 };
-
