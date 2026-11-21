@@ -19,6 +19,7 @@ import { assignLesson } from './assignments';
 import { recordAnswer, type AnswerEvent } from './events';
 import { loadPosition, savePosition } from './positions';
 import {
+  closeLeftOpenSessions,
   closeOpenSessions,
   endSession,
   ensureSession,
@@ -157,7 +158,8 @@ describe('session lifecycle', () => {
     // Killed straight after the child tapped their face: only session_start exists.
     const bare = startSession(db, sibling, local(20, 11));
 
-    closeOpenSessions(db);
+    // The app start's form also returns what it closed, to queue each summary (GURU-38).
+    expect(closeLeftOpenSessions(db).sort()).toEqual([open, bare].sort());
     expect(sessionRow(db, open)).toMatchObject({ ended_at: local(20, 9, 7), end_reason: 'closed' });
     expect(sessionRow(db, bare)).toMatchObject({ ended_at: local(20, 11), end_reason: 'closed' });
     expect(sessionRow(db, ended)).toMatchObject({ ended_at: local(19, 9, 20), end_reason: 'goodbye', active_ms: 1000 });

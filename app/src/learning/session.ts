@@ -62,6 +62,13 @@ export function endSession(db: Db, sessionId: string, reason: Exclude<EndReason,
 // When this JS run began.
 const RUN_STARTED = now();
 
+/** Runs closeOpenSessions and returns the ids it closed, so the caller can act on each end. */
+export function closeLeftOpenSessions(db: Db): string[] {
+  const open = db.all<{ id: string }>('SELECT id FROM session WHERE ended_at IS NULL').map((r) => r.id);
+  closeOpenSessions(db);
+  return open.filter((id) => db.get('SELECT 1 FROM session WHERE id = ? AND ended_at IS NOT NULL', [id]));
+}
+
 /**
  * On app start: closes sessions an earlier run left open, as `closed` at their last event.
  * Their active time lived in memory and is lost, so active_ms stays as stored. Sessions this
