@@ -470,6 +470,22 @@ describe('GURU-38 session summary', () => {
     expect([...off.files.files.keys()].some((k) => k.endsWith('summary.json'))).toBe(false);
     expect(uploadRows(off.db)).toEqual([]);
   });
+
+  test('a sitting closed at app start with a tapped answer reports parent_helps: true (the column stays 0 on that path)', async () => {
+    const r = rig();
+    const session = startSession(r.db, r.child.id, at(0));
+    const ctx = (m: number) => ({ childId: r.child.id, sessionId: session, at: at(m) });
+    lessonStarted(r.db, ctx(1), lesson.template_id);
+    recordAnswer(r.db, ctx(2), answerEvent(itemA, { decided_by: 'tap' }));
+    lessonEnded(r.db, ctx(3), lesson.template_id);
+    // What closeOpenSessions leaves: ended as `closed`, parent_helps untouched.
+    r.db.run("UPDATE session SET ended_at = ?, end_reason = 'closed' WHERE id = ?", [at(3), session]);
+
+    expect(summaryModule().buildSessionSummary(r.db, session, { appVersion: APP_VERSION })).toMatchObject({
+      end_reason: 'closed',
+      parent_helps: true,
+    });
+  });
 });
 
 describe('GURU-38 upload queue', () => {
@@ -701,5 +717,31 @@ describe('GURU-38 contract for GURU-39: summary.json format (TDD 2.9), upload la
     const src = fs.readFileSync(path.join(__dirname, 'client.ts'), 'utf8');
     expect(src).toMatch(/process\.env\.EXPO_PUBLIC_UPLOAD_URL/);
     expect(src).toMatch(/process\.env\.EXPO_PUBLIC_UPLOAD_KEY/);
+  });
+});
+
+describe('GURU-38 live wrappers', () => {
+  test('a failed queue setup never throws into the caller (the root layout calls these at app start)', async () => {
+    const env = { url: process.env.EXPO_PUBLIC_UPLOAD_URL, key: process.env.EXPO_PUBLIC_UPLOAD_KEY };
+    process.env.EXPO_PUBLIC_UPLOAD_URL = CONFIG.url;
+    process.env.EXPO_PUBLIC_UPLOAD_KEY = CONFIG.key;
+    try {
+      let live!: typeof import('./uploadQueue');
+      jest.isolateModules(() => {
+        jest.doMock('../data/liveDb', () => ({
+          liveDb: () => {
+            throw new Error('no database');
+          },
+        }));
+        live = require('./uploadQueue');
+      });
+      await Promise.all([live.runUploads(), live.sessionEnded('s1'), live.requestDeletion()]);
+      expect(live.keepClip('s1', 'file:///take.wav', T0)).toBeNull();
+      live.consentChanged();
+    } finally {
+      process.env.EXPO_PUBLIC_UPLOAD_URL = env.url;
+      process.env.EXPO_PUBLIC_UPLOAD_KEY = env.key;
+      jest.dontMock('../data/liveDb');
+    }
   });
 });
