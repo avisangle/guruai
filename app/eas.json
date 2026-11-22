@@ -4,15 +4,27 @@
     "development": {
       "developmentClient": true,
       "distribution": "internal",
-      "env": { "EXPO_PUBLIC_TEST_BUILD": "1" },
+      "env": {
+        "EXPO_PUBLIC_TEST_BUILD": "1",
+        "EXPO_PUBLIC_CDN_BASE": "https://cdn.avinashsangle.com",
+        "EXPO_PUBLIC_UPLOAD_URL": "https://guru-upload.aavi-sangle.workers.dev"
+      },
       "android": { "buildType": "apk" }
     },
     "preview": {
       "distribution": "internal",
-      "env": { "EXPO_PUBLIC_TEST_BUILD": "1" },
+      "env": {
+        "EXPO_PUBLIC_TEST_BUILD": "1",
+        "EXPO_PUBLIC_CDN_BASE": "https://cdn.avinashsangle.com",
+        "EXPO_PUBLIC_UPLOAD_URL": "https://guru-upload.aavi-sangle.workers.dev"
+      },
       "android": { "buildType": "apk" }
     },
     "production": {
+      "env": {
+        "EXPO_PUBLIC_CDN_BASE": "https://cdn.avinashsangle.com",
+        "EXPO_PUBLIC_UPLOAD_URL": "https://guru-upload.aavi-sangle.workers.dev"
+      },
       "android": { "buildType": "app-bundle" }
     }
   }
