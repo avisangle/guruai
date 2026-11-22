@@ -68,3 +68,4 @@
 - 2026-11-21 GURU-1: 38 merged, 0 parked (#1-#30, #32-#38, #40-#45, #47); integrate L1/L4/L7 clean, L2/L3/L5/L6 parked with open reconcile PRs #31 #39 #48 #46
 - 2026-11-21 GURU-1 reconcile PRs: #48 #39 #46 #31 merged; no open PRs
 - 2026-11-22 GURU-1 integrate confirmations: L3/L5/L6 clean, L2 reconciled (#49, #50 merged); epic Done
+- 2026-11-22 GURU-40: R2 buckets, cdn.avinashsangle.com, upload Worker, model v1 and shekru.kg v2 published, EAS upload key set (#51)
