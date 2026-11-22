@@ -14,6 +14,6 @@
 - Only having the engine set `counts: false` on word wrongs: `applyAnswer` also checks the flag, so a stray `counts: true` cannot reach mastery and a rebuild gives the same rows.
 
 **Impact:**
-- Mastery code checks `WORD_ITEMS_GATED` before applying any `wrong` on a word item; nothing else gates word items.
-- The engine still sets `counts: false` on word wrongs while the flag is true (TDD 2.3), so pilot figures exclude them.
+- Mastery code checks `WORD_ITEMS_GATED` before applying any `wrong` on a word item.
+- The engine reads the same flag and sets `counts: false` on every miss on a word item while it is true (a wrong, a second silence or a second meaning; D-GURU-10-language-design Impact), so pilot figures exclude them. No other switch gates word items.
 - Turning the flag off needs the tap-mode judge test result above; record it as a new decision that supersedes this one.
