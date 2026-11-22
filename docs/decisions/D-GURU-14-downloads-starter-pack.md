@@ -11,7 +11,7 @@
 **Rejected:**
 - Downloading everything after install: the first lesson waits on the network.
 - A GitHub release asset: no cache rule and no control of the domain.
-- Bundling the model: it alone is 137 MB, over the 100 MB APK limit.
+- Bundling the model: it alone is 137 MB, over the PRD's 100 MB Play Store download target (Technical Constraints).
 
 **Impact:**
 - Never overwrite a published file in R2. A changed model or pack gets a new version and a new URL, and the manifest points at it.

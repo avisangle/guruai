@@ -13,7 +13,7 @@
 - Treating a meaning as a wrong attempt on English-target items: the child knew the item; PRD rule 8.
 
 **Impact:**
-- `wrong_*` ("a different letter") is played only for a wrong letter, never after silence and never on a word item.
+- `tryagain_*` ("a different letter", named `wrong_*` before GURU-11) is played only for a wrong letter, never after silence and never on a word item.
 - A `meaning` on a letter item is correct (it names the letter). A `meaning` in a teach turn or reveal repeat on a word item is handled as `wrong` (model again, then move on).
 - `counts` is false for teach turns and reveal repeats, a first silence, the bridge step, the follow-up, and any miss on a word item while `wordItemsGated`; such items are also never added to the retry round (D-GURU-12-word-items-practice-only).
 - `Position.bridged` and `Position.followup` carry the bridge and follow-up across a resume; a resume during the follow-up replays its question.
