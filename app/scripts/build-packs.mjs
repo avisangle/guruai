@@ -7,7 +7,7 @@
 //   --model                                                    -> manifest model entry (SHA-256, size)
 //   dist/manifest.json
 //   --publish: puts each file not yet in R2 ($R2_BUCKET, keys guru/v1/<url>), then the manifest.
-//              A published file is never overwritten (D-GURU-14); one with other bytes stops the publish.
+//              A published file is never overwritten (D-GURU-14-downloads-starter-pack); one with other bytes stops the publish.
 import { spawnSync } from 'node:child_process';
 import crypto from 'node:crypto';
 import fs from 'node:fs';

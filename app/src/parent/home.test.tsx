@@ -101,12 +101,16 @@ jest.mock('expo-audio', () => ({
   })),
 }));
 
-const mockReadiness = { value: 'ready' };
+const mockReadiness = { value: 'ready', listeners: new Set<() => void>() };
 jest.mock('../asr/speedCheck', () => ({
   SLOW_P90_MS: 1000,
   judgeReadiness: jest.fn(() => mockReadiness.value),
   runSpeedCheck: jest.fn(async () => mockReadiness.value),
   rerunSpeedCheck: jest.fn(async () => mockReadiness.value),
+  subscribeJudgeCheck: jest.fn((listener: () => void) => {
+    mockReadiness.listeners.add(listener);
+    return () => mockReadiness.listeners.delete(listener);
+  }),
 }));
 
 const mockStatus: DownloadStatus = { waitingForWifi: false, plan: null, items: [] }; // one object: useSyncExternalStore needs a stable snapshot
@@ -216,6 +220,7 @@ beforeEach(() => {
   }
   getDevice(db);
   mockReadiness.value = 'ready';
+  mockReadiness.listeners.clear();
   mockMic.granted = true;
   mockMic.canAskAgain = true;
   mockStatus.plan = null;
@@ -395,6 +400,20 @@ describe('GURU-30 /parent home screen', () => {
     await openHome();
     await act(async () => undefined); // let the permission read settle
     expect(screen.queryByTestId('attention-banner')).toBeNull();
+  });
+
+  test('a first speed check that finds the phone too slow, while home is open, shows the weak-phone banner', async () => {
+    addChild('Chinu', 'peacock');
+    await openHome();
+    await act(async () => undefined); // let the permission read settle
+    expect(screen.queryByTestId('attention-banner')).toBeNull();
+
+    await act(async () => {
+      mockReadiness.value = 'slow';
+      mockReadiness.listeners.forEach((l) => l());
+    });
+    expect(await screen.findByTestId('attention-banner')).toBeTruthy();
+    expect(screen.queryByTestId('attention-action')).toBeNull(); // a weak phone has no fix to tap
   });
 
   test('short of space, the model banner opens the downloads screen and its storage prompt', async () => {

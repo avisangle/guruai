@@ -26,7 +26,7 @@ import { getDevice } from '../data/device';
 import { migrate } from '../data/migrations';
 import { createTestDb } from '../data/testDb';
 import { isSilent } from './judge';
-import { judgeReadiness, rerunSpeedCheck, runSpeedCheck } from './speedCheck';
+import { judgeReadiness, rerunSpeedCheck, runSpeedCheck, subscribeJudgeCheck } from './speedCheck';
 import { parseWav } from './wav';
 
 // Native-free: device ids, the live database, the model file and the real judge are all stubbed.
@@ -170,6 +170,29 @@ describe('GURU-15 judge speed and memory check', () => {
     await expect(rerunSpeedCheck(gone)).resolves.toBe('missing');
     expect(gone.judge).not.toHaveBeenCalled();
     expect(stored(db)).toEqual({ judge_check: null, judge_p90_ms: null });
+  });
+
+  test('subscribers hear each stored result (ok, slow or oom), not a no-op run or an unchecked failure', async () => {
+    const db = freshDb();
+    const heard = jest.fn();
+    const unsubscribe = subscribeJudgeCheck(heard);
+
+    await runSpeedCheck(scripted(db, runs(300, [1]), false)); // no model: nothing stored
+    await runSpeedCheck(scripted(db, [{ ms: 300, error: NOT_OOM }])); // unchecked: nothing stored
+    expect(heard).not.toHaveBeenCalled();
+
+    await runSpeedCheck(scripted(db, runs(300, [1200, 1200, 1200, 1200, 1200])));
+    expect(heard).toHaveBeenCalledTimes(1);
+    await runSpeedCheck(scripted(db, runs(300, [200, 200, 200, 200, 200]))); // already stored: no-op
+    expect(heard).toHaveBeenCalledTimes(1);
+
+    await rerunSpeedCheck(scripted(db, [{ ms: 300, error: RUN_OOM }]));
+    expect(stored(db).judge_check).toBe('oom');
+    expect(heard).toHaveBeenCalledTimes(2);
+
+    unsubscribe();
+    await rerunSpeedCheck(scripted(db, runs(300, [200, 200, 200, 200, 200])));
+    expect(heard).toHaveBeenCalledTimes(2);
   });
 
   test('the speed-check clip ships as a 16 kHz mono 16-bit WAV with speech in it, answer-length', () => {

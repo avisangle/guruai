@@ -149,6 +149,7 @@ jest.mock('../asr/speedCheck', () => ({
   judgeReadiness: jest.fn(() => mockJudge.value),
   runSpeedCheck: jest.fn(async () => mockJudge.value),
   rerunSpeedCheck: jest.fn(async () => mockJudge.value),
+  subscribeJudgeCheck: jest.fn(() => () => undefined),
 }));
 
 const mockStatus = { waitingForWifi: false, plan: null, items: [] }; // stable snapshot

@@ -4,7 +4,7 @@ import { router, useFocusEffect, type Href } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Linking, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
-import { judgeReadiness, type JudgeReadiness } from '../../asr/speedCheck';
+import { judgeReadiness, subscribeJudgeCheck, type JudgeReadiness } from '../../asr/speedCheck';
 import { getDevice } from '../../data/device';
 import { liveDb } from '../../data/liveDb';
 import { listChildren } from '../../data/profiles';
@@ -99,6 +99,9 @@ export default function ParentHome() {
       ),
     [],
   );
+
+  // A speed check that ends while this screen is open updates the weak-phone banner.
+  useEffect(() => subscribeJudgeCheck(() => setHome((h) => ({ ...h, readiness: attempt<JudgeReadiness>(() => judgeReadiness(), 'ready') }))), []);
 
   const child = home.children.find((c) => c.id === childId) ?? home.children[0];
   const data = useMemo(

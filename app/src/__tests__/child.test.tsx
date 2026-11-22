@@ -119,12 +119,16 @@ jest.mock('expo-audio', () => {
   return new Proxy(known, { get: (t, k) => (k in t ? t[k as string] : thing()) });
 });
 
-const mockJudge: { value: JudgeReadiness } = { value: 'ready' };
+const mockJudge: { value: JudgeReadiness; listeners: Set<() => void> } = { value: 'ready', listeners: new Set() };
 jest.mock('../asr/speedCheck', () => ({
   SLOW_P90_MS: 1000,
   judgeReadiness: jest.fn(() => mockJudge.value),
   runSpeedCheck: jest.fn(async () => mockJudge.value),
   rerunSpeedCheck: jest.fn(async () => mockJudge.value),
+  subscribeJudgeCheck: jest.fn((listener: () => void) => {
+    mockJudge.listeners.add(listener);
+    return () => mockJudge.listeners.delete(listener);
+  }),
 }));
 
 // One status object per state: useSyncExternalStore needs a stable snapshot.
@@ -317,6 +321,7 @@ beforeEach(() => {
   for (const { name } of tables) db.run(`DELETE FROM "${name}"`);
   mockMic.granted = true;
   mockJudge.value = 'ready';
+  mockJudge.listeners.clear();
   setDownloads([model('installed')]);
   mockDownloads.listeners.clear();
   mockQueue.value = FIXED;
@@ -483,6 +488,23 @@ describe('GURU-29 child picker, queue and readiness', () => {
     expect(await screen.findByTestId('queue-start')).toBeTruthy();
     await waitFor(() => expect(mockLines.some((id) => /^ready_\d+$/.test(id))).toBe(true));
     expect(screen.getAllByTestId(/^stop-/).map((s) => s.props.testID)).toEqual([`stop-${A}`, 'stop-revision', `stop-${B}`, `stop-${C}`]);
+  });
+
+  test('a first speed check that finds the phone too slow, while the queue is open, turns it into ask a grown-up (c-ask-weak)', async () => {
+    const child = addChild('Chinu', 'peacock');
+
+    await renderRouter(routes(), { initialUrl: `/child/${child.id}` });
+    expect(await screen.findByTestId('queue-start')).toBeTruthy();
+    expect(mockJudge.listeners.size).toBeGreaterThan(0);
+
+    // The check stores its result after the screen's reads; no focus change, no download event.
+    await act(async () => {
+      mockJudge.value = 'slow';
+      mockJudge.listeners.forEach((l) => l());
+    });
+
+    await waitFor(() => expect(mockLines.some((id) => /^ask_grownup_weak_\d+$/.test(id))).toBe(true));
+    expect(screen.queryByTestId('queue-start')).toBeNull();
   });
 
   // Contract for GURU-34 (parent helps: readiness() bypass) and GURU-28 (the queue opens its route).

@@ -5,7 +5,7 @@ import * as LocalAuthentication from 'expo-local-authentication';
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { Linking, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
-import { judgeReadiness, rerunSpeedCheck, type JudgeReadiness } from '../../asr/speedCheck';
+import { judgeReadiness, rerunSpeedCheck, subscribeJudgeCheck, type JudgeReadiness } from '../../asr/speedCheck';
 import { answerConsent, getDevice } from '../../data/device';
 import { liveDb } from '../../data/liveDb';
 import { listChildren } from '../../data/profiles';
@@ -60,6 +60,9 @@ export default function SettingsScreen() {
   const [mic, setMic] = useState<MicState | null>(null); // null until read
   const [readiness, setReadiness] = useState<JudgeReadiness>(() => judgeReadiness());
   const [checking, setChecking] = useState(false);
+
+  // The first speed check may end while Settings is open.
+  useEffect(() => subscribeJudgeCheck(() => setReadiness(judgeReadiness())), []);
 
   // A saved or added child shows on return from the profile form.
   useFocusEffect(

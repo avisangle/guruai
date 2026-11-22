@@ -6,7 +6,7 @@
 //   content/lessons/*.json reachable from a path            -> src/content/generated/lessons.json (in path order)
 //   both only after validatePaths and validateContent (src/content/validate.ts) pass
 //   content/prompts/mr.json                                 -> src/content/generated/prompts.json
-//   bundled audio: shared lines + the starter pack's lessons (D-GURU-14); other packs: build-packs.mjs
+//   bundled audio: shared lines + the starter pack's lessons (D-GURU-14-downloads-starter-pack); other packs: build-packs.mjs
 //   content/audio/visemes.json (the bundled ids)            -> src/content/generated/clips.json
 //   content/audio/shekru/<id>.mp3 (the bundled ids)         -> assets/audio/lesson/<id with _ for .>.mp3
 //   static require() map (Metro cannot require by variable) -> src/content/generated/audio.ts
