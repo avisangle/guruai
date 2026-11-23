@@ -69,3 +69,4 @@
 - 2026-11-21 GURU-1 reconcile PRs: #48 #39 #46 #31 merged; no open PRs
 - 2026-11-22 GURU-1 integrate confirmations: L3/L5/L6 clean, L2 reconciled (#49, #50 merged); epic Done
 - 2026-11-22 GURU-40: R2 buckets, cdn.avinashsangle.com, upload Worker, model v1 and shekru.kg v2 published, EAS upload key set (#51)
+- 2026-11-23 Mid-tier phone test (OnePlus Nord CE 3): judge load 944 ms, +193 MB, peak 915 MB, ~0.5 s per clip; ReadNet 184/322, false accepts 2/32; 3 bugs logged; fresh-install check pending (USB dropped)
