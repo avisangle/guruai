@@ -72,3 +72,4 @@
 - 2026-11-23 Mid-tier phone test (OnePlus Nord CE 3): judge load 944 ms, +193 MB, peak 915 MB, ~0.5 s per clip; ReadNet 184/322, false accepts 2/32; 3 bugs logged; fresh-install check pending (USB dropped)
 - 2026-11-25 mid-tier fresh install: preview APK installed clean, model (144 MB) and shekru.kg downloaded within ~90 s of first launch during onboarding, speed check ok (p90 247 ms), consented clips and summary reached guru-uploads; found a noise false accept and clipped Marathi labels (bug.md)
 - 2026-11-25 retest of the five open phone bugs: all still open; judge noise bug also gives counted quiz misses (unsure correct passes classify), label bug isolated to ui/components/Button.tsx, probe KeyError is tool-only (bug.md)
+- 2026-11-25 GURU-41: epic for the five open phone bugs created, stories GURU-42..GURU-46, all level 1, no dependencies (no commit)
