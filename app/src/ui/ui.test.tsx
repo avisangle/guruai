@@ -9,6 +9,7 @@ import { StyleSheet } from 'react-native';
 
 import RootLayout from '../app/_layout';
 import { Button } from './components/Button';
+import * as ButtonModule from './components/Button';
 import { Screen } from './components/Screen';
 import { Text } from './components/Text';
 import { LanguageProvider, useT } from './i18n';
@@ -273,5 +274,157 @@ describe('GURU-5 UI foundation', () => {
     for (const k of ['color', 'font', 'space', 'radius', 'touch']) expect(theme).toHaveProperty(k);
     expect(typeof theme.color.child).toBe('object');
     expect(typeof theme.color.parent).toBe('object');
+  });
+});
+
+// GURU-43: Marathi labels in the shared Button wrap or lose their last word on Android 15.
+// Cause (from react-native 0.88.1 sources, the phone's settings and the font files): Button's
+// `alignItems: 'center'` shrinks the label Text to ceil(sum of glyph advances), which is how
+// React Native measures. The app targets SDK 36, so on Android 15 the TextView that draws it
+// breaks lines by glyph ink bounds, and Mukta and Baloo 2 Devanagari ink overhangs the advance
+// (about 0.5 px a side for Mukta 700 at 18sp, 3 to 4 px for Baloo 2 800 at 32sp, at density 3).
+// The ink no longer fits the box and the last word moves to a second line that the one-line box
+// has no room for. Fence: the label takes the button's inner width and centres its text itself.
+// Jest does no text layout, so one line on the phone is the owner's device check.
+const flat = (style: unknown) => (StyleSheet.flatten(style as never) ?? {}) as Record<string, unknown>;
+// The label Text and the pressable box of the one rendered Button with this label.
+function buttonParts(label: string) {
+  const text = screen.getByText(label);
+  const box = screen.getByRole('button', { name: label });
+  return { labelProps: text.props as Record<string, unknown>, label: flat(text.props.style), box: flat(box.props.style) };
+}
+const LINE_CAPS = ['numberOfLines', 'ellipsizeMode', 'adjustsFontSizeToFit'];
+const BUTTON_VARIANTS = ['childPrimary', 'childSecondary', 'parent', 'parentGhost'] as const;
+
+describe('GURU-43 Button keeps Marathi labels whole', () => {
+  test('every variant: the label takes the full inner width of the button and centres its own text', () => {
+    for (const variant of BUTTON_VARIANTS) {
+      render(createElement(Button, { variant, label: `go-${variant}`, onPress: jest.fn() }));
+      const { label } = buttonParts(`go-${variant}`);
+      expect({ variant, alignSelf: label.alignSelf }).toEqual({ variant, alignSelf: 'stretch' });
+      expect({ variant, textAlign: label.textAlign }).toEqual({ variant, textAlign: 'center' });
+      screen.unmount();
+    }
+  });
+
+  test('the Marathi labels from the phone test render as one whole label with no line cap', () => {
+    const cases = [
+      { variant: 'parent', label: mr.save },
+      { variant: 'parentGhost', label: mr.notNow },
+      { variant: 'parent', label: mr.assignTitle },
+      { variant: 'parent', label: mr.setupTitle },
+      { variant: 'parentGhost', label: mr.backToChildren },
+      { variant: 'parentGhost', label: mr.addChild },
+      { variant: 'childPrimary', label: mr.letsStart },
+    ] as const;
+    for (const c of cases) {
+      render(createElement(Button, { variant: c.variant, label: c.label, onPress: jest.fn() }));
+      const { labelProps, label } = buttonParts(c.label); // found by its full text: every word is in one Text
+      for (const cap of LINE_CAPS) expect(labelProps[cap]).toBeUndefined();
+      expect({ label: c.label, alignSelf: label.alignSelf, textAlign: label.textAlign }).toEqual({
+        label: c.label,
+        alignSelf: 'stretch',
+        textAlign: 'center',
+      });
+      screen.unmount();
+    }
+  });
+
+  test('a label too long for one line can wrap in full: the box grows from its minimum height and clips nothing', () => {
+    const long = `${mr.backToChildren} ${mr.backToChildren}`; // about 40 characters
+    const minimum = {
+      childPrimary: theme.touch.child.mainButton,
+      childSecondary: theme.touch.child.min,
+      parent: theme.touch.parent.min,
+      parentGhost: theme.touch.parent.min,
+    };
+    for (const variant of BUTTON_VARIANTS) {
+      render(createElement(Button, { variant, label: long, onPress: jest.fn() }));
+      const { labelProps, label, box } = buttonParts(long);
+      for (const cap of LINE_CAPS) expect(labelProps[cap]).toBeUndefined();
+      expect(box.minHeight).toBe(minimum[variant]);
+      expect(box.height).toBeUndefined();
+      expect(box.maxHeight).toBeUndefined();
+      expect(box.overflow).not.toBe('hidden');
+      expect(label.height).toBeUndefined();
+      expect(label.maxHeight).toBeUndefined();
+      // The wrapped lines are measured and centred across the box, not across a shrunk label.
+      expect({ variant, alignSelf: label.alignSelf, textAlign: label.textAlign }).toEqual({
+        variant,
+        alignSelf: 'stretch',
+        textAlign: 'center',
+      });
+      screen.unmount();
+    }
+  });
+
+  test('the label keeps its type style and colour from the theme: the fix adds no size, family or colour', () => {
+    const { font, color } = theme;
+    const looks = {
+      childPrimary: { type: font.child.mainButton, colour: color.child.onPrimary },
+      childSecondary: { type: font.child.button, colour: color.child.text },
+      parent: { type: font.parent.section, colour: color.parent.onAccent },
+      parentGhost: { type: font.parent.section, colour: color.parent.accent },
+    };
+    for (const variant of BUTTON_VARIANTS) {
+      render(createElement(Button, { variant, label: mr.save, onPress: jest.fn() }));
+      const { label } = buttonParts(mr.save);
+      const { type, colour } = looks[variant];
+      expect(label).toMatchObject({
+        fontFamily: type.family,
+        fontSize: type.size,
+        lineHeight: type.lineHeight,
+        color: colour,
+        alignSelf: 'stretch',
+        textAlign: 'center',
+      });
+      for (const size of ['width', 'minWidth', 'maxWidth', 'fontWeight', 'letterSpacing']) expect(label[size]).toBeUndefined();
+      screen.unmount();
+    }
+  });
+
+  test('a disabled Button does not press, and its label is laid out the same way', () => {
+    const onPress = jest.fn();
+    render(createElement(Button, { variant: 'parent', label: mr.notNow, onPress, disabled: true }));
+    fireEvent.press(screen.getByText(mr.notNow));
+    expect(onPress).not.toHaveBeenCalled();
+    const { labelProps, label } = buttonParts(mr.notNow);
+    for (const cap of LINE_CAPS) expect(labelProps[cap]).toBeUndefined();
+    expect(label).toMatchObject({ alignSelf: 'stretch', textAlign: 'center' });
+  });
+
+  test('the fix sits in Button: a plain Text keeps its natural width and alignment', () => {
+    render(createElement(Button, { variant: 'parentGhost', label: mr.notNow, onPress: jest.fn() }));
+    expect(buttonParts(mr.notNow).label).toMatchObject({ alignSelf: 'stretch', textAlign: 'center' });
+    screen.unmount();
+
+    render(createElement(Text, null, mr.notNow));
+    const plain = flat(screen.getByText(mr.notNow).props.style);
+    expect(plain.alignSelf).toBeUndefined();
+    expect(plain.textAlign).toBeUndefined();
+  });
+
+  // Contract for GURU-43's output_for_dependents (no dependent issue). Shape only.
+  test('contract (GURU-43): Button props unchanged, no new exports, label Text has the fix styles and no numberOfLines', () => {
+    expect(Object.keys(ButtonModule)).toEqual(['Button']);
+
+    // Exactly these props: a new required prop fails `npm run typecheck` here.
+    const props: Parameters<typeof Button>[0] = {
+      variant: 'parent',
+      label: 'contract',
+      onPress: () => {},
+      disabled: false,
+      testID: 'contract-button',
+    };
+    render(createElement(Button, props));
+    expect(screen.getByTestId('contract-button')).toBeTruthy();
+    const { labelProps, label } = buttonParts('contract');
+    expect(labelProps).not.toHaveProperty('numberOfLines');
+    expect(label).toHaveProperty('alignSelf');
+    expect(label).toHaveProperty('textAlign');
+    screen.unmount();
+
+    render(createElement(Button, { variant: 'childPrimary', label: 'required-only', onPress: () => {} }));
+    expect(screen.getByRole('button', { name: 'required-only' })).toBeTruthy();
   });
 });
