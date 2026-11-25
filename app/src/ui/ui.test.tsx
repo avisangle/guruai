@@ -307,12 +307,13 @@ describe('GURU-43 Button keeps Marathi labels whole', () => {
     }
   });
 
+  // The seventh label from the phone test, mr.setupTitle, is the SetupCard heading (a Text in a row,
+  // never a Button): its fence is on the rendered screen in src/parent/home.test.tsx.
   test('the Marathi labels from the phone test render as one whole label with no line cap', () => {
     const cases = [
       { variant: 'parent', label: mr.save },
       { variant: 'parentGhost', label: mr.notNow },
       { variant: 'parent', label: mr.assignTitle },
-      { variant: 'parent', label: mr.setupTitle },
       { variant: 'parentGhost', label: mr.backToChildren },
       { variant: 'parentGhost', label: mr.addChild },
       { variant: 'childPrimary', label: mr.letsStart },
