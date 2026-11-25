@@ -7,7 +7,7 @@ import lessonsJson from '../content/generated/lessons.json';
 import type { Item, Lesson } from '../lesson/types';
 import { ctcLogLikelihood, ctcRepeatLogLikelihoods, decode, greedy, type LogProbs } from './ctc';
 import tokensJson from './generated/mr-tokens.json';
-import { childSwaps, decide, type Judgement } from './judge';
+import { childSwaps, decide, MIN_SPEECH_S, OTHER_MARGIN_PER_TOKEN, REPEATS, soundingSeconds, type Candidate, type Judgement } from './judge';
 import { classify, lessonCandidates } from './lessonJudge';
 import { normalise } from './normalise';
 import { parseWav } from './wav';
@@ -187,6 +187,98 @@ it('contract (GURU-3 output): childSwaps export, swapped candidates, golden form
   const bench = join(__dirname, '../../../tools/stt_bench');
   expect(readFileSync(join(bench, 'providers/indicconformer.py'), 'utf8')).toMatch(/["']STT_BENCH_IC_CHILD_SWAPS["']\s*,\s*["']1["']/);
   expect(readFileSync(join(bench, 'README.md'), 'utf8')).toContain('STT_BENCH_IC_CHILD_SWAPS=0');
+});
+
+// GURU-42 rule A (D-GURU-42-noise-is-not-an-answer): once the model has run, a greedy decode with no tokens
+// means nothing was heard, whatever the best candidate's margin. Household noise decoded to nothing yet was
+// judged the closest answer whenever that answer sat within OTHER_MARGIN_PER_TOKEN of the empty decode.
+describe('GURU-42: an empty free decode means nothing heard', () => {
+  const BLANK = 256;
+  const ID_A = 11; // "▁अ", the whole answer "अ" in golden and real tokens
+  // Every frame: the given ids at the given probabilities, the rest of the 257 sharing what is left.
+  const matrix = (frames: number, row: (t: number) => Record<number, number>): LogProbs => {
+    const data = new Float32Array(frames * 257);
+    for (let t = 0; t < frames; t++) {
+      const p = row(t);
+      const named = Object.values(p).reduce((a, b) => a + b, 0);
+      const rest = Math.log((1 - named) / (257 - Object.keys(p).length));
+      for (let k = 0; k < 257; k++) data[t * 257 + k] = k in p ? Math.log(p[k]) : rest;
+    }
+    return { data, frames, vocab: 257 };
+  };
+  // Noise: blank wins every frame (empty decode), but "अ" is close behind on all 30 frames.
+  const noise = () => matrix(30, () => ({ [BLANK]: 0.6, [ID_A]: 0.35 }));
+  // As decide() computes it: the best-scoring candidate's margin per token, said once or repeated.
+  const bestMargin = (lp: LogProbs, cands: Candidate[]) => {
+    const freeLl = ctcLogLikelihood(lp, greedy(lp));
+    let best = cands[0];
+    for (const c of cands) if (ctcLogLikelihood(lp, c.ids) > ctcLogLikelihood(lp, best.ids)) best = c;
+    return Math.min(...ctcRepeatLogLikelihoods(lp, best.ids, REPEATS).map((ll, k) => (freeLl - ll) / Math.max(1, best.ids.length * (k + 1))));
+  };
+  const loud = sine(0.3);
+
+  it('a sounding clip whose free decode is empty is "nothing", even with a candidate within the margin', () => {
+    const lp = noise();
+    const cands = lessonCandidates(goldenItems);
+    // Preconditions: the model runs (not a quiet clip), decodes nothing, and the closest answer is under the margin.
+    expect(soundingSeconds(loud)).toBeGreaterThanOrEqual(MIN_SPEECH_S);
+    expect(greedy(lp)).toEqual([]);
+    expect(bestMargin(lp, cands)).toBeLessThanOrEqual(OTHER_MARGIN_PER_TOKEN);
+    const j = decide(lp, loud, cands, golden.pieces);
+    expect(j.choice).toBe('nothing');
+    expect(j.text).toBeUndefined();
+    expect(j.free).toBe('');
+  });
+
+  it('noise on a teach or quiz turn for अ is not a correct (or counted wrong) answer: the child is asked again', () => {
+    const lp = noise();
+    const cands = lessonCandidates(swar1.items);
+    expect(bestMargin(lp, cands)).toBeLessThanOrEqual(OTHER_MARGIN_PER_TOKEN);
+    const j = decide(lp, loud, cands, tokensJson.pieces);
+    expect(classify(mr('a'), j, j.unsure)).toEqual(expect.objectContaining({ kind: 'silent' }));
+    expect(classify(mr('u'), j, j.unsure)).toEqual(expect.objectContaining({ kind: 'silent' }));
+  });
+
+  it('a non-empty free decode under the margin still takes the closest answer (rule A only covers empty decodes)', () => {
+    const M = golden.pieces.indexOf('▁म'); // outside the golden lesson
+    // One frame hears "म" just ahead of "अ"; every other frame is the noise above.
+    const lp = matrix(30, (t) => (t === 15 ? { [M]: 0.5, [ID_A]: 0.45, [BLANK]: 0.04 } : { [BLANK]: 0.6, [ID_A]: 0.35 }));
+    const cands = lessonCandidates(goldenItems);
+    expect(greedy(lp)).toEqual([M]);
+    expect(bestMargin(lp, cands)).toBeLessThanOrEqual(OTHER_MARGIN_PER_TOKEN);
+    const j = decide(lp, loud, cands, golden.pieces);
+    expect(j.free).toBe('म');
+    expect(j).toEqual(expect.objectContaining({ choice: 'अ', text: 'अ' }));
+  });
+
+  it('goldens include a sounding clip with an empty free decode under the margin, judged "nothing" by Python', () => {
+    const cands = lessonCandidates(goldenItems);
+    const under = goldenCases.filter((c) => {
+      const lp: LogProbs = { data: Float32Array.from(c.logp), frames: c.frames, vocab: 257 };
+      return soundingSeconds(sine(c.level)) >= MIN_SPEECH_S && greedy(lp).length === 0 && bestMargin(lp, cands) <= OTHER_MARGIN_PER_TOKEN;
+    });
+    expect(under.length).toBeGreaterThan(0);
+    for (const c of under) expect(c).toEqual(expect.objectContaining({ choice: 'nothing', text: null, free: '' }));
+  });
+});
+
+// Shape only: GURU-42's output_for_dependents (no signature changes; golden.json regenerated with an empty-free-
+// decode case). Needed by: none in the tracker; /integrate and later judge stories rely on the unchanged shape.
+it('contract (GURU-42 output): decide and ic.decide signatures unchanged, Judgement shape, golden case shape', () => {
+  expect(typeof decide).toBe('function');
+  expect(decide).toHaveLength(4);
+  const c = goldenCases[0];
+  const j = decide({ data: Float32Array.from(c.logp), frames: c.frames, vocab: 257 }, sine(c.level), lessonCandidates(goldenItems), golden.pieces);
+  expect(j).toEqual(expect.objectContaining({ choice: expect.any(String), scores: expect.any(Object), free: expect.any(String), note: expect.any(String), unsure: expect.any(Boolean) }));
+
+  const empty = goldenCases.find((k) => k.free === '' && soundingSeconds(sine(k.level)) >= MIN_SPEECH_S);
+  expect(empty).toEqual(expect.objectContaining({ label: expect.any(String), logp: expect.any(Array), frames: expect.any(Number),
+    level: expect.any(Number), choice: expect.any(String), free: '', unsure: expect.any(Boolean), scores: expect.any(Object) }));
+  expect(empty).toHaveProperty('text');
+
+  // Python side: only a source scan reaches the signature from here (its behaviour is in tools/tests).
+  const src = readFileSync(join(__dirname, '../../../tools/stt_bench/providers/indicconformer.py'), 'utf8');
+  expect(src).toMatch(/^def decide\(logp, wav, candidates, sp, length_feature=LENGTH_FEATURE, keep=lambda text: True\):/m);
 });
 
 describe('parseWav', () => {
