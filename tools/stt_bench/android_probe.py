@@ -48,6 +48,13 @@ def need_phone():
         sys.exit(f"run-as {PKG} failed: is the GuruAI development build installed?")
 
 
+def probe_candidates(candidates, sp):
+    """The candidates the Mac judge scores: the lesson's plus child sound swaps (D-GURU-3), with token ids."""
+    from providers import indicconformer as ic
+    cs = ic.child_swaps(candidates) if ic.CHILD_SWAPS else candidates
+    return [{"item_id": k.item_id, "display": k.display, "text": k.text, "ids": sp.encode(k.text)} for k in cs]
+
+
 def push(a):
     need_phone()
     if any(ok(f"test -f {DIR}/{r}") for r in RESULTS) and not a.force:
@@ -70,8 +77,7 @@ def push(a):
         for folder, clips in sets:
             lessons = lessons_for(clips)
             for c in clips:
-                cands = [{"item_id": k.item_id, "display": k.display, "text": k.text, "ids": sp.encode(k.text)}
-                         for k in lessons[c["template_id"]].candidates()]
+                cands = probe_candidates(lessons[c["template_id"]].candidates(), sp)
                 wav = converted(folder / c["file"], "wav16k", cache)
                 run_as(f"cat > {DIR}/clips/{c['id']}.wav", stdin=wav.read_bytes())
                 out.append({"id": c["id"], "file": f"clips/{c['id']}.wav",
