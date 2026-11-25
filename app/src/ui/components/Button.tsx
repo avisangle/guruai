@@ -59,9 +59,9 @@ export function Button({ variant, label, onPress, disabled, testID }: Props) {
 }
 
 const styles = StyleSheet.create({
-  base: { alignItems: 'center', justifyContent: 'center', paddingHorizontal: space[4] },
-  // Full inner width, not shrunk to the text: Android 15 breaks lines by glyph ink, which is wider
-  // than the advance width React Native measures, so a shrunk Devanagari label loses its last word.
+  base: { justifyContent: 'center', paddingHorizontal: space[4] },
+  // Android 15 breaks lines by glyph ink, wider than the advance width RN measures: a label shrunk
+  // to its text loses its last word.
   label: { alignSelf: 'stretch', textAlign: 'center' },
   pressed: { opacity: 0.8 },
   disabled: { opacity: 0.4 },
