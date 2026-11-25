@@ -70,3 +70,4 @@
 - 2026-11-22 GURU-1 integrate confirmations: L3/L5/L6 clean, L2 reconciled (#49, #50 merged); epic Done
 - 2026-11-22 GURU-40: R2 buckets, cdn.avinashsangle.com, upload Worker, model v1 and shekru.kg v2 published, EAS upload key set (#51)
 - 2026-11-23 Mid-tier phone test (OnePlus Nord CE 3): judge load 944 ms, +193 MB, peak 915 MB, ~0.5 s per clip; ReadNet 184/322, false accepts 2/32; 3 bugs logged; fresh-install check pending (USB dropped)
+- 2026-11-25 mid-tier fresh install: preview APK installed clean, model (144 MB) and shekru.kg downloaded within ~90 s of first launch during onboarding, speed check ok (p90 247 ms), consented clips and summary reached guru-uploads; found a noise false accept and clipped Marathi labels (bug.md)
