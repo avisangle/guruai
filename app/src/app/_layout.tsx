@@ -1,6 +1,7 @@
 import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
+import { StatusBar } from 'expo-status-bar';
 import { useEffect, useMemo, useState } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
@@ -60,6 +61,7 @@ export default function RootLayout() {
   if (!ready) return null;
   return (
     <SafeAreaProvider>
+      <StatusBar style="dark" />
       <LanguageProvider initial={start.lang} onChange={saveLang}>
         <ParentModeProvider>
           <FirstRunContext.Provider value={firstRun}>
