@@ -34,7 +34,7 @@
 //                        setup-row-profile, setup-row-consent, home-section-<id>, lesson-row-<templateId>.
 //                        Mic state from expo-audio getRecordingPermissionsAsync().
 import { createElement as h } from 'react';
-import { Text } from 'react-native';
+import { StyleSheet, Text } from 'react-native';
 import { act, fireEvent, renderRouter, screen, waitFor, within } from 'expo-router/testing-library';
 
 import { openDb, type Db } from '../data/db';
@@ -46,6 +46,9 @@ import type { DownloadStatus } from '../downloads/downloader';
 import { lessonEnded, startSession } from '../learning/session';
 import { buildTodayQueue, type DueItem, type TodayQueue } from '../learning/queue';
 import { CHILD_PICTURES } from '../ui/PicturePicker';
+import { en } from '../ui/strings/en';
+import { mr } from '../ui/strings/mr';
+import { theme } from '../ui/theme';
 
 // ---- native fakes (as in src/__tests__/onboarding.test.tsx) ----
 
@@ -440,6 +443,120 @@ describe('GURU-30 /parent home screen', () => {
     setConsentAnswered('2026-11-20T08:00:00.000Z');
     await openHome();
     expect(screen.queryByTestId('setup-card')).toBeNull();
+  });
+});
+
+// GURU-43: the SetupCard heading "सेटअप पूर्ण करा" wraps on Android 15. It is a Text in a row
+// (styles.row: flexDirection 'row', justifyContent 'space-between'), so the row shrinks it to
+// ceil(sum of glyph advances), which is how React Native measures; Android 15's TextView then breaks
+// lines by glyph ink, and Mukta 700 18sp Devanagari ink overhangs the advance (cause and numbers:
+// src/ui/ui.test.tsx, GURU-43). In a row a child's width is the main axis, so `alignSelf: 'stretch'`
+// cannot widen it. Fence: the heading takes the row's free width (`flex: 1`) and the count beside it
+// keeps its natural width. Jest does no text layout, so one line on the phone is the owner's check.
+const flat = (style: unknown) => (StyleSheet.flatten(style as never) ?? {}) as Record<string, unknown>;
+const LINE_CAPS = ['numberOfLines', 'ellipsizeMode', 'adjustsFontSizeToFit'];
+const FLEX_KEYS = ['flex', 'flexGrow', 'flexShrink', 'flexBasis'];
+const left = (strings: { setupLeft: string }, n: number) => strings.setupLeft.replace('{n}', String(n));
+
+// The heading and count Texts of the one setup card on screen, and the row View that holds them.
+async function setupHeading(strings: { setupTitle: string; setupLeft: string } = mr, rows = 2) {
+  const card = await screen.findByTestId('setup-card');
+  const heading = within(card).getByText(strings.setupTitle);
+  const count = within(card).getByText(left(strings, rows));
+  let row = heading.parent;
+  while (row && typeof row.type !== 'string') row = row.parent; // nearest host element: the row View
+  return {
+    headingProps: heading.props as Record<string, unknown>,
+    heading: flat(heading.props.style),
+    countProps: count.props as Record<string, unknown>,
+    count: flat(count.props.style),
+    row,
+    rowTexts: row ? within(row).getAllByText(/./).map((node) => node.props.children as unknown) : [],
+  };
+}
+
+describe('GURU-43 SetupCard heading keeps its Marathi words whole', () => {
+  test('the heading takes the free width of its row and has no line cap', async () => {
+    addChild('Chinu', 'peacock');
+    await openHome();
+    const { headingProps, heading } = await setupHeading();
+    expect(heading.flex).toBe(1);
+    for (const cap of LINE_CAPS) expect(headingProps[cap]).toBeUndefined();
+  });
+
+  test('the count stays at its own width at the end of the same row: the room goes to the heading, not the count', async () => {
+    addChild('Chinu', 'peacock');
+    await openHome();
+    const { heading, count, countProps, row, rowTexts } = await setupHeading();
+    expect(flat(row?.props.style)).toMatchObject({ flexDirection: 'row' });
+    expect(rowTexts).toEqual([mr.setupTitle, left(mr, 2)]); // heading first, count last, nothing else in the row
+    for (const key of FLEX_KEYS) expect({ key, value: count[key] }).toEqual({ key, value: undefined });
+    for (const cap of LINE_CAPS) expect(countProps[cap]).toBeUndefined();
+    expect(heading.flex).toBe(1);
+  });
+
+  test('one setup row left ("1 बाकी"): the heading still takes the free width and the count is still shown', async () => {
+    const chinu = addChild('Chinu', 'peacock');
+    updateChild(db, chinu.id, { setup_done: [...ALL_SECTIONS] }); // only the consent row is left
+    await openHome();
+    const { headingProps, heading, count } = await setupHeading(mr, 1);
+    expect(heading.flex).toBe(1);
+    for (const cap of LINE_CAPS) expect(headingProps[cap]).toBeUndefined();
+    expect(count.flex).toBeUndefined();
+  });
+
+  test('a heading too long for one line can wrap in full: no fixed height or width, and the row clips nothing', async () => {
+    addChild('Chinu', 'peacock');
+    await openHome();
+    const { heading, row } = await setupHeading();
+    expect(heading.flex).toBe(1);
+    for (const size of ['height', 'maxHeight', 'width', 'minWidth', 'maxWidth']) {
+      expect({ size, value: heading[size] }).toEqual({ size, value: undefined });
+    }
+    const box = flat(row?.props.style);
+    expect(box.height).toBeUndefined();
+    expect(box.maxHeight).toBeUndefined();
+    expect(box.overflow).not.toBe('hidden');
+    expect(box.flexWrap).toBeUndefined(); // the count stays beside the heading, not pushed under it
+  });
+
+  test('the heading keeps its type style and colour from the theme: the fix adds no size, family or colour', async () => {
+    addChild('Chinu', 'peacock');
+    await openHome();
+    const { heading } = await setupHeading();
+    const type = theme.font.parent.section;
+    expect(heading).toMatchObject({
+      fontFamily: type.family,
+      fontSize: type.size,
+      lineHeight: type.lineHeight,
+      color: theme.color.parent.text,
+      flex: 1,
+    });
+    for (const key of ['fontWeight', 'letterSpacing', 'textAlign']) expect(heading[key]).toBeUndefined();
+  });
+
+  test('in English too: the layout does not depend on the parent language', async () => {
+    db.run("UPDATE device SET parent_lang = 'en'");
+    addChild('Chinu', 'peacock');
+    await openHome();
+    const { heading, count } = await setupHeading(en);
+    expect(heading.flex).toBe(1);
+    expect(count.flex).toBeUndefined();
+  });
+
+  // Contract for GURU-43's output_for_dependents (no dependent issue). Shape only; the Button half
+  // of the promise is the contract test in src/ui/ui.test.tsx.
+  test('contract (GURU-43): on /parent the setup-card heading Text has a flex style and no numberOfLines, the count has no flex, no new testID is needed', async () => {
+    addChild('Chinu', 'peacock');
+    await openHome();
+    const card = await screen.findByTestId('setup-card'); // the existing testID is enough to reach both
+    const heading = within(card).getByText(mr.setupTitle);
+    const count = within(card).getByText(left(mr, 2));
+    expect(flat(heading.props.style)).toHaveProperty('flex');
+    expect(heading.props).not.toHaveProperty('numberOfLines');
+    expect(flat(count.props.style)).not.toHaveProperty('flex');
+    expect(heading.props.testID).toBeUndefined();
+    expect(count.props.testID).toBeUndefined();
   });
 });
 

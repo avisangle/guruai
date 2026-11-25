@@ -250,7 +250,9 @@ function SetupCard({ child, rows }: { child: ChildProfile; rows: SetupRow[] }) {
   return (
     <View testID="setup-card" style={styles.card}>
       <View style={styles.row}>
-        <Text variant="section">{t('setupTitle')}</Text>
+        <Text variant="section" style={styles.setupTitle}>
+          {t('setupTitle')}
+        </Text>
         <Text variant="small">{t('setupLeft', { n: rows.length })}</Text>
       </View>
       {rows.map((row) => (
@@ -359,6 +361,8 @@ const styles = StyleSheet.create({
   track: { height: space[2], borderRadius: radius.parent.round, backgroundColor: color.parent.border, overflow: 'hidden' },
   fill: { height: '100%', backgroundColor: color.parent.accent },
   row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  // Takes the row's free width: shrunk to its text, it loses its last word on Android 15 (see Button).
+  setupTitle: { flex: 1 },
   nav: { flexDirection: 'row', gap: space[3] },
   navItem: { flex: 1 },
   title: { flexDirection: 'row', alignItems: 'center', gap: space[2] },

@@ -51,7 +51,7 @@ export function Button({ variant, label, onPress, disabled, testID }: Props) {
       onPress={onPress}
       style={({ pressed }) => [styles.base, look.box, pressed && styles.pressed, disabled && styles.disabled]}
     >
-      <Text {...look.text} style={look.label}>
+      <Text {...look.text} style={[styles.label, look.label]}>
         {label}
       </Text>
     </Pressable>
@@ -59,7 +59,10 @@ export function Button({ variant, label, onPress, disabled, testID }: Props) {
 }
 
 const styles = StyleSheet.create({
-  base: { alignItems: 'center', justifyContent: 'center', paddingHorizontal: space[4] },
+  base: { justifyContent: 'center', paddingHorizontal: space[4] },
+  // Android 15 breaks lines by glyph ink, wider than the advance width RN measures: a label shrunk
+  // to its text loses its last word.
+  label: { alignSelf: 'stretch', textAlign: 'center' },
   pressed: { opacity: 0.8 },
   disabled: { opacity: 0.4 },
 });
