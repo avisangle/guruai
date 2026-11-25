@@ -1,11 +1,13 @@
 // Runs the Shekru engine on the UI thread and exposes one shared value per
 // animated part. React never re-renders for a frame; JS-thread stalls (lesson
 // logic, speech recognition callbacks) cannot make the character stutter.
-import { useEffect, useMemo } from 'react';
-import { AccessibilityInfo } from 'react-native';
+import { useFocusEffect } from 'expo-router';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { AccessibilityInfo, AppState } from 'react-native';
 import { makeMutable, useFrameCallback, type SharedValue } from 'react-native-reanimated';
 import { scheduleOnRN, scheduleOnUI } from 'react-native-worklets';
 
+import { frameGate } from './frameGate';
 import { makeEngine } from './generated/engine';
 import animJson from './generated/shekru.anim.json';
 import artJson from './generated/shekru.art.json';
@@ -29,7 +31,7 @@ const IDENTITY = [1, 0, 0, 1, 0, 0];
 export const SHADOW_CX = 202.4;
 export const SHADOW_CY = 442.6;
 
-type UiState = { rig: any; clock: number; state: string | null };
+type UiState = { rig: any; clock: number; sinceStep: number; state: string | null };
 // One slot per hook instance: a screen under the lesson keeps its own rig.
 const ui = (key: number) => {
   'worklet';
@@ -68,7 +70,7 @@ export function useShekruRig(onState?: (state: string) => void) {
     scheduleOnUI(() => {
       const rig = makeEngine().createRig(rigJson, animJson, { seed });
       const g = globalThis as any;
-      g.__shekru = { ...g.__shekru, [key]: { rig, clock: 0, state: null } };
+      g.__shekru = { ...g.__shekru, [key]: { rig, clock: 0, sinceStep: 0, state: null } };
     });
     const setReduced = (on: boolean) => scheduleOnUI(() => ui(key)?.rig.setReducedMotion(on));
     AccessibilityInfo.isReduceMotionEnabled().then(setReduced);
@@ -82,10 +84,12 @@ export function useShekruRig(onState?: (state: string) => void) {
     };
   }, [key]);
 
-  useFrameCallback((info) => {
+  const loop = useFrameCallback((info) => {
     const g = ui(key);
     if (!g) return;
-    g.clock += Math.min(0.1, (info.timeSincePreviousFrame ?? 0) / 1000);
+    const step = frameGate(g, (info.timeSincePreviousFrame ?? 0) / 1000);
+    if (step === null) return;
+    g.clock += step;
     const s = speechClock.value;
     const speechTime = s.on ? s.t + Math.min(0.3, (Date.now() - s.wall) / 1000) : undefined;
     const frame = g.rig.update(g.clock, { speechTime });
@@ -111,7 +115,28 @@ export function useShekruRig(onState?: (state: string) => void) {
       g.state = frame.state;
       if (onState) scheduleOnRN(onState, frame.state);
     }
-  });
+  }, false);
+
+  // The frame callback runs only while the screen is focused and the app is in the foreground.
+  const shown = useRef({ focused: false, foreground: AppState.currentState === 'active' });
+  const applyShown = useCallback(() => {
+    loop.setActive(shown.current.focused && shown.current.foreground);
+  }, [loop]);
+  useFocusEffect(useCallback(() => {
+    shown.current.focused = true;
+    applyShown();
+    return () => {
+      shown.current.focused = false;
+      applyShown();
+    };
+  }, [applyShown]));
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      shown.current.foreground = state === 'active';
+      applyShown();
+    });
+    return () => sub.remove();
+  }, [applyShown]);
 
   return useMemo(() => ({
     values,
