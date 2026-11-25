@@ -1,4 +1,4 @@
-// Decides which display frames step Shekru's rig. Pure, so jest runs it as plain JS.
+// Decides which display frames step Shekru's rig. No reanimated imports, so jest runs it as plain JS.
 
 // Rig steps per second: docs/decisions/D-GURU-44-shekru-frame-cap.md.
 export const SHEKRU_FPS = 20;

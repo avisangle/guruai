@@ -2,7 +2,7 @@
 // animated part. React never re-renders for a frame; JS-thread stalls (lesson
 // logic, speech recognition callbacks) cannot make the character stutter.
 import { useFocusEffect } from 'expo-router';
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import { AccessibilityInfo, AppState } from 'react-native';
 import { makeMutable, useFrameCallback, type SharedValue } from 'react-native-reanimated';
 import { scheduleOnRN, scheduleOnUI } from 'react-native-worklets';
@@ -118,25 +118,14 @@ export function useShekruRig(onState?: (state: string) => void) {
   }, false);
 
   // The frame callback runs only while the screen is focused and the app is in the foreground.
-  const shown = useRef({ focused: false, foreground: AppState.currentState === 'active' });
-  const applyShown = useCallback(() => {
-    loop.setActive(shown.current.focused && shown.current.foreground);
-  }, [loop]);
   useFocusEffect(useCallback(() => {
-    shown.current.focused = true;
-    applyShown();
+    loop.setActive(AppState.currentState === 'active');
+    const sub = AppState.addEventListener('change', (state) => loop.setActive(state === 'active'));
     return () => {
-      shown.current.focused = false;
-      applyShown();
+      sub.remove();
+      loop.setActive(false);
     };
-  }, [applyShown]));
-  useEffect(() => {
-    const sub = AppState.addEventListener('change', (state) => {
-      shown.current.foreground = state === 'active';
-      applyShown();
-    });
-    return () => sub.remove();
-  }, [applyShown]);
+  }, [loop]));
 
   return useMemo(() => ({
     values,
