@@ -5,7 +5,7 @@ import { createElement } from 'react';
 
 import { createTestDb } from '../data/testDb';
 
-const mockStatusBarProps: Array<Record<string, unknown>> = [];
+const mockStatusBarProps: Record<string, unknown>[] = [];
 jest.mock('expo-status-bar', () => ({
   StatusBar: (props: Record<string, unknown>) => {
     mockStatusBarProps.push(props);
