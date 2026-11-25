@@ -41,14 +41,32 @@ def main():
                 seq += [k, ic.BLANK]
             for f in range(T):
                 x[f, seq[min(len(seq) - 1, f * len(seq) // T)]] += boost
+        return rounded(x)
+
+    def rounded(x):
         x = torch.from_numpy(np.round(x, 3)).float().log_softmax(-1)
         return torch.from_numpy(np.round(x.numpy(), 4)).float()  # what the test reads back
+
+    def noise_logp():
+        """Blank wins every frame (empty decode), "अ" close behind: under the margin. No rng, so the other
+        cases and decodes do not move."""
+        x = np.full((T, ic.VOCAB + 1), np.log(0.05 / (ic.VOCAB - 1)))
+        x[:, ic.BLANK], x[:, ids["अ"][0]] = np.log(0.6), np.log(0.35)
+        return rounded(x)
 
     def wav(level):
         t = np.arange(16000) / 16000
         return (level * np.sin(2 * np.pi * 220 * t)).astype(np.float32)
 
     cases = []
+
+    def add(label, lp, level):
+        j = ic.decide(lp, wav(level), cands, sp, length_feature=False)
+        choice, text = (j.choice, None) if isinstance(j.choice, str) else (j.choice.display, j.choice.text)
+        cases.append({"label": label, "logp": [round(v, 4) for v in lp.flatten().tolist()], "frames": T,
+                      "level": level, "choice": choice, "text": text, "free": j.transcript, "unsure": j.unsure,
+                      "scores": {k: round(v, 4) for k, v in j.scores.items()}})
+
     for label, path, level, *noise in [("free decode is a candidate", ids["आ"], 0.3),
                                ("phrase candidate", ids["अ अननसाचा"], 0.3),
                                ("phrase said twice", ids["अ अननसाचा"] * 2, 0.3),
@@ -60,13 +78,8 @@ def main():
                                ("letter for a word outside the lesson", ids["अ"] + sp.encode("फॉर गुड"), 0.3),
                                ("unsure: one weak token in weak blanks (faint clip)", sp.encode("म"), 0.3, 0.3, 2),
                                ("child sound swap: चा said सा", sp.encode("आ आगगाडीसा"), 0.3)]:
-        lp = logp_for(path, *noise)
-        w = wav(level)
-        j = ic.decide(lp, w, cands, sp, length_feature=False)
-        choice, text = (j.choice, None) if isinstance(j.choice, str) else (j.choice.display, j.choice.text)
-        cases.append({"label": label, "logp": [round(v, 4) for v in lp.flatten().tolist()], "frames": T,
-                      "level": level, "choice": choice, "text": text, "free": j.transcript, "unsure": j.unsure,
-                      "scores": {k: round(v, 4) for k, v in j.scores.items()}})
+        add(label, logp_for(path, *noise), level)
+    add("noise: empty free decode, a candidate under the margin", noise_logp(), 0.3)
 
     decodes = [[int(k) for k in rng.integers(0, ic.VOCAB, 6)] for _ in range(5)] + [ids["अ अननसाचा"], [0, 11]]
     out = {

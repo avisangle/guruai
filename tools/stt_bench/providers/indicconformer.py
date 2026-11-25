@@ -322,13 +322,16 @@ def decide(logp, wav, candidates, sp, length_feature=LENGTH_FEATURE, keep=lambda
     note = f"free={free!r} free_ll={free_ll:.2f} best={best.text!r} margin/token={margin:.2f}"
     j = Judgement(best, scores, free, note, unsure=free_ll / max(1, len(free_ids)) < UNSURE_PER_TOKEN)
     j.note += " unsure" if j.unsure else ""
+    if not free_ids:  # the model heard no tokens: nothing was said, whatever the margin (D-GURU-42)
+        j.choice = NOTHING
+        return j
     by_answer = {normalise(" ".join([c.text] * k)): c for k in range(1, REPEATS + 1) for c in candidates}
     if normalise(free) in by_answer:  # the free decode already is a lesson answer
         j.choice = by_answer[normalise(free)]
     elif margin > OTHER_MARGIN_PER_TOKEN:
         hit = any_word(logp, free_ids, free_ll, candidates, tokens, sp.id_to_piece) if ANY_WORD else None
         if not hit or hit[1] > OTHER_MARGIN_PER_TOKEN:
-            j.choice = NOTHING if not free_ids else OTHER  # model heard no tokens at all: treat as no speech
+            j.choice = OTHER
             j.note += f" any_word={hit[0].text!r}:{hit[1]:.2f}" if hit else ""
             return j
         j.choice = hit[0]

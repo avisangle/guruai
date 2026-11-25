@@ -116,6 +116,8 @@ export function decide(lp: LogProbs, wav: Float32Array, candidates: Candidate[],
   const margin = Math.min(...ctcRepeatLogLikelihoods(lp, ids, REPEATS).map((ll, k) => (freeLl - ll) / Math.max(1, ids.length * (k + 1))));
   const unsure = freeLl / Math.max(1, freeIds.length) < UNSURE_PER_TOKEN;
   const note = `free=${JSON.stringify(free)} free_ll=${freeLl.toFixed(2)} best=${JSON.stringify(best.text)} margin/token=${margin.toFixed(2)}${unsure ? ' unsure' : ''}`;
+  // The model heard no tokens: nothing was said, whatever the margin (D-GURU-42-noise-is-not-an-answer).
+  if (!freeIds.length) return { choice: 'nothing', scores, free, note, unsure };
   const byAnswer = new Map<string, Candidate>(); // later texts win, as the Python dict
   for (let k = 1; k <= REPEATS; k++) for (const c of candidates) byAnswer.set(normalise(Array(k).fill(c.text).join(' ')), c);
   const same = byAnswer.get(normalise(free));
@@ -123,7 +125,7 @@ export function decide(lp: LogProbs, wav: Float32Array, candidates: Candidate[],
   if (margin > OTHER_MARGIN_PER_TOKEN) {
     const hit = anyWord(lp, freeIds, freeLl, candidates, pieces);
     const tagged = hit ? `${note} any_word=${JSON.stringify(hit.best.text)}:${hit.margin.toFixed(2)}` : note;
-    if (!hit || hit.margin > OTHER_MARGIN_PER_TOKEN) return { choice: freeIds.length ? 'other' : 'nothing', scores, free, note: tagged, unsure };
+    if (!hit || hit.margin > OTHER_MARGIN_PER_TOKEN) return { choice: 'other', scores, free, note: tagged, unsure };
     return { choice: hit.best.display, text: hit.best.text, scores, free, note: tagged, unsure };
   }
   return { choice: best.display, text: best.text, scores, free, note, unsure };
