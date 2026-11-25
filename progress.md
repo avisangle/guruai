@@ -74,3 +74,4 @@
 - 2026-11-25 retest of the five open phone bugs: all still open; judge noise bug also gives counted quiz misses (unsure correct passes classify), label bug isolated to ui/components/Button.tsx, probe KeyError is tool-only (bug.md)
 - 2026-11-25 GURU-41: epic for the five open phone bugs created, stories GURU-42..GURU-46, all level 1, no dependencies (no commit)
 - 2026-11-25 GURU-41: 5 merged, 0 parked (#52, #53, #54, #55, #56; reconcile #57; level 1 parked on second reconcile, README-only #58 awaiting /review)
+- 2026-11-25 GURU-41: level 1 confirmed after README reconcile, epic Done (#58)
