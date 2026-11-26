@@ -12,6 +12,7 @@
 // Real transform: babel-preset-expo (applies react-native-worklets/plugin), as Metro and
 // jest-expo do; the app has no babel.config.js. No schema or endpoint is involved.
 import { transformSync } from '@babel/core';
+import { readFileSync } from 'fs';
 import * as path from 'path';
 
 type Gate = (this: { __closure: unknown[] }, state: { sinceStep: number }, dt: number, fps?: number) => number | null;
@@ -20,7 +21,7 @@ const FILE = path.join(__dirname, 'frameGate.ts');
 
 function loadWorklet() {
   const preset = require.resolve('babel-preset-expo', { paths: [require.resolve('expo/package.json')] });
-  const out = transformSync(require('fs').readFileSync(FILE, 'utf8'), {
+  const out = transformSync(readFileSync(FILE, 'utf8'), {
     filename: FILE,
     presets: [preset],
     babelrc: false,
