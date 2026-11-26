@@ -9,10 +9,13 @@ const SLACK = 0.001;
 
 // Returns the seconds to advance the rig clock by, or null to skip this display frame.
 // Skipped time waits in `state` for the next step, so animation speed is unchanged.
-export function frameGate(state: { sinceStep: number }, dtSeconds: number, fps: number = SHEKRU_FPS): number | null {
+export function frameGate(state: { sinceStep: number }, dtSeconds: number, fps?: number): number | null {
   'worklet';
+  // Resolved here, not as a default parameter: the worklets plugin unpacks the closure inside the body,
+  // so a module-scope name in the parameter list is a ReferenceError on the UI runtime (GURU-47).
+  const rate = fps ?? SHEKRU_FPS;
   state.sinceStep += dtSeconds;
-  if (state.sinceStep < 1 / fps - SLACK) return null;
+  if (state.sinceStep < 1 / rate - SLACK) return null;
   const step = Math.min(MAX_STEP, state.sinceStep);
   state.sinceStep = 0;
   return step;
