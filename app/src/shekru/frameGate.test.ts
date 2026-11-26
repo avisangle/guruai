@@ -2,7 +2,7 @@
 //
 // Pinned here (the implementation follows these names):
 // - app/src/shekru/frameGate.ts exports SHEKRU_FPS (20 to 30) and
-//   frameGate(state: { sinceStep: number }, dtSeconds: number, fps = SHEKRU_FPS): number | null.
+//   frameGate(state: { sinceStep: number }, dtSeconds: number, fps?: number): number | null.
 //   It returns the seconds to advance the rig clock by, or null to skip this display frame, and
 //   keeps its bookkeeping in the state object it is given (one per rig).
 // - A step is never longer than 0.1 s, the clamp useShekruRig.ts applies today.
