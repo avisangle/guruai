@@ -75,3 +75,4 @@
 - 2026-11-25 GURU-41: epic for the five open phone bugs created, stories GURU-42..GURU-46, all level 1, no dependencies (no commit)
 - 2026-11-25 GURU-41: 5 merged, 0 parked (#52, #53, #54, #55, #56; reconcile #57; level 1 parked on second reconcile, README-only #58 awaiting /review)
 - 2026-11-25 GURU-41: level 1 confirmed after README reconcile, epic Done (#58)
+- 2026-11-26 GURU-47: frameGate worklet default-parameter crash (found on device after GURU-44) fixed and merged (#59)
