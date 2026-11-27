@@ -76,3 +76,4 @@
 - 2026-11-25 GURU-41: 5 merged, 0 parked (#52, #53, #54, #55, #56; reconcile #57; level 1 parked on second reconcile, README-only #58 awaiting /review)
 - 2026-11-25 GURU-41: level 1 confirmed after README reconcile, epic Done (#58)
 - 2026-11-26 GURU-47: frameGate worklet default-parameter crash (found on device after GURU-44) fixed and merged (#59)
+- 2026-11-27 GURU-41 device check (build 2aa7d082): crash fixed, labels and status bar fixed, noise asked again; Shekru idle CPU 90 to 110% (target 60%), Skia unblocked; probe check not run
