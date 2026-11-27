@@ -82,3 +82,4 @@
 - 2026-11-27 GURU-48 phone check (local arm64 build): child home 0% janky, 65 to 71% CPU (was 90 to 110%); 14 states draw; lesson emoji hint not yet seen
 - 2026-11-27 GURU-49: story opened, Android builds limited to arm64-v8a and armeabi-v7a via expo-build-properties buildArchs (no PR)
 - 2026-11-27 GURU-49: 1 merged, 0 parked (#61); Android builds arm64-v8a and armeabi-v7a only, next EAS build unverified
+- 2026-11-27 GURU-50: 3 merged, 0 parked (#62, #63, #64); integrate L1 CLEAN
