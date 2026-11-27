@@ -80,3 +80,5 @@
 - 2026-11-27 GURU-46 probe re-push: phone and Mac agree on 382/398 clips; GURU-48 Skia story opened, backup tag shekru-svg-v1
 - 2026-11-27 GURU-48: 1 merged, 0 parked (#60); preview build b7173175 for the Nord CE 3 check
 - 2026-11-27 GURU-48 phone check (local arm64 build): child home 0% janky, 65 to 71% CPU (was 90 to 110%); 14 states draw; lesson emoji hint not yet seen
+- 2026-11-27 GURU-49: story opened, Android builds limited to arm64-v8a and armeabi-v7a via expo-build-properties buildArchs (no PR)
+- 2026-11-27 GURU-49: 1 merged, 0 parked (#61); Android builds arm64-v8a and armeabi-v7a only, next EAS build unverified
