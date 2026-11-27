@@ -1,6 +1,5 @@
 // Android 15 (targetSdk 35+) breaks TextView lines by glyph ink bounds, while
-// React Native measures by glyph advances. Setting the attribute false on the
-// app theme makes every TextView break by advances again.
+// React Native measures by glyph advances.
 // See docs/decisions/D-GURU-53-text-advance-width.md.
 const { AndroidConfig, withAndroidStyles } = require('expo/config-plugins');
 
