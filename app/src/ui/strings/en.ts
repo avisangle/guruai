@@ -146,7 +146,6 @@ export const en: Record<StringKey, string> = {
   helpsSilent: 'Silent',
   letsStart: "Let's start",
   stopLesson: 'Lesson',
-  stopRevision: 'Revision',
   askGrownupStrip: 'For parents: hold the lock in the corner for 2 seconds',
   stopTomorrow: 'Tomorrow',
   consentStrip: 'For parents: help improve Shekru?',

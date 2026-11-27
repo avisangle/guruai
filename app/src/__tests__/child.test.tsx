@@ -29,8 +29,8 @@
 //                               A tap opens a session (learning/session startSession: a session row
 //                               with ended_at NULL) and goes to /child/<id>.
 //   app/src/app/child/[id].tsx  default export, the queue screen:
-//     trail      one `stop-<template_id>` per lesson stop and `stop-revision` for the revision stop, in
-//                queue order; the revision stop holds `revision-icon` (loop); the next stop (the
+//     trail      one `stop-<template_id>` per lesson stop, in queue order, and never a `stop-revision`
+//                or `revision-icon` (GURU-52: the queue has no revision stop); the next stop (the
 //                first) holds `next-ring`, no other stop does.
 //     stars      `stars`, a Text with the child's all-time number of lesson_end events ('0' on day one).
 //     start      `queue-start`, at least 96 dp tall (theme.touch.child.mainButton); label 'सुरू करूया'
@@ -47,9 +47,7 @@
 //                model: the model's DownloadItem (downloads/downloader) or null; mic: { granted };
 //                judge: JudgeReadiness (asr/speedCheck); parentHelps: boolean.
 //
-// Not tested here: applyStyleLevelAtSessionStart (GURU-22, not merged; call it when present), and
-// what the start button does when the next stop is the revision stop (buildTodayQueue only puts it
-// first when no lesson fits; GURU-28's route takes lesson stops).
+// Not tested here: applyStyleLevelAtSessionStart (GURU-22, not merged; call it when present).
 import { createElement as h } from 'react';
 import { StyleSheet, Text } from 'react-native';
 import { act, fireEvent, renderRouter, screen, waitFor, within } from 'expo-router/testing-library';
@@ -253,11 +251,10 @@ const A = 'tpl_kg_mr_swar_1';
 const B = 'tpl_kg_en_letters_1';
 const C = 'tpl_kg_mr_vyanjan_1';
 
-/** c-queue: lesson, revision stop, lesson, lesson; nothing done today. */
+/** c-queue: three lessons; nothing done today. */
 const FIXED: TodayQueue = {
   stops: [
     { kind: 'lesson', template_id: A, revision: [{ item_key: 'mr:letter:अ', lang: 'mr' }] },
-    { kind: 'revision', items: [{ item_key: 'en:letter:F', lang: 'en' }] },
     { kind: 'lesson', template_id: B, revision: [] },
     { kind: 'lesson', template_id: C, revision: [] },
   ],
@@ -361,7 +358,7 @@ describe('GURU-29 child picker, queue and readiness', () => {
     expect(db.all('SELECT child_id, ended_at FROM session')).toEqual([{ child_id: chosen.id, ended_at: null }]);
   });
 
-  test('queue from a fixed queue (c-queue): trail in order with the loop icon on revision, next stop ringed, all-time stars, 96 dp start opens the lesson route', async () => {
+  test('queue from a fixed queue (c-queue): trail in order with no revision stop, next stop ringed, all-time stars, 96 dp start opens the lesson route', async () => {
     const child = addChild('Chinu', 'peacock');
     const other = addChild('Manu', 'elephant');
     finishedLesson(child.id, A, daysAgo(1));
@@ -372,9 +369,9 @@ describe('GURU-29 child picker, queue and readiness', () => {
     const router = await renderRouter(routes(), { initialUrl: `/child/${child.id}` });
     const start = await screen.findByTestId('queue-start');
 
-    expect(screen.getAllByTestId(/^stop-/).map((s) => s.props.testID)).toEqual([`stop-${A}`, 'stop-revision', `stop-${B}`, `stop-${C}`]);
-    expect(within(screen.getByTestId('stop-revision')).getByTestId('revision-icon')).toBeTruthy();
-    for (const id of [A, B, C]) expect(within(screen.getByTestId(`stop-${id}`)).queryByTestId('revision-icon')).toBeNull();
+    expect(screen.getAllByTestId(/^stop-/).map((s) => s.props.testID)).toEqual([`stop-${A}`, `stop-${B}`, `stop-${C}`]);
+    expect(screen.queryByTestId('stop-revision')).toBeNull();
+    expect(screen.queryByTestId('revision-icon')).toBeNull();
     expect(screen.getAllByTestId('next-ring')).toHaveLength(1);
     expect(within(screen.getByTestId(`stop-${A}`)).getByTestId('next-ring')).toBeTruthy();
 
@@ -391,6 +388,35 @@ describe('GURU-29 child picker, queue and readiness', () => {
     expect(JSON.parse(params.stop)).toEqual(FIXED.stops[0]);
   });
 
+  test('a queue built from leftover due items draws no revision stop and the start button opens the first lesson with its revision items (GURU-52)', async () => {
+    const child = addChild('Chinu', 'peacock');
+    const real = jest.requireActual('../learning/queue') as typeof import('../learning/queue');
+    const due = Array.from({ length: 12 }, (_, i) => ({ item_key: `mr:letter:${i}`, lang: 'mr' }));
+    mockQueue.value = real.buildTodayQueue({
+      today: '2026-12-01',
+      goal: 3,
+      doneToday: 0,
+      inProgress: [],
+      assignments: [],
+      paths: [{ path_id: 'p', units: [{ unit_id: 'u', lessons: [A] }] }],
+      finished: [],
+      due,
+      lessonLang: { [A]: 'mr' },
+      isInstalled: () => true,
+    });
+
+    const router = await renderRouter(routes(), { initialUrl: `/child/${child.id}` });
+    const start = await screen.findByTestId('queue-start');
+    expect(screen.queryByTestId('stop-revision')).toBeNull();
+    expect(screen.queryByTestId('revision-icon')).toBeNull();
+    expect(screen.getAllByTestId(/^stop-/).map((s) => s.props.testID)).toEqual([`stop-${A}`]);
+
+    fireEvent.press(start);
+    await waitFor(() => expect(router.getPathname()).toBe(`/lesson/${A}`));
+    const params = JSON.parse(String((await screen.findByTestId('lesson-params')).props.children));
+    expect(JSON.parse(params.stop)).toEqual({ kind: 'lesson', template_id: A, revision: due.slice(0, 3) });
+  });
+
   test.each([
     ['day one (c-queue-first): an empty star with 0', 'first', '0', START],
     ['a lesson in progress (c-queue-mid)', 'inProgress', '0', mr.next],
@@ -401,7 +427,7 @@ describe('GURU-29 child picker, queue and readiness', () => {
     if (state === 'inProgress') savePositionRow(child.id, A);
     if (state === 'doneToday') {
       finishedLesson(child.id, A, new Date().toISOString());
-      mockQueue.value = { ...FIXED, stops: FIXED.stops.slice(2), done: 1 };
+      mockQueue.value = { ...FIXED, stops: FIXED.stops.slice(1), done: 1 };
     }
     if (state === 'goalMet') {
       for (const id of [A, B, C]) finishedLesson(child.id, id, new Date().toISOString());
@@ -487,7 +513,7 @@ describe('GURU-29 child picker, queue and readiness', () => {
 
     expect(await screen.findByTestId('queue-start')).toBeTruthy();
     await waitFor(() => expect(mockLines.some((id) => /^ready_\d+$/.test(id))).toBe(true));
-    expect(screen.getAllByTestId(/^stop-/).map((s) => s.props.testID)).toEqual([`stop-${A}`, 'stop-revision', `stop-${B}`, `stop-${C}`]);
+    expect(screen.getAllByTestId(/^stop-/).map((s) => s.props.testID)).toEqual([`stop-${A}`, `stop-${B}`, `stop-${C}`]);
   });
 
   test('a first speed check that finds the phone too slow, while the queue is open, turns it into ask a grown-up (c-ask-weak)', async () => {
