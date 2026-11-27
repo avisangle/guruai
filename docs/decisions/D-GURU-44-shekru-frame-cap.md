@@ -1,5 +1,5 @@
 # D-GURU-44: Shekru's rig steps at most 20 times a second and stops off screen; Skia is deferred
-**Status:** Accepted
+**Status:** Accepted; the "stays on react-native-svg, Skia deferred" part is superseded by D-GURU-48-shekru-on-skia
 **Date:** 2026-11-25
 **Issue:** GURU-44
 **Confluence:** none
