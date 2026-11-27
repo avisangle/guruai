@@ -79,3 +79,4 @@
 - 2026-11-27 GURU-41 device check (build 2aa7d082): crash fixed, labels and status bar fixed, noise asked again; Shekru idle CPU 90 to 110% (target 60%), Skia unblocked; probe check not run
 - 2026-11-27 GURU-46 probe re-push: phone and Mac agree on 382/398 clips; GURU-48 Skia story opened, backup tag shekru-svg-v1
 - 2026-11-27 GURU-48: 1 merged, 0 parked (#60); preview build b7173175 for the Nord CE 3 check
+- 2026-11-27 GURU-48 phone check (local arm64 build): child home 0% janky, 65 to 71% CPU (was 90 to 110%); 14 states draw; lesson emoji hint not yet seen
