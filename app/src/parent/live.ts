@@ -4,7 +4,7 @@ import * as LocalAuthentication from 'expo-local-authentication';
 import * as SecureStore from 'expo-secure-store';
 
 import { liveDb } from '../data/liveDb';
-import { createGate, switchToDeviceLock, type Gate, type GateDeps } from './gate';
+import { createGate, switchToDeviceLock, type Gate, type GateDeps, type SwitchProof } from './gate';
 
 let gate: Gate | undefined;
 
@@ -16,4 +16,4 @@ export function liveGate(): Gate {
   return gate;
 }
 
-export const liveSwitchToDeviceLock = () => switchToDeviceLock(deps());
+export const liveSwitchToDeviceLock = (proof: SwitchProof) => switchToDeviceLock(deps(), proof);

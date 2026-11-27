@@ -1,5 +1,5 @@
 # D-GURU-36: Switching back to the phone's lock is a function beside the gate, not a gate method
-**Status:** Accepted
+**Status:** Accepted; amended by D-GURU-51-switch-back-asks-pin (switching back now needs a proof)
 **Date:** 2026-11-21
 **Issue:** GURU-36
 **Confluence:** none

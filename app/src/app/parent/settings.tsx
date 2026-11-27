@@ -13,7 +13,7 @@ import type { ChildProfile } from '../../data/types';
 import type { DownloadStatus } from '../../downloads/downloader';
 import { allInstalled, useDownloads } from '../../downloads/useDownloads';
 import type { MicState } from '../../parent/attention';
-import { strongBiometricsAvailable, type GateMode } from '../../parent/gate';
+import { strongBiometricsAvailable, type GateMode, type PinResult, type SwitchProof } from '../../parent/gate';
 import { liveSwitchToDeviceLock } from '../../parent/live';
 import { askForMic, readMic } from '../../parent/mic';
 import { useParentMode } from '../../parent/ParentModeProvider';
@@ -188,9 +188,9 @@ export default function SettingsScreen() {
 }
 
 /**
- * The parent lock mode. Switching to the PIN opens the onboarding set-and-confirm rows; switching back
- * removes the app PIN, and a phone with no screen lock cannot switch back. Change PIN asks for the old
- * PIN or strong biometrics first.
+ * The parent lock mode. Switching to the PIN opens the onboarding set-and-confirm rows. Switching back asks
+ * for the old PIN or strong biometrics, checked inside the switch, then removes the app PIN; a phone with no
+ * screen lock cannot switch back. Change PIN asks for the old PIN or strong biometrics first.
  */
 function ParentLockSection() {
   const { t } = useT();
@@ -198,8 +198,11 @@ function ParentLockSection() {
   const [mode, setMode] = useState<GateMode | null>(null); // null until read
   const [deviceLock, setDeviceLock] = useState<boolean | null>(null);
   const [strongBiometrics, setStrongBiometrics] = useState(false);
-  /** pin: setting the first PIN; verify / change: Change PIN's old-PIN step and new-PIN step. */
-  const [step, setStep] = useState<'pin' | 'verify' | 'change' | null>(null);
+  /**
+   * pin: setting the first PIN; verify / change: Change PIN's old-PIN step and new-PIN step;
+   * verifySwitch: the old-PIN step before switching back to the phone's lock.
+   */
+  const [step, setStep] = useState<'pin' | 'verify' | 'change' | 'verifySwitch' | null>(null);
   const [oldPin, setOldPin] = useState('');
   const [message, setMessage] = useState<StringKey | null>(null);
 
@@ -218,10 +221,13 @@ function ParentLockSection() {
     };
   }, [gate]);
 
-  const chooseDevice = async () => {
-    setStep(null);
-    if (mode === 'pin' && (await liveSwitchToDeviceLock())) setMode('device');
+  const askOld = (next: 'verify' | 'verifySwitch') => {
+    setOldPin('');
+    setMessage(null);
+    setStep(next);
   };
+
+  const chooseDevice = () => (mode === 'pin' ? askOld('verifySwitch') : setStep(null));
 
   const setNewPin = async (pin: string) => {
     await gate().setPin(pin);
@@ -229,24 +235,33 @@ function ParentLockSection() {
     setStep(null);
   };
 
-  const startChange = () => {
-    setOldPin('');
-    setMessage(null);
-    setStep('verify');
+  // The old-PIN step's check and its next step. Switching back checks the proof inside the switch only, so a
+  // wrong PIN counts once.
+  const switching = step === 'verifySwitch';
+  const askingOld = switching || step === 'verify';
+  const check = (proof: SwitchProof): Promise<PinResult> =>
+    switching
+      ? liveSwitchToDeviceLock(proof)
+      : 'pin' in proof
+        ? gate().verifyPin(proof.pin)
+        : gate().recoverWithBiometrics(proof.biometrics).then((ok) => ({ ok }));
+  const passed = () => {
+    if (switching) setMode('device');
+    setStep(switching ? null : 'change');
   };
 
   const enterOld = async (value: string) => {
     const pin = pinDigits(value);
     setOldPin(pin);
     if (!isValidPin(pin)) return;
-    const result = await gate().verifyPin(pin);
+    const result = await check({ pin });
     setOldPin('');
-    if (result.ok) setStep('change');
+    if (result.ok) passed();
     else setMessage(result.waitUntil ? 'pinWaitTitle' : 'pinWrong');
   };
 
   const recover = async () => {
-    if (await gate().recoverWithBiometrics(t('unlockPrompt'))) setStep('change');
+    if ((await check({ biometrics: t('unlockPrompt') })).ok) passed();
   };
 
   return (
@@ -269,14 +284,14 @@ function ParentLockSection() {
       {deviceLock === false && <Text variant="helper">{t('pinNoScreenLock')}</Text>}
       {(step === 'pin' || step === 'change') && <PinSetup strongBiometrics={strongBiometrics} onSet={setNewPin} />}
       {mode === 'pin' && step === null && (
-        <Pressable testID="settings-change-pin" accessibilityRole="button" onPress={startChange} style={styles.line}>
+        <Pressable testID="settings-change-pin" accessibilityRole="button" onPress={() => askOld('verify')} style={styles.line}>
           <View style={styles.grow}>
             <Text variant="label">{t('changePin')}</Text>
             <Text variant="helper">{t('changePinHelp')}</Text>
           </View>
         </Pressable>
       )}
-      {step === 'verify' && (
+      {askingOld && (
         <>
           <Field
             testID="pin-old"
@@ -291,7 +306,7 @@ function ParentLockSection() {
           {strongBiometrics && <Button variant="parentGhost" label={t('pinFingerprintKey')} onPress={recover} />}
         </>
       )}
-      {(step === 'verify' || step === 'change') && <Button variant="parentGhost" label={t('cancel')} onPress={() => setStep(null)} />}
+      {(askingOld || step === 'change') && <Button variant="parentGhost" label={t('cancel')} onPress={() => setStep(null)} />}
     </Section>
   );
 }

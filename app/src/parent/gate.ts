@@ -26,6 +26,10 @@ const PIN_KEY = 'guru.parent_pin';
 
 type GateRow = { mode: GateMode; failed: number; lockout_until: string | null };
 
+// One PIN check at a time per database, across gate instances (switchToDeviceLock builds its own):
+// overlapping checks would read the same `failed` and lose a count.
+const pinQueues = new WeakMap<Db, Promise<unknown>>();
+
 /** Whether recoverWithBiometrics can work on this phone. */
 export async function strongBiometricsAvailable(auth: Pick<GateDeps['auth'], 'getEnrolledLevelAsync'>) {
   return (await auth.getEnrolledLevelAsync()) >= SecurityLevel.BIOMETRIC_STRONG;
@@ -34,18 +38,27 @@ export async function strongBiometricsAvailable(auth: Pick<GateDeps['auth'], 'ge
 const screenLockSet = async (auth: Pick<GateDeps['auth'], 'getEnrolledLevelAsync'>) =>
   (await auth.getEnrolledLevelAsync()) >= SecurityLevel.SECRET;
 
+/** Proof for switchToDeviceLock: the GuruAI PIN, or strong biometrics with this prompt message. */
+export type SwitchProof = { pin: string } | { biometrics: string };
+
 /**
- * Back to the phone's screen lock: removes the PIN record. False, changing nothing, when the phone has no
- * screen lock. The mode changes first, so a failed delete never leaves pin mode without a PIN. Kept off the
- * gate object (D-GURU-36-switch-back-outside-gate).
+ * Back to the phone's screen lock: removes the PIN record once the proof passes the gate's own checks
+ * (D-GURU-51-switch-back-asks-pin). Refuses, changing nothing, when the phone has no screen lock (checked
+ * first, no prompt) or the gate is not in pin mode. The mode changes first, so a failed delete never leaves
+ * pin mode without a PIN. Kept off the gate object (D-GURU-36-switch-back-outside-gate).
  */
-export async function switchToDeviceLock({ db, auth, secureStore, now }: Omit<GateDeps, 'crypto'>): Promise<boolean> {
-  if (!(await screenLockSet(auth))) return false;
+export async function switchToDeviceLock(deps: GateDeps, proof: SwitchProof): Promise<PinResult> {
+  const { db, auth, secureStore, now } = deps;
+  if (!(await screenLockSet(auth))) return { ok: false };
+  const gate = createGate(deps);
+  if ((await gate.mode()) !== 'pin') return { ok: false };
+  const result = 'pin' in proof ? await gate.verifyPin(proof.pin) : { ok: await gate.recoverWithBiometrics(proof.biometrics) };
+  if (!result.ok) return result;
   db.run("UPDATE parent_gate SET mode = 'device', failed = 0, lockout_until = NULL, updated_at = ?", [
     new Date(now()).toISOString(),
   ]);
   await secureStore.deleteItemAsync(PIN_KEY);
-  return true;
+  return { ok: true };
 }
 
 export function createGate({ db, auth, secureStore, crypto, now }: GateDeps) {
@@ -91,9 +104,6 @@ export function createGate({ db, auth, secureStore, crypto, now }: GateDeps) {
     return wait ? { ok: false, waitUntil } : { ok: false };
   }
 
-  // One check at a time: overlapping calls would read the same `failed` and lose a count.
-  let queue: Promise<unknown> = Promise.resolve();
-
   return {
     async mode(): Promise<GateMode> {
       return row().mode;
@@ -122,8 +132,8 @@ export function createGate({ db, auth, secureStore, crypto, now }: GateDeps) {
 
     /** During a wait, refuses without checking. Every 3rd wrong PIN starts a wait. */
     verifyPin(pin: string, at: number = now()): Promise<PinResult> {
-      const result = queue.then(() => checkPin(pin, at));
-      queue = result.catch(() => undefined);
+      const result = (pinQueues.get(db) ?? Promise.resolve()).then(() => checkPin(pin, at));
+      pinQueues.set(db, result.catch(() => undefined));
       return result;
     },
 

@@ -7,6 +7,8 @@
 // Inputs from merged issues:
 //   GURU-13  createGate: mode(), deviceLockAvailable(), setPin(pin); the PIN record is the secure-store
 //            key 'guru.parent_pin'. Switching back to the phone's lock must remove that record.
+//   GURU-51  switching back asks for the old PIN or strong biometrics first (liveSwitchToDeviceLock(proof),
+//            D-GURU-51-switch-back-asks-pin); the PIN is checked once per attempt.
 //   GURU-20  ensureEnrolment(db, child) (learning/enrol.ts): class_<board>_<class> + skill_<goal>.
 //   GURU-22  child_profile.style_level / style_locked.
 //   GURU-30  setupRows(child, device) (parent/setup.ts); SETUP_SECTIONS goals_style, lessons_per_day, board.
@@ -33,6 +35,9 @@
 //                                             the onboarding set-and-confirm rows; optional pin-save
 //                                             button if the PIN is not saved as soon as both match
 //     settings-change-pin                     shown only in PIN mode
+//     pin-old                                 GURU-51: the old-PIN field, for Change PIN and for switching
+//                                             back from the PIN to the phone's lock; "Use fingerprint"
+//                                             (pinFingerprintKey) and Cancel (cancel) are found by text
 //     settings-mic, settings-mic-action       status; the action (prompt) only when not granted
 //     settings-judge-speed, settings-judge-rerun
 //                                             status and re-run (rerunSpeedCheck)
@@ -58,6 +63,7 @@ import { createChild, getChild, listChildren, updateChild } from '../data/profil
 import type { ChildProfile } from '../data/types';
 import { ensureEnrolment } from '../learning/enrol';
 import { setupRows, SETUP_SECTIONS } from './setup';
+import { mr } from '../ui/strings/mr';
 
 // ---- native fakes (as in src/__tests__/onboarding.test.tsx) ----
 
@@ -83,14 +89,14 @@ jest.mock('expo-sqlite', () => ({
   }),
 }));
 
-const mockAuth = { level: 1 }; // SECRET: the phone has a screen lock
+const mockAuth = { level: 1, success: true }; // SECRET: the phone has a screen lock; success: the prompt's result
 jest.mock('expo-local-authentication', () => ({
   SecurityLevel: { NONE: 0, SECRET: 1, BIOMETRIC_WEAK: 2, BIOMETRIC_STRONG: 3 },
   getEnrolledLevelAsync: jest.fn(async () => mockAuth.level),
   hasHardwareAsync: jest.fn(async () => true),
   isEnrolledAsync: jest.fn(async () => mockAuth.level >= 2),
   supportedAuthenticationTypesAsync: jest.fn(async () => []),
-  authenticateAsync: jest.fn(async () => ({ success: true })),
+  authenticateAsync: jest.fn(async () => (mockAuth.success ? { success: true } : { success: false, error: 'user_cancel' })),
 }));
 
 const mockSecure = new Map<string, string>();
@@ -262,6 +268,8 @@ function toggle(testID: string, on: boolean) {
 }
 
 const gateMode = () => db.get<{ mode: string }>('SELECT mode FROM parent_gate LIMIT 1')?.mode ?? 'device';
+const gateFailed = () => db.get<{ failed: number }>('SELECT failed FROM parent_gate LIMIT 1')?.failed;
+const authenticate = () => require('expo-local-authentication').authenticateAsync as jest.Mock; // eslint-disable-line @typescript-eslint/no-require-imports
 const enrolments = (childId: string) =>
   db
     .all<{ path_id: string; source: string }>('SELECT path_id, source FROM path_enrollment WHERE child_id = ? ORDER BY path_id', [childId])
@@ -318,6 +326,7 @@ beforeEach(() => {
   getDevice(db);
   mockSecure.clear();
   mockAuth.level = 1;
+  mockAuth.success = true;
   mockMic.granted = true;
   mockMic.canAskAgain = true;
   mockPlayed.length = 0;
@@ -390,7 +399,7 @@ describe('GURU-36 Settings', () => {
     await waitFor(() => expect(getDevice(db).consent_summaries).toBe(false));
   });
 
-  test('lock mode: switching to PIN requires matching PINs; Change PIN only in PIN mode; switching back removes the app PIN', async () => {
+  test('lock mode: switching to PIN requires matching PINs; Change PIN only in PIN mode; switching back asks for the old PIN, then removes the app PIN', async () => {
     addChild('Chinu', 'peacock');
     await openSettings();
 
@@ -411,10 +420,83 @@ describe('GURU-36 Settings', () => {
     expect(mockSecure.has(PIN_KEY)).toBe(true);
     expect(await screen.findByTestId('settings-change-pin')).toBeTruthy();
 
+    // GURU-51: switching back opens the old-PIN step and changes nothing yet.
     fireEvent.press(screen.getByTestId('settings-lock-device'));
+    expect(await screen.findByTestId('pin-old')).toBeTruthy();
+    await settle();
+    expect(gateMode()).toBe('pin');
+    expect(mockSecure.has(PIN_KEY)).toBe(true);
+    expect(screen.queryByText(mr.pinFingerprintKey)).toBeNull(); // no strong biometrics on this phone
+
+    // A wrong PIN: pinWrong, still the PIN, counted once (the switch checks it, Settings does not first).
+    fireEvent.changeText(screen.getByTestId('pin-old'), '0000');
+    expect(await screen.findByText(mr.pinWrong)).toBeTruthy();
+    expect(gateMode()).toBe('pin');
+    expect(mockSecure.has(PIN_KEY)).toBe(true);
+    expect(gateFailed()).toBe(1);
+
+    // The right PIN switches back and removes the app PIN.
+    fireEvent.changeText(screen.getByTestId('pin-old'), '1234');
     await waitFor(() => expect(gateMode()).toBe('device'));
     await waitFor(() => expect(mockSecure.has(PIN_KEY)).toBe(false));
     await waitFor(() => expect(screen.queryByTestId('settings-change-pin')).toBeNull());
+    expect(screen.queryByTestId('pin-old')).toBeNull();
+    expect(isChosen('settings-lock-device')).toBe(true);
+    expect(authenticate()).not.toHaveBeenCalled(); // the phone's own lock is never asked
+  });
+
+  test('switching back: Cancel closes the old-PIN step and keeps the GuruAI PIN', async () => {
+    addChild('Chinu', 'peacock');
+    db.run("UPDATE parent_gate SET mode = 'pin'");
+    mockSecure.set(PIN_KEY, 'record');
+    await openSettings();
+
+    await waitFor(() => expect(isChosen('settings-lock-pin')).toBe(true));
+    fireEvent.press(screen.getByTestId('settings-lock-device'));
+    expect(await screen.findByTestId('pin-old')).toBeTruthy();
+
+    fireEvent.press(screen.getByText(mr.cancel));
+    await waitFor(() => expect(screen.queryByTestId('pin-old')).toBeNull());
+    await settle();
+    expect(gateMode()).toBe('pin');
+    expect(mockSecure.get(PIN_KEY)).toBe('record');
+    expect(isChosen('settings-lock-pin')).toBe(true);
+    expect(await screen.findByTestId('settings-change-pin')).toBeTruthy();
+  });
+
+  test('switching back during a PIN wait: the PIN shows pinWaitTitle; strong fingerprint still switches; a cancelled prompt changes nothing', async () => {
+    addChild('Chinu', 'peacock');
+    db.run("UPDATE parent_gate SET mode = 'pin', failed = 3, lockout_until = ?", [new Date(Date.now() + 10 * 60 * 1000).toISOString()]);
+    mockSecure.set(PIN_KEY, 'record');
+    mockAuth.level = 3; // BIOMETRIC_STRONG
+    await openSettings();
+
+    await waitFor(() => expect(isChosen('settings-lock-pin')).toBe(true));
+    fireEvent.press(screen.getByTestId('settings-lock-device'));
+    fireEvent.changeText(await screen.findByTestId('pin-old'), '1234');
+    expect(await screen.findByText(mr.pinWaitTitle)).toBeTruthy();
+    expect(gateMode()).toBe('pin');
+    expect(gateFailed()).toBe(3); // refused during the wait, not counted
+
+    // A cancelled fingerprint prompt: nothing changes, the step stays open.
+    mockAuth.success = false;
+    fireEvent.press(await screen.findByText(mr.pinFingerprintKey));
+    await waitFor(() => expect(authenticate()).toHaveBeenCalledTimes(1));
+    await settle();
+    expect(authenticate()).toHaveBeenCalledWith(
+      expect.objectContaining({ promptMessage: mr.unlockPrompt, disableDeviceFallback: true, biometricsSecurityLevel: 'strong' }),
+    );
+    expect(gateMode()).toBe('pin');
+    expect(mockSecure.has(PIN_KEY)).toBe(true);
+    expect(screen.getByTestId('pin-old')).toBeTruthy();
+
+    // A strong fingerprint switches back, wait or not.
+    mockAuth.success = true;
+    fireEvent.press(screen.getByText(mr.pinFingerprintKey));
+    await waitFor(() => expect(gateMode()).toBe('device'));
+    await waitFor(() => expect(mockSecure.has(PIN_KEY)).toBe(false));
+    await waitFor(() => expect(screen.queryByTestId('pin-old')).toBeNull());
+    expect(screen.queryByTestId('settings-change-pin')).toBeNull();
   });
 
   test('a phone with no screen lock cannot switch back from the GuruAI PIN', async () => {

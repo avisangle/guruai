@@ -20,7 +20,13 @@ import type { Db } from "../data/db";
 import { migrate } from "../data/migrations";
 import { createTestDb } from "../data/testDb";
 
-import { createGate } from "./gate";
+import {
+  createGate,
+  switchToDeviceLock,
+  type GateDeps,
+  type PinResult,
+  type SwitchProof,
+} from "./gate";
 import { lockoutFor } from "./lockout";
 
 // gate.ts may import these for its live defaults; tests must never reach native code.
@@ -54,6 +60,7 @@ jest.mock(
 
 const NONE = 0;
 const SECRET = 1;
+const BIOMETRIC_WEAK = 2;
 const BIOMETRIC_STRONG = 3;
 
 const SEC = 1000;
@@ -412,5 +419,231 @@ describe("GURU-13 parent gate", () => {
     for (let i = 0; i < 2; i++) await gate.verifyPin("0000", T0);
     expect(typeof (await gate.verifyPin("4821", T0)).waitUntil).toBe("number");
     expect(typeof (await gate.recoverWithBiometrics())).toBe("boolean");
+  });
+});
+
+// GURU-51: switching back to the phone's lock needs the old GuruAI PIN or strong biometrics, checked
+// inside switchToDeviceLock (D-GURU-51-switch-back-asks-pin, amending D-GURU-36). Order kept:
+// screen-lock check, pin-mode check, proof, mode write, record delete.
+describe("GURU-51 switchToDeviceLock asks for a proof", () => {
+  const PIN = "4821";
+
+  const depsOf = (s: ReturnType<typeof setup>): GateDeps => ({
+    db: s.db,
+    auth: s.auth,
+    secureStore: s.secureStore,
+    crypto: s.crypto,
+    now: s.now,
+  });
+
+  const modeOf = (db: Db) =>
+    db.get<{ mode: string }>("SELECT mode FROM parent_gate")?.mode;
+  const lockoutOf = (db: Db) =>
+    db.get<{ lockout_until: string | null }>(
+      "SELECT lockout_until FROM parent_gate",
+    )?.lockout_until;
+
+  /** A gate in pin mode with PIN 4821 stored. */
+  async function inPinMode(level: number, authSuccess = true) {
+    const s = setup(level, authSuccess);
+    await s.gate.setPin(PIN);
+    s.auth.authenticateAsync.mockClear();
+    return s;
+  }
+
+  /** Mode pin, the PIN record still stored, nothing deleted. */
+  function expectUnchanged(s: ReturnType<typeof setup>) {
+    expect(modeOf(s.db)).toBe("pin");
+    expect(s.secureStore.items.size).toBe(1);
+    expect(s.secureStore.deleteItemAsync).not.toHaveBeenCalled();
+  }
+
+  it("no screen lock: refuses before any proof, with no prompt and no counting, even with the right PIN", async () => {
+    const s = await inPinMode(NONE);
+
+    expect(await switchToDeviceLock(depsOf(s), { pin: PIN })).toEqual({
+      ok: false,
+    });
+    expect(await switchToDeviceLock(depsOf(s), { pin: "0000" })).toEqual({
+      ok: false,
+    });
+    expect(
+      await switchToDeviceLock(depsOf(s), { biometrics: "Open" }),
+    ).toEqual({ ok: false });
+
+    expect(s.auth.authenticateAsync).not.toHaveBeenCalled();
+    expect(failedCount(s.db)).toBe(0);
+    expectUnchanged(s);
+  });
+
+  it("device mode: refuses, changing nothing, with no PIN check and no prompt", async () => {
+    const s = setup(BIOMETRIC_STRONG);
+    expect(modeOf(s.db)).toBe("device");
+
+    expect(await switchToDeviceLock(depsOf(s), { pin: PIN })).toEqual({
+      ok: false,
+    });
+    expect(
+      await switchToDeviceLock(depsOf(s), { biometrics: "Open" }),
+    ).toEqual({ ok: false });
+
+    expect(s.auth.authenticateAsync).not.toHaveBeenCalled();
+    expect(failedCount(s.db)).toBe(0); // the PIN was never checked, so never counted
+    expect(modeOf(s.db)).toBe("device");
+    expect(s.secureStore.deleteItemAsync).not.toHaveBeenCalled();
+  });
+
+  it("wrong PIN changes nothing and counts; the 3rd starts the 30 s wait; during it the right PIN is refused unchecked; after it the right PIN switches", async () => {
+    const s = await inPinMode(SECRET);
+    const deps = depsOf(s);
+
+    expect(await switchToDeviceLock(deps, { pin: "0000" })).toEqual({
+      ok: false,
+    });
+    expectUnchanged(s);
+    expect(failedCount(s.db)).toBe(1);
+    expect(await switchToDeviceLock(deps, { pin: "1111" })).toEqual({
+      ok: false,
+    });
+    expect(await switchToDeviceLock(deps, { pin: "2222" })).toEqual({
+      ok: false,
+      waitUntil: T0 + 30 * SEC,
+    });
+    expectUnchanged(s);
+    expect(failedCount(s.db)).toBe(3);
+
+    // During the wait: refused without hashing or counting.
+    s.setClock(T0 + 10 * SEC);
+    s.crypto.digest.mockClear();
+    s.crypto.digestStringAsync.mockClear();
+    expect(await switchToDeviceLock(deps, { pin: PIN })).toEqual({
+      ok: false,
+      waitUntil: T0 + 30 * SEC,
+    });
+    expect(
+      s.crypto.digest.mock.calls.length +
+        s.crypto.digestStringAsync.mock.calls.length,
+    ).toBe(0);
+    expect(failedCount(s.db)).toBe(3);
+    expectUnchanged(s);
+
+    // The phone's own credential never stands in for the PIN.
+    expect(s.auth.authenticateAsync).not.toHaveBeenCalled();
+
+    s.setClock(T0 + 30 * SEC);
+    expect(await switchToDeviceLock(deps, { pin: PIN })).toEqual({ ok: true });
+    expect(modeOf(s.db)).toBe("device");
+    expect(s.secureStore.items.size).toBe(0);
+    expect(failedCount(s.db)).toBe(0);
+    expect(lockoutOf(s.db)).toBeNull();
+  });
+
+  it("correct PIN: writes mode device and clears the counters before deleting the PIN record", async () => {
+    const s = await inPinMode(SECRET);
+    await s.gate.verifyPin("0000", T0);
+    await s.gate.verifyPin("0000", T0);
+    expect(failedCount(s.db)).toBe(2);
+
+    const atDelete: [string | undefined, number | undefined][] = [];
+    s.secureStore.deleteItemAsync.mockImplementation(async (key: string) => {
+      atDelete.push([modeOf(s.db), failedCount(s.db)]);
+      s.secureStore.items.delete(key);
+    });
+
+    expect(await switchToDeviceLock(depsOf(s), { pin: PIN })).toEqual({
+      ok: true,
+    });
+    expect(atDelete).toEqual([["device", 0]]);
+    expect(s.secureStore.items.size).toBe(0);
+    expect(modeOf(s.db)).toBe("device");
+    expect(s.auth.authenticateAsync).not.toHaveBeenCalled();
+  });
+
+  it("biometrics: strong only, with recoverWithBiometrics' options; no strong biometrics, a failed prompt or the phone's PIN or pattern change nothing", async () => {
+    // Pattern only, or weak biometrics: refused with no prompt.
+    for (const level of [SECRET, BIOMETRIC_WEAK]) {
+      const s = await inPinMode(level);
+      expect(
+        await switchToDeviceLock(depsOf(s), { biometrics: "Open" }),
+      ).toEqual({ ok: false });
+      expect(s.auth.authenticateAsync).not.toHaveBeenCalled();
+      expectUnchanged(s);
+    }
+
+    // A failed or cancelled prompt.
+    const cancelled = await inPinMode(BIOMETRIC_STRONG, false);
+    expect(
+      await switchToDeviceLock(depsOf(cancelled), { biometrics: "Open" }),
+    ).toEqual({ ok: false });
+    expect(cancelled.auth.authenticateAsync).toHaveBeenCalledTimes(1);
+    expectUnchanged(cancelled);
+
+    // A prompt that succeeds only through the phone's PIN or pattern (device fallback) is no proof.
+    const fallback = await inPinMode(BIOMETRIC_STRONG);
+    fallback.auth.authenticateAsync.mockImplementation(
+      async (options?: Record<string, unknown>) =>
+        options?.disableDeviceFallback === true
+          ? { success: false as const, error: "user_cancel" as const }
+          : { success: true as const },
+    );
+    expect(
+      await switchToDeviceLock(depsOf(fallback), { biometrics: "Open" }),
+    ).toEqual({ ok: false });
+    expectUnchanged(fallback);
+  });
+
+  it("biometrics success switches, during a wait too, with strong-only options and the given prompt", async () => {
+    const s = await inPinMode(BIOMETRIC_STRONG);
+    for (let i = 0; i < 3; i++) await s.gate.verifyPin("0000", T0);
+    s.setClock(T0 + SEC); // inside the 30 s wait
+
+    expect(
+      await switchToDeviceLock(depsOf(s), { biometrics: "Open the parent area" }),
+    ).toEqual({ ok: true });
+    expect(s.auth.authenticateAsync).toHaveBeenCalledTimes(1);
+    expect(s.auth.authenticateAsync).toHaveBeenCalledWith(
+      expect.objectContaining({
+        promptMessage: "Open the parent area",
+        disableDeviceFallback: true,
+        biometricsSecurityLevel: "strong",
+      }),
+    );
+    expect(modeOf(s.db)).toBe("device");
+    expect(s.secureStore.items.size).toBe(0);
+    expect(failedCount(s.db)).toBe(0);
+    expect(lockoutOf(s.db)).toBeNull();
+  });
+
+  // Contract from GURU-51's output_for_dependents (Needed by: none; Settings is the consumer). Shape only.
+  it("contract: switchToDeviceLock(deps, proof): Promise<PinResult>, SwitchProof, liveSwitchToDeviceLock(proof)", async () => {
+    expect(typeof switchToDeviceLock).toBe("function");
+    expect(switchToDeviceLock.length).toBe(2);
+
+    const proofs: SwitchProof[] = [{ pin: "0000" }, { biometrics: "Open" }];
+    for (const proof of proofs) {
+      const s = await inPinMode(BIOMETRIC_STRONG, false);
+      const result: PinResult = await switchToDeviceLock(depsOf(s), proof);
+      expect(typeof result.ok).toBe("boolean");
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const live = require("./live") as typeof import("./live");
+    const liveSwitch: (proof: SwitchProof) => Promise<PinResult> =
+      live.liveSwitchToDeviceLock;
+    expect(typeof liveSwitch).toBe("function");
+    expect(liveSwitch.length).toBe(1);
+
+    // The gate object gains no method (D-GURU-25, D-GURU-36).
+    expect(Object.keys(setup(SECRET).gate).sort()).toEqual(
+      [
+        "deviceLockAvailable",
+        "mode",
+        "recoverWithBiometrics",
+        "setPin",
+        "state",
+        "unlockWithDevice",
+        "verifyPin",
+      ].sort(),
+    );
   });
 });
