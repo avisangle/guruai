@@ -1,68 +1,130 @@
-// Shekru drawn with react-native-svg. The tree is rendered once; each animated
-// group reads its transform, opacity and visibility from a shared value.
-import { memo, type ReactNode } from 'react';
-import { Platform } from 'react-native';
-import Animated, { useAnimatedProps, type SharedValue } from 'react-native-reanimated';
-import Svg, { Circle, Defs, Ellipse, G, Path, RadialGradient, Stop, Text } from 'react-native-svg';
+// Shekru drawn on one Skia canvas. The tree renders once; each animated group reads its matrix and
+// opacity from the rig's shared value on the UI thread, so a rig step redraws the canvas without a
+// React render (docs/decisions/D-GURU-48-shekru-on-skia.md).
+import {
+  Canvas, Circle, Group, Oval, Paint, Paragraph, Path, RadialGradient, Skia, Text, TextAlign, matchFont, vec,
+  type SkPath,
+} from '@shopify/react-native-skia';
+import { memo, useMemo, type ReactNode } from 'react';
+import { useDerivedValue, type SharedValue } from 'react-native-reanimated';
 
 import artJson from './generated/shekru.art.json';
-import { FRONT_SUFFIX, SHADOW, SHADOW_CX, SHADOW_CY, type PartValue, type PartValues } from './useShekruRig';
+import { DRAW_TREE, partMatrix, partOpacity, type DrawNode, type Paint as ArtPaint } from './skiaArt';
+import { SHADOW_CX, SHADOW_CY, type PartValue, type PartValues } from './useShekruRig';
 
-type Matrix = [number, number, number, number, number, number];
-type Node = { t: string; id?: string; front?: boolean; p?: Record<string, string>; c?: Node[] };
+type Parts = SharedValue<PartValue>[];
 
-const AnimatedG = Animated.createAnimatedComponent(G);
-const VIEWBOX = artJson.viewBox.join(' ');
-// Native takes the 2x3 matrix as `matrix`; react-native-svg on web only reads it from `transform`.
-const WEB = Platform.OS === 'web';
+// The viewBox is square: the canvas shows VIEW_SIZE art units from (VIEW_X, VIEW_Y).
+const [VIEW_X, VIEW_Y, VIEW_SIZE] = artJson.viewBox;
+
+// Parsed once per module load, never per render or per rig step.
+const PATHS = new Map<string, SkPath>();
+(function parse(nodes: DrawNode[]) {
+  for (const n of nodes) {
+    if (n.kind === 'group') parse(n.children);
+    else if (n.kind === 'path') PATHS.set(n.d, Skia.Path.MakeFromSVGString(n.d)!);
+  }
+})(DRAW_TREE);
+
+// Ground shadow: an elliptical gradient in the art. Skia's radial gradient is circular, so a circle
+// of radius rx is squashed to ry about its centre.
+const SHADOW_RX = 158.7;
+const SHADOW_RY = 14.3;
+const SHADOW_COLOR = '#5C461E';
+const SHADOW_CENTRE = vec(SHADOW_CX, SHADOW_CY);
+
+// Hint letter: centred on LETTER_X with its baseline on LETTER_Y, as in shekru-fx.svg.
+const LETTER_X = 362;
+const LETTER_Y = 264;
+const LETTER_SIZE = 48;
+const LETTER_WEIGHT = 800;
+const LETTER_COLOR = '#3D1420';
+const LETTER_FONT = matchFont({ fontFamily: 'sans-serif', fontSize: LETTER_SIZE, fontWeight: LETTER_WEIGHT });
+// Layout width for the fallback paragraph; wider than any one letter or picture.
+const LETTER_BOX = 240;
 
 function Part({ value, children }: { value: SharedValue<PartValue>; children: ReactNode }) {
-  const animatedProps = useAnimatedProps(() => {
-    const v = value.value;
-    const m = v.m as Matrix;
-    const props: { opacity: number; display: 'inline' | 'none'; matrix?: Matrix; transform?: Matrix } = {
-      opacity: v.o,
-      display: v.d,
-    };
-    if (WEB) props.transform = m; else props.matrix = m;
-    return props;
-  });
-  return <AnimatedG animatedProps={animatedProps}>{children}</AnimatedG>;
+  const matrix = useDerivedValue(() => partMatrix(value.value));
+  const opacity = useDerivedValue(() => partOpacity(value.value));
+  return <Group matrix={matrix} opacity={opacity}>{children}</Group>;
 }
 
-// Empty slot in the hint card (shekru-fx.svg); the lesson fills it with the letter.
-const LETTER_SLOT = 'fx-hint-letter';
+// Skia's Text draws with one typeface, unshaped. Text the font has no glyph for (the lesson's picture
+// emoji, Devanagari) goes through Paragraph, which shapes and falls back to the system fonts.
+// Paragraph ignores the opacity of the groups above it, so it fades through a layer of its own.
+function FallbackLetter({ letter, above }: { letter: string; above: Parts }) {
+  const paragraph = useMemo(() => {
+    const p = Skia.ParagraphBuilder.Make({ textAlign: TextAlign.Center })
+      .pushStyle({
+        color: Skia.Color(LETTER_COLOR),
+        fontFamilies: ['sans-serif'],
+        fontSize: LETTER_SIZE,
+        fontStyle: { weight: LETTER_WEIGHT },
+      })
+      .addText(letter)
+      .build();
+    p.layout(LETTER_BOX);
+    return p;
+  }, [letter]);
+  const opacity = useDerivedValue(() => above.reduce((o, part) => o * partOpacity(part.value), 1));
+  const baseline = paragraph.getLineMetrics()[0].baseline;
+  return (
+    <Group layer={<Paint opacity={opacity} />}>
+      <Paragraph paragraph={paragraph} x={LETTER_X - LETTER_BOX / 2} y={LETTER_Y - baseline} width={LETTER_BOX} />
+    </Group>
+  );
+}
 
-function render(nodes: Node[], values: PartValues, letter?: string): ReactNode {
+function HintLetter({ letter, above }: { letter: string; above: Parts }) {
+  const glyphs = LETTER_FONT.getGlyphIDs(letter);
+  if (glyphs.includes(0)) return <FallbackLetter letter={letter} above={above} />;
+  // SVG textAnchor="middle": start half the advance width left of the centre.
+  const width = LETTER_FONT.getGlyphWidths(glyphs).reduce((sum, w) => sum + w, 0);
+  return <Text text={letter} x={LETTER_X - width / 2} y={LETTER_Y} font={LETTER_FONT} color={LETTER_COLOR} />;
+}
+
+const paintProps = (p: ArtPaint) =>
+  p.style === 'fill'
+    ? { color: p.color }
+    : { color: p.color, style: 'stroke' as const, strokeWidth: p.width, strokeCap: p.cap, strokeJoin: p.join };
+
+// `above` is the bound parts enclosing `nodes`, outermost first.
+function draw(nodes: DrawNode[], values: PartValues, letter: string | undefined, above: Parts = []): ReactNode {
   return nodes.map((n, i) => {
-    if (n.id === LETTER_SLOT) {
-      return letter ? (
-        <Text key={i} x={362} y={264} textAnchor="middle" fontFamily="sans-serif" fontSize={48} fontWeight="800" fill="#3D1420">{letter}</Text>
-      ) : null;
+    switch (n.kind) {
+      case 'group': {
+        const value = values[n.part];
+        return <Part key={i} value={value}>{draw(n.children, values, letter, [...above, value])}</Part>;
+      }
+      case 'shadow':
+        return (
+          <Group key={i} origin={SHADOW_CENTRE} transform={[{ scaleY: SHADOW_RY / SHADOW_RX }]}>
+            <Circle c={SHADOW_CENTRE} r={SHADOW_RX} opacity={0.28}>
+              <RadialGradient c={SHADOW_CENTRE} r={SHADOW_RX} colors={[SHADOW_COLOR, SHADOW_COLOR + '00']} />
+            </Circle>
+          </Group>
+        );
+      case 'hintLetter':
+        return letter ? <HintLetter key={i} letter={letter} above={above} /> : null;
+      // One element per paint, in paint order: a leaf with both draws its fill, then its stroke.
+      case 'path':
+        return n.paints.map((p, j) => <Path key={`${i}.${j}`} path={PATHS.get(n.d)!} {...paintProps(p)} />);
+      case 'circle':
+        return n.paints.map((p, j) => <Circle key={`${i}.${j}`} cx={n.cx} cy={n.cy} r={n.r} {...paintProps(p)} />);
+      case 'ellipse':
+        return n.paints.map((p, j) => (
+          <Oval key={`${i}.${j}`} x={n.cx - n.rx} y={n.cy - n.ry} width={2 * n.rx} height={2 * n.ry} {...paintProps(p)} />
+        ));
     }
-    if (n.t === 'path') return <Path key={i} {...n.p} />;
-    if (n.t === 'circle') return <Circle key={i} {...n.p} />;
-    if (n.t === 'ellipse') return <Ellipse key={i} {...n.p} />;
-    const children = render(n.c ?? [], values, letter);
-    const value = n.id ? values[n.front ? n.id + FRONT_SUFFIX : n.id] : undefined;
-    return value ? <Part key={i} value={value}>{children}</Part> : <G key={i} {...n.p}>{children}</G>;
   });
 }
 
 export const Shekru = memo(function Shekru({ values, size, hintLetter }: { values: PartValues; size: number; hintLetter?: string }) {
   return (
-    <Svg width={size} height={size} viewBox={VIEWBOX} accessibilityLabel="शेकरू">
-      <Defs>
-        <RadialGradient id="shadow" cx={SHADOW_CX} cy={SHADOW_CY} rx={158.7} ry={14.3} gradientUnits="userSpaceOnUse">
-          <Stop offset="0" stopColor="#5C461E" stopOpacity={0.28} />
-          <Stop offset="1" stopColor="#5C461E" stopOpacity={0} />
-        </RadialGradient>
-      </Defs>
-      <Part value={values[SHADOW]}>
-        <Ellipse cx={SHADOW_CX} cy={SHADOW_CY} rx={158.7} ry={14.3} fill="url(#shadow)" />
-      </Part>
-      {render(artJson.character as Node[], values)}
-      {render(artJson.fx as Node[], values, hintLetter)}
-    </Svg>
+    <Canvas style={{ width: size, height: size }} accessibilityLabel="शेकरू">
+      <Group transform={[{ scale: size / VIEW_SIZE }, { translateX: -VIEW_X }, { translateY: -VIEW_Y }]}>
+        {draw(DRAW_TREE, values, hintLetter)}
+      </Group>
+    </Canvas>
   );
 });
