@@ -52,12 +52,8 @@ export async function switchToDeviceLock(deps: GateDeps, proof: SwitchProof): Pr
   if (!(await screenLockSet(auth))) return { ok: false };
   const gate = createGate(deps);
   if ((await gate.mode()) !== 'pin') return { ok: false };
-  if ('pin' in proof) {
-    const result = await gate.verifyPin(proof.pin);
-    if (!result.ok) return result;
-  } else if (!(await gate.recoverWithBiometrics(proof.biometrics))) {
-    return { ok: false };
-  }
+  const result = 'pin' in proof ? await gate.verifyPin(proof.pin) : { ok: await gate.recoverWithBiometrics(proof.biometrics) };
+  if (!result.ok) return result;
   db.run("UPDATE parent_gate SET mode = 'device', failed = 0, lockout_until = NULL, updated_at = ?", [
     new Date(now()).toISOString(),
   ]);

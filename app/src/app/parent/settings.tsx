@@ -13,7 +13,7 @@ import type { ChildProfile } from '../../data/types';
 import type { DownloadStatus } from '../../downloads/downloader';
 import { allInstalled, useDownloads } from '../../downloads/useDownloads';
 import type { MicState } from '../../parent/attention';
-import { strongBiometricsAvailable, type GateMode } from '../../parent/gate';
+import { strongBiometricsAvailable, type GateMode, type PinResult, type SwitchProof } from '../../parent/gate';
 import { liveSwitchToDeviceLock } from '../../parent/live';
 import { askForMic, readMic } from '../../parent/mic';
 import { useParentMode } from '../../parent/ParentModeProvider';
@@ -229,33 +229,39 @@ function ParentLockSection() {
 
   const chooseDevice = () => (mode === 'pin' ? askOld('verifySwitch') : setStep(null));
 
-  const switched = () => {
-    setMode('device');
-    setStep(null);
-  };
-
   const setNewPin = async (pin: string) => {
     await gate().setPin(pin);
     setMode('pin');
     setStep(null);
   };
 
+  // The old-PIN step's check and its next step. Switching back checks the proof inside the switch only, so a
+  // wrong PIN counts once.
+  const switching = step === 'verifySwitch';
+  const askingOld = switching || step === 'verify';
+  const check = (proof: SwitchProof): Promise<PinResult> =>
+    switching
+      ? liveSwitchToDeviceLock(proof)
+      : 'pin' in proof
+        ? gate().verifyPin(proof.pin)
+        : gate().recoverWithBiometrics(proof.biometrics).then((ok) => ({ ok }));
+  const passed = () => {
+    if (switching) setMode('device');
+    setStep(switching ? null : 'change');
+  };
+
   const enterOld = async (value: string) => {
     const pin = pinDigits(value);
     setOldPin(pin);
     if (!isValidPin(pin)) return;
-    // Switching back checks the PIN inside the switch only, so a wrong PIN counts once.
-    const result = step === 'verifySwitch' ? await liveSwitchToDeviceLock({ pin }) : await gate().verifyPin(pin);
+    const result = await check({ pin });
     setOldPin('');
-    if (!result.ok) setMessage(result.waitUntil ? 'pinWaitTitle' : 'pinWrong');
-    else if (step === 'verifySwitch') switched();
-    else setStep('change');
+    if (result.ok) passed();
+    else setMessage(result.waitUntil ? 'pinWaitTitle' : 'pinWrong');
   };
 
   const recover = async () => {
-    if (step === 'verifySwitch') {
-      if ((await liveSwitchToDeviceLock({ biometrics: t('unlockPrompt') })).ok) switched();
-    } else if (await gate().recoverWithBiometrics(t('unlockPrompt'))) setStep('change');
+    if ((await check({ biometrics: t('unlockPrompt') })).ok) passed();
   };
 
   return (
@@ -285,7 +291,7 @@ function ParentLockSection() {
           </View>
         </Pressable>
       )}
-      {(step === 'verify' || step === 'verifySwitch') && (
+      {askingOld && (
         <>
           <Field
             testID="pin-old"
@@ -300,7 +306,7 @@ function ParentLockSection() {
           {strongBiometrics && <Button variant="parentGhost" label={t('pinFingerprintKey')} onPress={recover} />}
         </>
       )}
-      {(step === 'verify' || step === 'verifySwitch' || step === 'change') && <Button variant="parentGhost" label={t('cancel')} onPress={() => setStep(null)} />}
+      {(askingOld || step === 'change') && <Button variant="parentGhost" label={t('cancel')} onPress={() => setStep(null)} />}
     </Section>
   );
 }
