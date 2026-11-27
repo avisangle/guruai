@@ -157,3 +157,12 @@ def test_contract_output_for_dependents_shape():
     assert isinstance(pairs, dict) and pairs
     assert all(isinstance(k, str) and isinstance(v, str) for k, v in pairs.items())
     assert all(gv.LATIN[k.lower()] == v for k, v in pairs.items())
+
+
+def test_voices_are_pinned_to_their_shipped_values():
+    """GURU-55, D-CHAR-gemini-tts-voice: a shipped character's voice and style never change."""
+    assert gv.VOICES == {
+        "shekru": ("Puck", "a playful, bouncy young cartoon squirrel talking to a 5-year-old, warm and cheeky"),
+        "tai": ("Leda", "a kind, cheerful 12-year-old older sister talking to a 5-year-old, warm and patient"),
+        "pati": ("Sadachbia", "a gentle, slightly goofy friendly cartoon character talking to a 5-year-old"),
+    }
