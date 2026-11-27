@@ -256,7 +256,7 @@ describe('GURU-30 homeSections: decision 23 order', () => {
     });
 
     expect(sections.map((s) => s.id)).toEqual(['upNext', 'waiting', 'pending', 'revision', 'completed']);
-    expect(sections[0]).toEqual({ id: 'upNext', lessons: ['tpl_a', 'tpl_b'] }); // revision stops are not lessons
+    expect(sections[0]).toEqual({ id: 'upNext', lessons: ['tpl_a', 'tpl_b'] });
     expect(sections[1]).toEqual({ id: 'waiting', lessons: ['tpl_w'] });
     expect(sections[2]).toEqual({ id: 'pending', lessons: ['tpl_p'] });
     expect(sections[3]).toEqual({ id: 'revision', items: [due('a'), due('i'), due('u'), due('k'), due('kh')] });
@@ -264,7 +264,7 @@ describe('GURU-30 homeSections: decision 23 order', () => {
   });
 
   test('no waiting section without a missing pack; an assigned lesson shows once, finished ones never in Pending', () => {
-    const queue = queueOf({ stops: [lesson('tpl_a'), { kind: 'revision', items: [due('k')] }, lesson('tpl_b')] });
+    const queue = queueOf({ stops: [lesson('tpl_a'), lesson('tpl_b')] });
     const sections = homeMod().homeSections({
       queue,
       inProgress: ['tpl_c'],

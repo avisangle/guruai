@@ -42,8 +42,7 @@ type QueueInput = {
   isInstalled: (templateId: string) => boolean;
 };
 type LessonStop = { kind: 'lesson'; template_id: string; revision: Due[] };
-type RevisionStop = { kind: 'revision'; items: Due[] };
-type Stop = LessonStop | RevisionStop;
+type Stop = LessonStop;
 type TodayQueue = { stops: Stop[]; goal: number; done: number; goalMet: boolean; waitingForDownload: string[] };
 
 const queue = (input: QueueInput) => buildTodayQueue(input as never) as unknown as TodayQueue;
@@ -186,45 +185,43 @@ describe('assignLesson and overflow to tomorrow (decision 14)', () => {
 });
 
 describe('buildTodayQueue: revision', () => {
-  it('mixes due items into lessons of the same language, at most 3 each; leftovers (at most 8) form one stop after the first lesson', () => {
-    const paths = [path('p_a', 'tpl_mr_a'), path('p_b', 'tpl_en_b'), path('p_c', 'tpl_mr_c')];
-    const q = queue(input({ paths, due: [...dueItems('mr', 10), ...dueItems('en', 1)] }));
+  const onlyLessons = (q: TodayQueue) => q.stops.every((s) => (s as { kind: string }).kind === 'lesson');
 
-    expect(q.stops.map((s) => (s.kind === 'lesson' ? s.template_id : 'revision'))).toEqual([
-      'tpl_mr_a',
-      'revision',
-      'tpl_en_b',
-      'tpl_mr_c',
-    ]);
-    const [a, rev, b, c] = q.stops as [LessonStop, RevisionStop, LessonStop, LessonStop];
-    expect(a.revision).toHaveLength(3);
-    expect(c.revision).toHaveLength(3);
-    expect(b.revision).toEqual([{ item_key: 'en:item1', lang: 'en' }]);
-    expect([...a.revision, ...c.revision].every((d) => d.lang === 'mr')).toBe(true);
-    expect(rev.items).toHaveLength(4);
-    const all = [...a.revision, ...b.revision, ...c.revision, ...rev.items].map((d) => d.item_key);
-    expect(new Set(all).size).toBe(11);
+  it('mixes up to 3 same-language due items into each lesson; leftovers appear in no stop (GURU-52)', () => {
+    const paths = [path('p_a', 'tpl_mr_a'), path('p_b', 'tpl_en_b')];
+    const q = queue(input({ paths, due: [...dueItems('mr', 4), ...dueItems('en', 2)] }));
 
-    // More leftovers than fit: the revision stop holds 8, the rest wait for another day.
-    const many = queue(input({ paths, due: dueItems('mr', 20) }));
-    const stop = many.stops.find((s): s is RevisionStop => s.kind === 'revision')!;
-    expect(stop.items).toHaveLength(8);
-
-    // Nothing left over: no revision stop (c-queue-first).
-    const fits = queue(input({ paths, due: dueItems('mr', 2) }));
-    expect(fits.stops.some((s) => s.kind === 'revision')).toBe(false);
+    expect(onlyLessons(q)).toBe(true);
+    expect(lessonIds(q)).toEqual(['tpl_mr_a', 'tpl_en_b']);
+    const [a, b] = q.stops;
+    expect(a.revision).toEqual(dueItems('mr', 4).slice(0, 3));
+    expect(b.revision).toEqual(dueItems('en', 2));
+    const placed = q.stops.flatMap((s) => s.revision.map((d) => d.item_key));
+    expect(placed).not.toContain(dueItems('mr', 4)[3].item_key);
+    expect(new Set(placed).size).toBe(placed.length);
   });
 
-  it('still offers a revision stop when the goal is met, and revision never counts toward it', () => {
-    const q = queue(input({ doneToday: 3, paths: [path('class_p', 'tpl_mr_p1')], due: dueItems('mr', 2) }));
+  it('never returns a stop other than a lesson, whatever the due count, goal state or install state', () => {
+    const paths = [path('class_p', 'tpl_mr_p1'), path('skill_q', 'tpl_en_q1')];
+    for (const n of [0, 3, 4, 12]) {
+      for (const doneToday of [0, 3]) {
+        for (const isInstalled of [() => true, () => false]) {
+          const q = queue(input({ paths, doneToday, isInstalled, due: [...dueItems('mr', n), ...dueItems('en', n)] }));
+          expect(onlyLessons(q)).toBe(true);
+        }
+      }
+    }
+    expect(onlyLessons(queue(input({ due: dueItems('mr', 12) })))).toBe(true); // no candidates
+  });
 
-    expect(q.stops).toHaveLength(1);
-    expect(q.stops[0]).toMatchObject({ kind: 'revision', items: dueItems('mr', 2) });
+  it('with the goal met gives no stops, and due items do not change done or goalMet', () => {
+    const paths = [path('class_p', 'tpl_mr_p1')];
+    const q = queue(input({ doneToday: 3, paths, due: dueItems('mr', 2) }));
+    expect(q.stops).toEqual([]);
     expect(q).toMatchObject({ goal: 3, done: 3, goalMet: true });
 
-    const nothingDue = queue(input({ doneToday: 4, paths: [path('class_p', 'tpl_mr_p1')] }));
-    expect(nothingDue.stops).toEqual([]);
-    expect(nothingDue.goalMet).toBe(true);
+    const open = queue(input({ doneToday: 1, paths, due: dueItems('mr', 5) }));
+    expect(open).toMatchObject({ goal: 3, done: 1, goalMet: false });
   });
 });
 
@@ -299,8 +296,7 @@ describe('contract: output for dependents', () => {
     const lesson = q.stops.find((s) => s.kind === 'lesson') as LessonStop;
     expect(typeof lesson.template_id).toBe('string');
     expect(Array.isArray(lesson.revision)).toBe(true);
-    const revision = q.stops.find((s) => s.kind === 'revision') as RevisionStop;
-    expect(Array.isArray(revision.items)).toBe(true);
-    expect(revision.items[0]).toEqual(expect.objectContaining({ item_key: expect.any(String), lang: expect.any(String) }));
+    expect(lesson.revision[0]).toEqual(expect.objectContaining({ item_key: expect.any(String), lang: expect.any(String) }));
+    expect(q.stops.some((s) => (s as { kind: string }).kind === 'revision')).toBe(false);
   });
 });
