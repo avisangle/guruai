@@ -125,3 +125,45 @@ def test_cli_fails_with_a_message_when_there_are_no_old_takes(tmp_path, capsys):
     assert pc().main([str(d), str(listing)]) == 2
     captured = capsys.readouterr()
     assert "old takes" in (captured.out + captured.err).lower()
+
+
+# Edges a clean 250 Hz tone does not reach: frame length, lag range, voicing threshold.
+
+def test_median_pitch_reads_both_ends_of_the_range():
+    """90 Hz needs 40 ms frames (a 20 ms frame keeps under half the period overlap) and a 0.5 cut;
+    500 Hz needs the lag range to reach 600 Hz."""
+    m = pc()
+    assert m.median_pitch(tone(90), RATE) == pytest.approx(90, rel=0.03)
+    assert m.median_pitch(tone(500), RATE) == pytest.approx(500, rel=0.03)
+
+
+def test_median_pitch_never_reports_outside_80_to_600_hz():
+    m = pc()
+    for hz in (60, 700):
+        got = m.median_pitch(tone(hz), RATE)
+        assert got is None or 80 <= got <= 600, (hz, got)
+
+
+def test_median_pitch_skips_frames_less_than_half_periodic():
+    """A 250 Hz tone under noise of 1.5 times its power autocorrelates to about 0.36 at its period."""
+    t = tone(250).astype(np.float64)
+    noise = np.random.default_rng(0).standard_normal(len(t))
+    noise *= np.sqrt((t ** 2).mean() * 1.5 / (noise ** 2).mean())
+    assert pc().median_pitch(t + noise, RATE) is None
+
+
+def test_median_pitch_measures_a_50_ms_clip():
+    """Two 40 ms frames fit in 50 ms; a longer frame would not fit and give None."""
+    assert pc().median_pitch(tone(250, 0.05), RATE) == pytest.approx(250, rel=0.03)
+
+
+def test_cli_takes_bare_ids_that_contain_dots(tmp_path, capsys):
+    """Lesson and item ids contain dots; a bare id must not lose its last part as a suffix."""
+    d, _ = make_folder(tmp_path, {"tpl_x.a.react_1": 180, "tpl_x.lesson.intro": 260})
+    listing = tmp_path / "ids.txt"
+    listing.write_text("tpl_x.a.react_1\ntpl_x.lesson.intro\n")
+    assert pc().main([str(d), str(listing)]) == 1
+    lines = capsys.readouterr().out.splitlines()
+    assert any(l.startswith("old takes: 8") for l in lines)
+    assert any(l.startswith("new takes: 2") for l in lines)
+    assert [l.split()[-1] for l in lines if l.startswith("LOW ")] == ["tpl_x.a.react_1"]

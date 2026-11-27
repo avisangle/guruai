@@ -1,7 +1,8 @@
 """Check new tutor takes against the existing ones by median pitch (GURU-55, D-GURU-55-take-pitch-check).
 
 Usage: python tools/pitch_check.py <tutor audio dir> <new-takes file>
-The file lists one path or id per line; the file stem is the line id. Takes are the .wav files
+The file lists one path or id per line; the id is the file name less a .mp3 or .wav suffix
+(ids themselves contain dots, `tpl_x.a.teach`). Takes are the .wav files
 next to the .mp3s. `.prev.` and `.rejectN.` takes are ignored. Prints the old and new summaries
 and one `LOW <hz> Hz  <id>` line per new take below the 5th percentile of the old takes.
 Exit: 1 when any take is flagged, 0 when none, 2 when the folder has no old takes.
@@ -18,6 +19,12 @@ MIN_HZ, MAX_HZ = 80, 600
 VOICED = 0.5  # keep a frame when ac[lag] > VOICED * ac[0]
 QUIET = 0.1  # skip frames whose peak is under this share of the clip's peak
 STALE = re.compile(r"\.(prev|reject\d*)$")
+AUDIO_EXT = re.compile(r"\.(mp3|wav)$")
+
+
+def take_id(name):
+    """A take's line id: its file name less a .mp3 or .wav suffix (ids contain dots)."""
+    return AUDIO_EXT.sub("", Path(name).name)
 
 
 def median_pitch(samples, rate):
@@ -60,15 +67,16 @@ def main(argv):
         print(__doc__)
         return 2
     folder, listing = Path(argv[0]), Path(argv[1])
-    new_ids = {Path(l.strip()).stem for l in listing.read_text().splitlines() if l.strip()}
-    new_ids = {i for i in new_ids if not STALE.search(i)}
+    lines = [l.strip() for l in listing.read_text().splitlines() if l.strip()]
+    new_ids = {i for i in map(take_id, lines) if not STALE.search(i)}
     old, new = {}, {}
     for p in sorted(folder.glob("*.wav")):
-        if STALE.search(p.stem):
+        i = take_id(p)
+        if STALE.search(i):
             continue
         hz = take_pitch(p)
         if hz is not None:
-            (new if p.stem in new_ids else old)[p.stem] = hz
+            (new if i in new_ids else old)[i] = hz
     if not old:
         print(f"no old takes with a measurable pitch in {folder}", file=sys.stderr)
         return 2
