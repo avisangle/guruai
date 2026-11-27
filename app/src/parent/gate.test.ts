@@ -21,6 +21,7 @@ import { migrate } from "../data/migrations";
 import { createTestDb } from "../data/testDb";
 
 import {
+  checkProof,
   createGate,
   switchToDeviceLock,
   type GateDeps,
@@ -645,5 +646,80 @@ describe("GURU-51 switchToDeviceLock asks for a proof", () => {
         "verifyPin",
       ].sort(),
     );
+  });
+});
+
+// GURU-54: one proof check shared by switchToDeviceLock and Settings' Change PIN step. A module-level
+// export: the gate object gains no method (D-GURU-25, D-GURU-36).
+describe("GURU-54 checkProof", () => {
+  const PIN = "4821";
+
+  it("contract: checkProof(gate, proof): Promise<PinResult>, a module-level export beside the gate", async () => {
+    expect(typeof checkProof).toBe("function");
+    expect(checkProof.length).toBe(2);
+
+    const s = setup(BIOMETRIC_STRONG);
+    await s.gate.setPin(PIN);
+    const proofs: SwitchProof[] = [{ pin: PIN }, { biometrics: "Open" }];
+    for (const proof of proofs) {
+      const result: PinResult = await checkProof(s.gate, proof);
+      expect(typeof result.ok).toBe("boolean");
+    }
+    expect(Object.keys(s.gate)).not.toContain("checkProof");
+  });
+
+  it("{ pin }: resolves to verifyPin's result and counts a wrong PIN once", async () => {
+    const s = setup(SECRET);
+    await s.gate.setPin(PIN);
+
+    expect(await checkProof(s.gate, { pin: "0000" })).toEqual({ ok: false });
+    expect(failedCount(s.db)).toBe(1);
+
+    expect(await checkProof(s.gate, { pin: PIN })).toEqual({ ok: true });
+    expect(failedCount(s.db)).toBe(0);
+  });
+
+  it("{ pin }: a wrong PIN inside a wait is refused with waitUntil, not counted", async () => {
+    const s = setup(SECRET);
+    await s.gate.setPin(PIN);
+    for (let i = 0; i < 3; i++) await s.gate.verifyPin("0000", T0);
+    s.setClock(T0 + SEC);
+    const before = failedCount(s.db);
+
+    const result = await checkProof(s.gate, { pin: PIN });
+    expect(result.ok).toBe(false);
+    expect(typeof result.waitUntil).toBe("number");
+    expect(failedCount(s.db)).toBe(before);
+  });
+
+  it("{ biometrics }: resolves to exactly { ok } from recoverWithBiometrics, with strong-only options and no waitUntil", async () => {
+    const s = setup(BIOMETRIC_STRONG);
+    await s.gate.setPin(PIN);
+    s.auth.authenticateAsync.mockClear();
+
+    expect(await checkProof(s.gate, { biometrics: "Open the parent area" })).toEqual({ ok: true });
+    expect(s.auth.authenticateAsync).toHaveBeenCalledTimes(1);
+    expect(s.auth.authenticateAsync).toHaveBeenCalledWith(
+      expect.objectContaining({
+        promptMessage: "Open the parent area",
+        disableDeviceFallback: true,
+        biometricsSecurityLevel: "strong",
+      }),
+    );
+
+    const cancelled = setup(BIOMETRIC_STRONG, false);
+    expect(await checkProof(cancelled.gate, { biometrics: "Open" })).toEqual({ ok: false });
+  });
+
+  it("uses only the gate members it is handed (Pick<Gate, 'verifyPin' | 'recoverWithBiometrics'>)", async () => {
+    const verifyPin = jest.fn(async () => ({ ok: true }));
+    const recoverWithBiometrics = jest.fn(async () => false);
+
+    expect(await checkProof({ verifyPin, recoverWithBiometrics }, { pin: "1234" })).toEqual({ ok: true });
+    expect(verifyPin).toHaveBeenCalledWith("1234");
+    expect(recoverWithBiometrics).not.toHaveBeenCalled();
+
+    expect(await checkProof({ verifyPin, recoverWithBiometrics }, { biometrics: "m" })).toEqual({ ok: false });
+    expect(recoverWithBiometrics).toHaveBeenCalledWith("m");
   });
 });

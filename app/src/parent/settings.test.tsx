@@ -515,6 +515,55 @@ describe('GURU-36 Settings', () => {
   });
 });
 
+// GURU-54: Change PIN's old-PIN step uses the shared checkProof; it never changes the gate mode.
+describe('GURU-54 Settings: Change PIN old-PIN step', () => {
+  /** Settings open on a phone whose GuruAI PIN is 1234 (set through the screen, so the record is real). */
+  async function openInPinMode() {
+    addChild('Chinu', 'peacock');
+    await openSettings();
+    fireEvent.press(screen.getByTestId('settings-lock-pin'));
+    await enterPins('1234', '1234');
+    await waitFor(() => expect(gateMode()).toBe('pin'));
+    fireEvent.press(await screen.findByTestId('settings-change-pin'));
+    await screen.findByTestId('pin-old');
+  }
+
+  test('a wrong old PIN shows pinWrong and is counted exactly once', async () => {
+    await openInPinMode();
+
+    fireEvent.changeText(screen.getByTestId('pin-old'), '0000');
+    expect(await screen.findByText(mr.pinWrong)).toBeTruthy();
+    await settle();
+    expect(gateFailed()).toBe(1);
+    expect(screen.queryByTestId('pin-new')).toBeNull();
+    expect(gateMode()).toBe('pin');
+    expect(mockSecure.has(PIN_KEY)).toBe(true);
+  });
+
+  test('the right old PIN opens the new-PIN step and leaves the mode alone', async () => {
+    await openInPinMode();
+
+    fireEvent.changeText(screen.getByTestId('pin-old'), '1234');
+    expect(await screen.findByTestId('pin-new')).toBeTruthy();
+    expect(gateFailed()).toBe(0);
+    expect(gateMode()).toBe('pin');
+    expect(mockSecure.has(PIN_KEY)).toBe(true);
+  });
+
+  test('with strong biometrics, Use fingerprint opens the new-PIN step and leaves the mode alone', async () => {
+    mockAuth.level = 3; // BIOMETRIC_STRONG
+    await openInPinMode();
+
+    fireEvent.press(await screen.findByText(mr.pinFingerprintKey));
+    expect(await screen.findByTestId('pin-new')).toBeTruthy();
+    expect(authenticate()).toHaveBeenCalledWith(
+      expect.objectContaining({ promptMessage: mr.unlockPrompt, disableDeviceFallback: true, biometricsSecurityLevel: 'strong' }),
+    );
+    expect(gateMode()).toBe('pin');
+    expect(mockSecure.has(PIN_KEY)).toBe(true);
+  });
+});
+
 // GURU-38 (wireframe pm-settings, decision 15): testID settings-delete-sent; the live queue's
 // requestDeletion() and consentChanged() from src/upload/uploadQueue.ts.
 describe('GURU-38 Settings: deletion request and consent withdrawal', () => {
