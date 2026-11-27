@@ -13,7 +13,7 @@ import type { ChildProfile } from '../../data/types';
 import type { DownloadStatus } from '../../downloads/downloader';
 import { allInstalled, useDownloads } from '../../downloads/useDownloads';
 import type { MicState } from '../../parent/attention';
-import { strongBiometricsAvailable, type GateMode, type PinResult, type SwitchProof } from '../../parent/gate';
+import { checkProof, strongBiometricsAvailable, type GateMode, type PinResult, type SwitchProof } from '../../parent/gate';
 import { liveSwitchToDeviceLock } from '../../parent/live';
 import { askForMic, readMic } from '../../parent/mic';
 import { useParentMode } from '../../parent/ParentModeProvider';
@@ -240,11 +240,7 @@ function ParentLockSection() {
   const switching = step === 'verifySwitch';
   const askingOld = switching || step === 'verify';
   const check = (proof: SwitchProof): Promise<PinResult> =>
-    switching
-      ? liveSwitchToDeviceLock(proof)
-      : 'pin' in proof
-        ? gate().verifyPin(proof.pin)
-        : gate().recoverWithBiometrics(proof.biometrics).then((ok) => ({ ok }));
+    switching ? liveSwitchToDeviceLock(proof) : checkProof(gate(), proof);
   const passed = () => {
     if (switching) setMode('device');
     setStep(switching ? null : 'change');
