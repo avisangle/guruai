@@ -6,7 +6,7 @@ import { StyleSheet, View } from 'react-native';
 import lessonsJson from '../content/generated/lessons.json';
 import type { Stop } from '../learning/queue';
 import type { Lesson } from '../lesson/types';
-import { CHECK, Icon, LOOP } from '../ui/icons';
+import { CHECK, Icon } from '../ui/icons';
 import { Text } from '../ui/components/Text';
 import { useT } from '../ui/i18n';
 import { theme } from '../ui/theme';
@@ -34,21 +34,15 @@ export function Trail({ stops, done }: Props) {
     <View style={styles.trail}>
       {entries.map((entry, i) => {
         const next = !tomorrow && i === 0;
-        const id = entry.kind === 'revision' ? 'revision' : entry.template_id;
-        const label = entry.kind === 'done' ? 'stopLesson' : tomorrow ? 'stopTomorrow' : entry.kind === 'lesson' ? 'stopLesson' : 'stopRevision';
+        const id = entry.template_id;
+        const label = entry.kind !== 'done' && tomorrow ? 'stopTomorrow' : 'stopLesson';
         const ring = entry.kind === 'done' ? styles.done : next ? styles.next : styles.ahead;
         return (
           <View key={`${entry.kind}-${id}`} testID={`stop-${id}`} style={styles.stop}>
             <View testID={next ? 'next-ring' : undefined} style={[styles.circle, ring]}>
-              {entry.kind === 'revision' ? (
-                <View testID="revision-icon">
-                  <Icon d={LOOP} size={space[5]} color={color.child.text} />
-                </View>
-              ) : (
-                <Text mode="child" variant="button">
-                  {FIRST_ITEM.get(entry.template_id) ?? ''}
-                </Text>
-              )}
+              <Text mode="child" variant="button">
+                {FIRST_ITEM.get(entry.template_id) ?? ''}
+              </Text>
               {entry.kind === 'done' && (
                 <View testID="stop-tick" style={styles.tick}>
                   <Icon d={CHECK} size={space[4]} color={color.child.onSuccess} />

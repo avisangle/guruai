@@ -148,7 +148,6 @@ export const mr = {
   // Child picker and today's queue (wireframes c-*). The start label is for the child; the rest is for the adult.
   letsStart: 'सुरू करूया',
   stopLesson: 'धडा',
-  stopRevision: 'उजळणी',
   askGrownupStrip: 'पालकांसाठी: कोपऱ्यातलं कुलूप 2 सेकंद दाबून धरा',
   // Goodbye and consent (wireframes l-goodbye, pm-consent). Consent wording is provisional until the pilot form.
   stopTomorrow: 'उद्या',

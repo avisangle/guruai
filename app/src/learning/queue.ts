@@ -1,7 +1,9 @@
 // Today's queue (PRD Learning model; wireframes c-queue, c-queue-mid, c-queue-first).
 // Lessons fill the daily goal in order: a lesson in progress, assigned lessons (unfinished
 // ones from earlier days first, decision 14), then the next lesson of each active path.
-// Due revision rides along in lessons and never counts toward the goal.
+// Due revision rides along in lessons (up to 3 per lesson, in the lesson's language) and never counts
+// toward the goal. Leftovers get no stop of their own; they stay due and wait for a later lesson
+// (D-GURU-52-no-revision-stop).
 import type { ItemMastery } from './mastery';
 
 /** A due revision item, as returned by dueRevision(). */
@@ -21,8 +23,7 @@ export type QueueInput = {
 };
 
 export type LessonStop = { kind: 'lesson'; template_id: string; revision: DueItem[] };
-export type RevisionStop = { kind: 'revision'; items: DueItem[] };
-export type Stop = LessonStop | RevisionStop;
+export type Stop = LessonStop;
 
 export type TodayQueue = {
   stops: Stop[];
@@ -34,7 +35,6 @@ export type TodayQueue = {
 };
 
 const REVISION_PER_LESSON = 3;
-const REVISION_STOP_MAX = 8; // about 2 to 3 minutes
 
 /** Lesson candidates in queue order, without repeats. */
 function candidates(input: QueueInput): string[] {
@@ -69,8 +69,5 @@ export function buildTodayQueue(input: QueueInput): TodayQueue {
     }
   }
 
-  const stops: Stop[] = [...lessons];
-  if (due.length > 0) stops.splice(1, 0, { kind: 'revision', items: due.slice(0, REVISION_STOP_MAX) });
-
-  return { stops, goal: input.goal, done: input.doneToday, goalMet: input.doneToday >= input.goal, waitingForDownload };
+  return { stops: lessons, goal: input.goal, done: input.doneToday, goalMet: input.doneToday >= input.goal, waitingForDownload };
 }
