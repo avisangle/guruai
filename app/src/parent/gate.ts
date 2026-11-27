@@ -41,6 +41,11 @@ const screenLockSet = async (auth: Pick<GateDeps['auth'], 'getEnrolledLevelAsync
 /** Proof for switchToDeviceLock: the GuruAI PIN, or strong biometrics with this prompt message. */
 export type SwitchProof = { pin: string } | { biometrics: string };
 
+/** One proof check for the PIN-or-fingerprint steps: `{ pin }` is `verifyPin`'s result, `{ biometrics }` is strong-only recovery. */
+export async function checkProof(gate: Pick<Gate, 'verifyPin' | 'recoverWithBiometrics'>, proof: SwitchProof): Promise<PinResult> {
+  return 'pin' in proof ? gate.verifyPin(proof.pin) : { ok: await gate.recoverWithBiometrics(proof.biometrics) };
+}
+
 /**
  * Back to the phone's screen lock: removes the PIN record once the proof passes the gate's own checks
  * (D-GURU-51-switch-back-asks-pin). Refuses, changing nothing, when the phone has no screen lock (checked
@@ -52,7 +57,7 @@ export async function switchToDeviceLock(deps: GateDeps, proof: SwitchProof): Pr
   if (!(await screenLockSet(auth))) return { ok: false };
   const gate = createGate(deps);
   if ((await gate.mode()) !== 'pin') return { ok: false };
-  const result = 'pin' in proof ? await gate.verifyPin(proof.pin) : { ok: await gate.recoverWithBiometrics(proof.biometrics) };
+  const result = await checkProof(gate, proof);
   if (!result.ok) return result;
   db.run("UPDATE parent_gate SET mode = 'device', failed = 0, lockout_until = NULL, updated_at = ?", [
     new Date(now()).toISOString(),
