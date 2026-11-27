@@ -2,8 +2,8 @@
 // opacity from the rig's shared value on the UI thread, so a rig step redraws the canvas without a
 // React render (docs/decisions/D-GURU-48-shekru-on-skia.md).
 import {
-  Canvas, Circle, Group, Oval, Paint, Paragraph, Path, RadialGradient, Skia, Text, TextAlign, matchFont, vec,
-  type SkPath,
+  Canvas, Circle, Group, Oval, Paint, Paragraph, Path, RadialGradient, Skia, Text, TextAlign, matchFont, rect, vec,
+  type SkFont, type SkPath,
 } from '@shopify/react-native-skia';
 import { memo, useMemo, type ReactNode } from 'react';
 import { useDerivedValue, type SharedValue } from 'react-native-reanimated';
@@ -22,7 +22,7 @@ const PATHS = new Map<string, SkPath>();
 (function parse(nodes: DrawNode[]) {
   for (const n of nodes) {
     if (n.kind === 'group') parse(n.children);
-    else if (n.kind === 'path') PATHS.set(n.d, Skia.Path.MakeFromSVGString(n.d)!);
+    else if (n.kind === 'path' && !PATHS.has(n.d)) PATHS.set(n.d, Skia.Path.MakeFromSVGString(n.d)!);
   }
 })(DRAW_TREE);
 
@@ -31,6 +31,7 @@ const PATHS = new Map<string, SkPath>();
 const SHADOW_RX = 158.7;
 const SHADOW_RY = 14.3;
 const SHADOW_COLOR = '#5C461E';
+const SHADOW_OPACITY = 0.28;
 const SHADOW_CENTRE = vec(SHADOW_CX, SHADOW_CY);
 
 // Hint letter: centred on LETTER_X with its baseline on LETTER_Y, as in shekru-fx.svg.
@@ -39,9 +40,11 @@ const LETTER_Y = 264;
 const LETTER_SIZE = 48;
 const LETTER_WEIGHT = 800;
 const LETTER_COLOR = '#3D1420';
-const LETTER_FONT = matchFont({ fontFamily: 'sans-serif', fontSize: LETTER_SIZE, fontWeight: LETTER_WEIGHT });
-// Layout width for the fallback paragraph; wider than any one letter or picture.
+// Layout width for the paragraph; wider than any one letter or picture.
 const LETTER_BOX = 240;
+// Built on first use: screens that never show a hint do not load the system font manager.
+let letterFont: SkFont | undefined;
+const getLetterFont = () => (letterFont ??= matchFont({ fontFamily: 'sans-serif', fontSize: LETTER_SIZE, fontWeight: LETTER_WEIGHT }));
 
 function Part({ value, children }: { value: SharedValue<PartValue>; children: ReactNode }) {
   const matrix = useDerivedValue(() => partMatrix(value.value));
@@ -49,11 +52,12 @@ function Part({ value, children }: { value: SharedValue<PartValue>; children: Re
   return <Group matrix={matrix} opacity={opacity}>{children}</Group>;
 }
 
-// Skia's Text draws with one typeface, unshaped. Text the font has no glyph for (the lesson's picture
-// emoji, Devanagari) goes through Paragraph, which shapes and falls back to the system fonts.
-// Paragraph ignores the opacity of the groups above it, so it fades through a layer of its own.
+// Skia's Text draws with one typeface, unshaped. Text the font has no glyph for goes through
+// Paragraph, which shapes and falls back to the system fonts. That is every lesson today: lessons
+// pass a picture emoji (content/pictures.ts). Paragraph ignores the opacity of the groups above it,
+// so it fades through a layer of its own, clipped to the text box to keep the layer small.
 function FallbackLetter({ letter, above }: { letter: string; above: Parts }) {
-  const paragraph = useMemo(() => {
+  const { paragraph, box } = useMemo(() => {
     const p = Skia.ParagraphBuilder.Make({ textAlign: TextAlign.Center })
       .pushStyle({
         color: Skia.Color(LETTER_COLOR),
@@ -64,23 +68,26 @@ function FallbackLetter({ letter, above }: { letter: string; above: Parts }) {
       .addText(letter)
       .build();
     p.layout(LETTER_BOX);
-    return p;
+    const top = LETTER_Y - p.getLineMetrics()[0].baseline;
+    return { paragraph: p, box: rect(LETTER_X - LETTER_BOX / 2, top, LETTER_BOX, p.getHeight()) };
   }, [letter]);
   const opacity = useDerivedValue(() => above.reduce((o, part) => o * partOpacity(part.value), 1));
-  const baseline = paragraph.getLineMetrics()[0].baseline;
   return (
-    <Group layer={<Paint opacity={opacity} />}>
-      <Paragraph paragraph={paragraph} x={LETTER_X - LETTER_BOX / 2} y={LETTER_Y - baseline} width={LETTER_BOX} />
+    <Group clip={box}>
+      <Group layer={<Paint opacity={opacity} />}>
+        <Paragraph paragraph={paragraph} x={box.x} y={box.y} width={box.width} />
+      </Group>
     </Group>
   );
 }
 
 function HintLetter({ letter, above }: { letter: string; above: Parts }) {
-  const glyphs = LETTER_FONT.getGlyphIDs(letter);
+  const font = getLetterFont();
+  const glyphs = font.getGlyphIDs(letter);
   if (glyphs.includes(0)) return <FallbackLetter letter={letter} above={above} />;
   // SVG textAnchor="middle": start half the advance width left of the centre.
-  const width = LETTER_FONT.getGlyphWidths(glyphs).reduce((sum, w) => sum + w, 0);
-  return <Text text={letter} x={LETTER_X - width / 2} y={LETTER_Y} font={LETTER_FONT} color={LETTER_COLOR} />;
+  const width = font.getGlyphWidths(glyphs).reduce((sum, w) => sum + w, 0);
+  return <Text text={letter} x={LETTER_X - width / 2} y={LETTER_Y} font={font} color={LETTER_COLOR} />;
 }
 
 const paintProps = (p: ArtPaint) =>
@@ -99,7 +106,7 @@ function draw(nodes: DrawNode[], values: PartValues, letter: string | undefined,
       case 'shadow':
         return (
           <Group key={i} origin={SHADOW_CENTRE} transform={[{ scaleY: SHADOW_RY / SHADOW_RX }]}>
-            <Circle c={SHADOW_CENTRE} r={SHADOW_RX} opacity={0.28}>
+            <Circle c={SHADOW_CENTRE} r={SHADOW_RX} opacity={SHADOW_OPACITY}>
               <RadialGradient c={SHADOW_CENTRE} r={SHADOW_RX} colors={[SHADOW_COLOR, SHADOW_COLOR + '00']} />
             </Circle>
           </Group>
@@ -108,12 +115,12 @@ function draw(nodes: DrawNode[], values: PartValues, letter: string | undefined,
         return letter ? <HintLetter key={i} letter={letter} above={above} /> : null;
       // One element per paint, in paint order: a leaf with both draws its fill, then its stroke.
       case 'path':
-        return n.paints.map((p, j) => <Path key={`${i}.${j}`} path={PATHS.get(n.d)!} {...paintProps(p)} />);
+        return n.paints.map((p, j) => <Path key={j} path={PATHS.get(n.d)!} {...paintProps(p)} />);
       case 'circle':
-        return n.paints.map((p, j) => <Circle key={`${i}.${j}`} cx={n.cx} cy={n.cy} r={n.r} {...paintProps(p)} />);
+        return n.paints.map((p, j) => <Circle key={j} cx={n.cx} cy={n.cy} r={n.r} {...paintProps(p)} />);
       case 'ellipse':
         return n.paints.map((p, j) => (
-          <Oval key={`${i}.${j}`} x={n.cx - n.rx} y={n.cy - n.ry} width={2 * n.rx} height={2 * n.ry} {...paintProps(p)} />
+          <Oval key={j} x={n.cx - n.rx} y={n.cy - n.ry} width={2 * n.rx} height={2 * n.ry} {...paintProps(p)} />
         ));
     }
   });

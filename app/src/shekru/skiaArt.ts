@@ -16,6 +16,7 @@ export type DrawNode =
   | { kind: 'shadow' }
   | { kind: 'hintLetter' };
 
+type Stroke = Extract<Paint, { style: 'stroke' }>;
 type ArtNode = { t: string; id?: string; front?: boolean; p?: Record<string, string>; c?: ArtNode[] };
 
 // Empty slot in the hint card (shekru-fx.svg); the lesson fills it with the letter.
@@ -31,8 +32,8 @@ function paints(p: Record<string, string>): Paint[] {
       style: 'stroke',
       color: p.stroke,
       width: Number(p.strokeWidth),
-      cap: (p.strokeLinecap ?? 'butt') as 'butt' | 'round' | 'square',
-      join: (p.strokeLinejoin ?? 'miter') as 'miter' | 'round' | 'bevel',
+      cap: (p.strokeLinecap ?? 'butt') as Stroke['cap'],
+      join: (p.strokeLinejoin ?? 'miter') as Stroke['join'],
     });
   }
   return out;
