@@ -34,18 +34,31 @@ export async function strongBiometricsAvailable(auth: Pick<GateDeps['auth'], 'ge
 const screenLockSet = async (auth: Pick<GateDeps['auth'], 'getEnrolledLevelAsync'>) =>
   (await auth.getEnrolledLevelAsync()) >= SecurityLevel.SECRET;
 
+/** Proof for switchToDeviceLock: the GuruAI PIN, or strong biometrics with this prompt message. */
+export type SwitchProof = { pin: string } | { biometrics: string };
+
 /**
- * Back to the phone's screen lock: removes the PIN record. False, changing nothing, when the phone has no
- * screen lock. The mode changes first, so a failed delete never leaves pin mode without a PIN. Kept off the
- * gate object (D-GURU-36-switch-back-outside-gate).
+ * Back to the phone's screen lock: removes the PIN record once the proof passes the gate's own checks
+ * (D-GURU-51-switch-back-asks-pin). Refuses, changing nothing, when the phone has no screen lock (checked
+ * first, no prompt) or the gate is not in pin mode. The mode changes first, so a failed delete never leaves
+ * pin mode without a PIN. Kept off the gate object (D-GURU-36-switch-back-outside-gate).
  */
-export async function switchToDeviceLock({ db, auth, secureStore, now }: Omit<GateDeps, 'crypto'>): Promise<boolean> {
-  if (!(await screenLockSet(auth))) return false;
+export async function switchToDeviceLock(deps: GateDeps, proof: SwitchProof): Promise<PinResult> {
+  const { db, auth, secureStore, now } = deps;
+  if (!(await screenLockSet(auth))) return { ok: false };
+  const gate = createGate(deps);
+  if ((await gate.mode()) !== 'pin') return { ok: false };
+  if ('pin' in proof) {
+    const result = await gate.verifyPin(proof.pin);
+    if (!result.ok) return result;
+  } else if (!(await gate.recoverWithBiometrics(proof.biometrics))) {
+    return { ok: false };
+  }
   db.run("UPDATE parent_gate SET mode = 'device', failed = 0, lockout_until = NULL, updated_at = ?", [
     new Date(now()).toISOString(),
   ]);
   await secureStore.deleteItemAsync(PIN_KEY);
-  return true;
+  return { ok: true };
 }
 
 export function createGate({ db, auth, secureStore, crypto, now }: GateDeps) {
