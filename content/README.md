@@ -55,8 +55,15 @@ Commit `content/packs.lock.json` after a publish.
 - an answer with no entry in `app/src/asr/generated/mr-tokens.json` (run `tools/stt_bench/asr_tokens.py`);
 - **language ambiguity:** two answers of one item whose language sets share no language, and whose normalised text (`app/src/asr/normalise.ts`) is equal or whose token id sequences are within edit distance 2. The judge could not tell which language the child used, so the build fails unless the item sets `ambiguous_lang: true`. Example: "पाणी" (mr) and "पानी" (hi), or "हात" (mr) and "हाथ" (hi).
 
-## Writing rules for tutor lines
+## Authoring
 
+How to add a catalogue entry (lesson, item, tutor line, pack) so it matches what ships. Where this section says "open point", the existing files give no rule; it describes what the existing lines do, and the owner decides whether to make it a rule. Product rules: `docs/prd/guruai-v1.md` (tutor lines use only Marathi and English, never Hindi).
+
+### (a) Wording rules for lessons and tutor lines
+
+Sources of tone: the style text in `VOICES` ("talking to a 5-year-old", `tools/gen_voice.py`), the Product Blueprint v3 quality checklist ("Marathi lines sound like natural spoken Marathi, not translations"; the `.docx` sits at the repo root and is gitignored), and the rules below.
+
+- **Marathi and English only, never Hindi** in tutor lines (`docs/prd/guruai-v1.md`). Hindi appears only as an accepted answer, tagged in `assessment.langs`.
 - **No gendered verb forms** for the child or the tutor. Marathi marks gender on intransitive past tense ("तू आलास / आलीस") and on first-person verbs ("देतो / देते"). Use imperatives ("सांग", "म्हण", "बघ"), transitive past, "आपण" forms, or set phrases ("ही घे एक मदत").
 - Every line that opens the mic ends with "आता तू सांग!" (asking) or "आता तू म्हण!" (repeat after me). The chime follows the line.
 - Write letter names as the Devanagari letter itself. English words are written in Devanagari as spoken ("कॅट").
@@ -64,3 +71,76 @@ Commit `content/packs.lock.json` after a publish.
 - Spoken, everyday Marathi, not translated English.
 - Early lessons never put easily confused letters back to back (इ/ई, उ/ऊ; B/D, M/N, P/T). In quizzes this also covers ए/ऐ, ओ/औ, क/ख, ग/घ.
 - Gemini TTS swaps a rarer anchor word for the usual primer word ("ऐ ऐन्याचा" came out "ऐ ऐरणीचा" in 5 takes). Check each take, and if it keeps swapping, add context to the line ("ऐना म्हणजे आरसा").
+- A key in `tools/voice_latin.json` (English word to its Devanagari spelling for the voice script) must never equal a letter name (`docs/decisions/D-GURU-17-voice-latin-overrides.md`). The voice script writes English words in Devanagari; the caption writes them in Latin letters (see Item kind, language and captions).
+
+Line grammar the existing lessons use (describe, do not extend; copy the closest existing item):
+
+- Marathi letter item. `teach`: "हे बघ, <letter>. <letter> <anchor, genitive>! आता तू म्हण!" ("हे बघ, ख. ख खारीचा! आता तू म्हण!"). `hint`: "हे अक्षर <anchor genitive>ं आहे. <anchor>! आता तू सांग!". `correct`: "<letter>, <anchor genitive>!", which names the answer and never praises (`docs/decisions/D-GURU-19-tutor-variety.md`). `react_1`: one short playful line about the picture ("खारुताई झाडावर सरसर चढली!").
+- English letter item. The spoken name in Devanagari with a "<name> फॉर <word>" anchor ("हे बघ, बी. बी फॉर बॉल! आता तू म्हण!"); the caption is in Latin ("हे बघ, B. B for Ball! आता तू म्हण!"); answers also list "<name> फोर <word>".
+- Lesson lines. `intro`: "नमस्कार! आज आपण ... शिकूया. चल, सुरू करूया!". `quiz_intro`. `outro`: "आजचा अभ्यास संपला! आज आपण <letters> शिकलो. उद्या भेटूया!".
+- Anchor items carry `anchor.word`, `anchor.picture`, and `accepted_variants` with "<letter> <anchor genitive>" and the bare anchor word (the `accepted_variants` paragraph above).
+
+Open point, child-level vocabulary for ages 4 to 8: no file gives a word list or a level rule. The existing anchors are everyday picture words (खार, चमचा, ॲपल, बॉल) and the lines use short imperatives and one idea per sentence. A new anchor word is judged by the owner and the teacher reviewer in step (g).
+
+### (b) Fixed voice settings
+
+Shekru's voice is `Puck` with the style text below, quoted from `VOICES["shekru"]` in `tools/gen_voice.py`:
+
+> a playful, bouncy young cartoon squirrel talking to a 5-year-old, warm and cheeky
+
+These never change once lines ship, or new takes will not match old ones (`docs/decisions/D-CHAR-gemini-tts-voice.md`). `tools/tests/test_gen_voice.py` pins `VOICES` for all three characters and fails when any voice name or style text is edited.
+
+### (c) Line ids
+
+Ids are what `tools/gen_voice.py::lesson_lines` produces, and are character-neutral (each tutor gets its own audio for the same ids):
+
+- Shared lines keep their prompt-library id in `prompts/<lang>.json`: `<family>_<n>`, or the bare family id. Families and their minimum sizes are `FAMILIES` in `app/src/lesson/lines.ts`.
+- Lesson lines: `<template_id>.<line>` (`tpl_kg_en_letters_1.intro`).
+- Item lines: `<template_id>.<item id>.<line>` (`tpl_kg_en_letters_1.a.teach`).
+
+Never edit an existing id's text in place to mean something else: the take no longer matches, `build:content` reports it stale, and it must be re-voiced with `--redo` (see (d)). Add a new id instead.
+
+### (d) Voicing new lines
+
+From the project root, inside the venv, pass every lesson with `--lesson`:
+
+```sh
+source venv/bin/activate && python tools/gen_voice.py shekru --new --batch $(for f in content/lessons/*.json; do printf -- '--lesson %s ' "$f"; done)
+```
+
+- Without `--lesson`, `gen_voice.py` voices its demo lines into `design/voice/` instead.
+- `--new` voices only lines with no take. Existing takes are never replaced except with `--redo=<id>,...`, which keeps the old take as `<id>.prev.wav`.
+- `--batch` uses the Gemini Batch API (own limits, half price, up to 3 rounds). The sync and batch paths send the same `VOICES` voice and style.
+- `--el-env <.env>` adds the ElevenLabs transcript check, which re-takes a clip when a script word is dropped. The key in use belongs to another project (`pending.md`).
+- After voicing, run `npm run build:content` from `app/` (reports stale takes, bundles shared and starter lines). For a new answer, run `tools/stt_bench/asr_tokens.py` first.
+
+### (e) Pitch check
+
+Gemini sometimes voices a take like an adult (GURU-40: 7 of 114 new takes). Check new takes against the existing ones (`docs/decisions/D-GURU-55-take-pitch-check.md`). List the new takes, one path or id per line, then:
+
+```sh
+source venv/bin/activate && python tools/pitch_check.py content/audio/shekru new-takes.txt
+```
+
+For example `find content/audio/shekru -name '*.mp3' -newer <file> > new-takes.txt`. The takes are the `.wav` files next to the `.mp3`s; `.prev.` and `.rejectN.` takes are ignored.
+
+The cut is the 5th percentile of the existing takes' median pitch. Only takes below it are flagged (low side only). The command prints the old and new summaries and a `LOW <hz> Hz  <id>` line per flagged take, lowest first, and exits 1 when any is flagged. For each flagged take: re-voice with `--redo=<id>,...`, run the check again, then listen. A flag is a prompt to listen, never a verdict, and an unflagged take still goes through the listen-through in (g). The takes are local only (`content/audio/` is gitignored), so the check is not wired into CI.
+
+### (f) Versions
+
+- A pack's version is never hand-edited. `npm run build:packs` bumps it only when the pack zip's SHA-256 changes, and `content/packs.lock.json` is committed after a publish (`docs/decisions/D-GURU-23-pack-version-by-zip-hash.md`; see Audio packs).
+- A lesson's `version` must go up when its items or flow change after it shipped, because a saved position resumes only for the same version (`app/src/lesson/engine.ts`, `docs/decisions/D-GURU-20-in-progress-is-resumable.md`).
+
+### (g) Review steps, in order
+
+Source: Product Blueprint v3, "How a lesson gets made" (steps: syllabus scan, author, teacher review, prompt lines, audio, listen-through, child test, publish; "Steps 3, 6 and 7 stay human").
+
+1. Author: an LLM drafts, the owner edits, following (a) to (c).
+2. Owner check of anchor words and line grammar, then the primary teacher reviewer (blueprint step 3: accuracy and age fit). Both before voicing.
+3. Voice (d).
+4. Pitch check (e).
+5. Listen-through (blueprint step 6).
+6. Child test (blueprint step 7).
+7. Publish (Audio packs, and (f)).
+
+The lesson `status` field ("draft") is not read by any code today; it gates nothing.
